@@ -4,6 +4,47 @@
 #include "utilities.h"  // DO NOT REMOVE this line
 #include "implementation_reference.h"   // DO NOT REMOVE this line
 
+typedef unsigned char* tmTile;
+
+typedef struct _tmTiledBuffer{
+    unsigned char* m_pBuffer;
+    size_t m_iTiledDimension;
+    size_t m_iTileOffset;
+} tmTiledMemory;
+
+enum tmRotionDirectionFlag{
+    tmRotionDirectionFlagCCW,
+    tmRotionDirectionFlagCW
+};
+
+enum tmMoveDirectionFlag{
+    tmMoveDirectionFlagUP,
+    tmMoveDirectionFlagDown,
+    tmMoveDirectionFlagLeft,
+    tmMoveDirectionFlagRight,
+};
+
+enum tmMirroDirectionFlag{
+    tmMirrorDirectionX,
+    tmMirrorDirectionY,
+};
+
+void tmRotateTile(tmTile io_pTile, tmRotionDirectionFlag in_eFlag);
+void tmMirrorTile(tmTile io_pTileA, tmTile io_pTileB, tmMirroDirectionFlag in_eFlag);
+void tmMoveTile(tmTile io_pFrom, tmTile io_pTo, tmMirroDirectionFlag in_eFlag);
+void tmSwapTile(tmTile io_pTileA, tmTile io_pTileB);
+
+tmTiledMemory tmAllocTiledMemory(size_t in_iTileSize, size_t in_iNumOfTile);
+void tmFreeTiledMemory(tmTiledMemory in_pTiledMemory);
+
+void tmFrameToTiledMemory(unsigned char* in_pBuffer, int in_iSize, tmTiledMemory io_pOutputTiled);
+void tmTiledMemoryToFrame(unsigned char* io_pBuffer, int in_iSize, tmTiledMemory in_pOutputTiled);
+
+void tmRotateTiledMemory(tmTiledMemory io_pTiledMemory, tmRotionDirectionFlag in_eFlag);
+void tmMoveTiledMemory(tmTiledMemory io_pTiledMemory, tmMirroDirectionFlag in_eFlag);
+void tmMirrorTiledMemory(tmTiledMemory io_pTiledMemory, tmMirroDirectionFlag in_eFlag);
+
+
 /***********************************************************************************************************************
  * @param buffer_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
  * @param width - width of the imported 24-bit bitmap image
@@ -110,18 +151,18 @@ unsigned char *processMirrorY(unsigned char *buffer_frame, unsigned width, unsig
  **********************************************************************************************************************/
 void print_team_info(){
     // Please modify this field with something interesting
-    char team_name[] = "default-name";
+    char team_name[] = "XXX";
 
     // Please fill in your information
-    char student1_first_name[] = "john";
-    char student1_last_name[] = "doe";
-    char student1_student_number[] = "0000000000";
+    char student1_first_name[] = "Zhuang";
+    char student1_last_name[] = "Li";
+    char student1_student_number[] = "1000311628";
 
     // Please fill in your partner's information
     // If yon't have partner, do not modify this
-    char student2_first_name[] = "joe";
-    char student2_last_name[] = "doe";
-    char student2_student_number[] = "0000000001";
+    char student2_first_name[] = "Gujiang";
+    char student2_last_name[] = "Lin";
+    char student2_student_number[] = "1000268239";
 
     // Printing out team information
     printf("*******************************************************************************************************\n");
