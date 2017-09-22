@@ -12,22 +12,22 @@ typedef struct _tmTiledBuffer{
     size_t m_iTileOffset;
 } tmTiledMemory;
 
-enum tmRotionDirectionFlag{
+typedef enum _tmRotionDirectionFlag{
     tmRotionDirectionFlagCCW,
     tmRotionDirectionFlagCW
-};
+} tmRotionDirectionFlag;
 
-enum tmMoveDirectionFlag{
+typedef enum _tmMoveDirectionFlag{
     tmMoveDirectionFlagUP,
     tmMoveDirectionFlagDown,
     tmMoveDirectionFlagLeft,
     tmMoveDirectionFlagRight,
-};
+} tmMoveDirectionFlag;
 
-enum tmMirroDirectionFlag{
+typedef enum _tmMirroDirectionFlag{
     tmMirrorDirectionX,
     tmMirrorDirectionY,
-};
+} tmMirroDirectionFlag;
 
 void tmRotateTile(tmTile io_pTile, tmRotionDirectionFlag in_eFlag);
 void tmMirrorTile(tmTile io_pTileA, tmTile io_pTileB, tmMirroDirectionFlag in_eFlag);
