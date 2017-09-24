@@ -151,13 +151,27 @@ void tmMoveTile(tmTile* io_pFrom, tmTile* io_pTo, int in_iOffset, tmMoveDirectio
                 memcpy (row_start + shift_len, row_start, shift_n_len);
             }
         } 
-    } else {
+    } 
+/*
+    else {
         printf("ERROR: Move Direction does not exist.\n");    
     }
+*/
 }
 
 void tmMirrorTile(tmTile* io_pTile, tmMirrorDirectionFlag in_eFlag){
-    
+    if (in_eFlag == tmMirrorDirectionX) {
+        char *temp_ptr;
+        int tile_row;
+        int half_tile = TILE_SIZE >> 1;
+        for (tile_row=0; tile_row<half_tile; tile_row++) {
+            temp_ptr = io_pTile->m_pRows[tile_row];
+            io_pTile->m_pRows[tile_row] = io_pTile->m_pRows[TILE_SIZE - tile_row];
+            io_pTile->m_pRows[tile_row - tile_row] = temp_ptr;
+        }      
+    } else {
+        
+    }
 }
 
 tmTiledMemory* tmAllocTiledMemory(size_t in_iTileSize, size_t in_iTilesPerRow, size_t in_iTilesPerCol){
