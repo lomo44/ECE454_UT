@@ -75,88 +75,42 @@ void tmMakeTile(tmTile* io_pTile, unsigned char* in_pBuffer){
 void tmMoveTile(tmTile* io_pFrom, tmTile* io_pTo, int in_iOffset, tmMoveDirectionFlag in_eFlag){
     if (in_iOffset == 0)
         return;
-    int shift_len = in_iOffset * PIXEL_SIZE;
-    int shift_n_len = (TILE_SIZE - in_iOffset)* PIXEL_SIZE;
+    
     int tile_row;
-            
+    
     if (in_eFlag == tmMoveDirectionFlagUP) { 
-        if (io_pFrom == NULL){
-            for (tile_row = TILE_SIZE - in_iOffset; tile_row < TILE_SIZE; tile_row++) {
-                memset (io_pTo->m_pRows[tile_row], 0, PIXEL_SIZE * TILE_SIZE);
-            }
-        } else if (io_pTo == NULL) {
-            for (tile_row = 0; tile_row < TILE_SIZE - in_iOffset; tile_row++) {
-                io_pFrom->m_pRows[tile_row] = io_pFrom->m_pRows[tile_row + in_iOffset];  
-            }
-        } else {
-            for (tile_row = 0; tile_row < in_iOffset; tile_row++) {
-                io_pTo->m_pRows[TILE_SIZE - in_iOffset + tile_row] = io_pFrom->m_pRows[tile_row]; 
-            }
-            for (tile_row = 0; tile_row < TILE_SIZE - in_iOffset; tile_row++) {
-                io_pFrom->m_pRows[tile_row] = io_pFrom->m_pRows[tile_row + in_iOffset];  
-            }
+        for (tile_row = 0; tile_row < in_iOffset; tile_row++) {
+            io_pTo->m_pRows[TILE_SIZE - in_iOffset + tile_row] = io_pFrom->m_pRows[tile_row]; 
+        }
+        for (tile_row = 0; tile_row < TILE_SIZE - in_iOffset; tile_row++) {
+            io_pFrom->m_pRows[tile_row] = io_pFrom->m_pRows[tile_row + in_iOffset];  
         }
     } else if (in_eFlag == tmMoveDirectionFlagDown) {
-        if (io_pFrom == NULL){
-            for (tile_row = 0; tile_row < in_iOffset; tile_row++) {
-                memset (io_pTo->m_pRows[tile_row], 0, PIXEL_SIZE * TILE_SIZE);
-            }
-        } else if (io_pTo == NULL) {
-            for (tile_row = in_iOffset; tile_row < TILE_SIZE; tile_row++) {
-                io_pFrom->m_pRows[tile_row] = io_pFrom->m_pRows[tile_row - in_iOffset];  
-            }
-        } else {
-            for (tile_row = 0; tile_row < in_iOffset; tile_row++) {
-                io_pTo->m_pRows[tile_row] = io_pFrom->m_pRows[tile_row + TILE_SIZE - in_iOffset]; 
-            }
-            for (tile_row = 0; tile_row < TILE_SIZE - in_iOffset; tile_row++) {
-                io_pFrom->m_pRows[tile_row + in_iOffset] = io_pFrom->m_pRows[tile_row];  
-            }
+        for (tile_row = 0; tile_row < in_iOffset; tile_row++) {
+            io_pTo->m_pRows[tile_row] = io_pFrom->m_pRows[tile_row + TILE_SIZE - in_iOffset]; 
+        }
+        for (tile_row = 0; tile_row < TILE_SIZE - in_iOffset; tile_row++) {
+            io_pFrom->m_pRows[tile_row + in_iOffset] = io_pFrom->m_pRows[tile_row];  
         }
     } else if (in_eFlag == tmMoveDirectionFlagLeft) {
+        int shift_len = in_iOffset * PIXEL_SIZE;
+        int shift_n_len = (TILE_SIZE - in_iOffset)* PIXEL_SIZE;
         char* row_start;
-        if (io_pFrom == NULL){
-            for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
-                row_start = io_pTo->m_pRows[tile_row] + shift_n_len;
-                memset (row_start, 0, shift_len);
-            }
-        } else if (io_pTo == NULL) {
-            for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
-                row_start = io_pFrom->m_pRows[tile_row];
-                memcpy (row_start, row_start + shift_len, shift_n_len);
-            }
-        } else { 
-            for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
-                row_start = io_pFrom->m_pRows[tile_row];
-                memcpy (io_pTo->m_pRows[tile_row] + shift_n_len, row_start, shift_len);
-                memcpy (row_start, row_start + shift_len, shift_n_len);
-            }
+        for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
+            row_start = io_pFrom->m_pRows[tile_row];
+            memcpy (io_pTo->m_pRows[tile_row] + shift_n_len, row_start, shift_len);
+            memcpy (row_start, row_start + shift_len, shift_n_len);
         } 
     } else if (in_eFlag == tmMoveDirectionFlagRight) {
+        int shift_len = in_iOffset * PIXEL_SIZE;
+        int shift_n_len = (TILE_SIZE - in_iOffset)* PIXEL_SIZE;
         char* row_start;
-        if (io_pFrom == NULL){
-            for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
-                row_start = io_pTo->m_pRows[tile_row];
-                memset (row_start, 0, shift_len);
-            }
-        } else if (io_pTo == NULL) {
-            for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
-                row_start = io_pFrom->m_pRows[tile_row] + shift_len;
-                memcpy (row_start, row_start - shift_len, shift_n_len);
-            }
-        } else { 
-            for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
-                row_start = io_pFrom->m_pRows[tile_row];
-                memcpy (io_pTo->m_pRows[tile_row], row_start + shift_n_len, shift_len);
-                memcpy (row_start + shift_len, row_start, shift_n_len);
-            }
+        for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
+            row_start = io_pFrom->m_pRows[tile_row];
+            memcpy (io_pTo->m_pRows[tile_row], row_start + shift_n_len, shift_len);
+            memcpy (row_start + shift_len, row_start, shift_n_len);
         } 
     } 
-/*
-    else {
-        printf("ERROR: Move Direction does not exist.\n");    
-    }
-*/
 }
 
 void tmMirrorTile(tmTile* io_pTile, tmMirrorDirectionFlag in_eFlag){
