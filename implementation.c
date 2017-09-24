@@ -238,6 +238,12 @@ void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirrorDi
                     }
                     tmMoveTile(start_tile[0],start_tile[io_pTiledMemory->m_iTilesPerCol-1],in_iOffset,in_eFlag);
                 }
+                // White the tile
+                row = io_pTiledMemory->m_iTilesPerCol-1;
+                while(row < total_tiles){
+                    tmWhiteTile(io_pTiledMemory->m_pTilesMap[row],in_iOffset,in_eFlag);
+                    row += io_pTiledMemory->m_iTilesPerRow;
+                }
             }
             case tmMoveDirectionFlagRight:{
                 if (tile_to_move!=0){
@@ -258,6 +264,11 @@ void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirrorDi
                     }
                     tmMoveTile(start_tile[io_pTiledMemory->m_iTilesPerCol-1],start_tile[0],in_iOffset,in_eFlag);
                 }
+                row = 0;
+                while(row < total_tiles){
+                    tmWhiteTile(io_pTiledMemory->m_pTilesMap[row],in_iOffset,in_eFlag);
+                    row += io_pTiledMemory->m_iTilesPerRow;
+                }
             }
             case tmMoveDirectionFlagUP:{
                 if (tile_to_move!=0){
@@ -273,6 +284,11 @@ void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirrorDi
                 for (i = 0; i < total_tiles; i++){
                     to_index = (i + total_tiles-io_pTiledMemory->m_iTilesPerRow)%total_tiles;
                     tmMoveTile(io_pTiledMemory->m_pTilesMap[i], io_pTiledMemory->m_pTilesMap[i+to_index],in_iOffset,in_eFlag);
+                }
+                row = total_tiles-io_pTiledMemory->m_iTilesPerRow;
+                while(row < total_tiles){
+                    tmWhiteTile(io_pTiledMemory->m_pTilesMap[row],in_iOffset,in_eFlag);
+                    row += 1;
                 }
             }
             case tmMoveDirectionFlagDown:{
@@ -290,6 +306,12 @@ void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirrorDi
                     to_index = (i + total_tiles-io_pTiledMemory->m_iTilesPerRow)%total_tiles;
                     tmMoveTile(io_pTiledMemory->m_pTilesMap[i+to_index],io_pTiledMemory->m_pTilesMap[i],in_iOffset,in_eFlag);
                 }
+                row = 0;
+                while(row < io_pTiledMemory->m_iTilesPerRow){
+                    tmWhiteTile(io_pTiledMemory->m_pTilesMap[row],in_iOffset,in_eFlag);
+                    row += 1;
+                }
+
             }
         }
     }
