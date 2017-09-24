@@ -152,7 +152,25 @@ void tmMirrorTile(tmTile* io_pTile, tmMirrorDirectionFlag in_eFlag){
             io_pTile->m_pRows[tile_row - tile_row] = temp_ptr;
         }      
     } else {
-        
+        int tile_row;
+        int tile_col;
+        int half_tile = TILE_SIZE >> 1;
+        char temp_r;
+        char temp_g;
+        char temp_b;
+        for (tile_row=0; tile_row<TILE_SIZE; tile_row++){
+            for (tile_col=0; tile_col< half_tile; tile_col++){ 
+                temp_r = io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE];
+                temp_g = io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE + 1];
+                temp_b = io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE + 2];
+                io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE] = io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE];
+                io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE + 1] = io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE + 1];
+                io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE + 2] = io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE + 2];
+                io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE] = temp_r;
+                io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE + 1] = temp_g;
+                io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE + 2] = temp_b;
+            }       
+        }       
     }
 }
 
