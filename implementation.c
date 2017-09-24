@@ -9,16 +9,25 @@
 #define PIXEL_SIZE 3
 #define tmAlloc(type,size) (type*)malloc(sizeof(type)*size)
 
+
+
 typedef struct _tmTile{
     unsigned char* m_pBuffer;
     unsigned char** m_pRows;
 } tmTile;
 
+// Global While tile
+
+tmTile* gWhileTile = NULL;
+
 typedef struct _tmTiledBuffer{
     unsigned char* m_pBuffer;
     tmTile* m_pTiles;
+    tmTile** m_pTilesMap;
     size_t m_iTiledDimension;
     size_t m_iTileOffset;
+    size_t m_iTilesPerRow;
+    size_t m_iTilesPerCol;
 } tmTiledMemory;
 
 typedef enum _tmRotionDirectionFlag{
@@ -43,49 +52,96 @@ void tmMirrorTile(tmTile* io_pTileA, tmTile* io_pTileB, tmMirroDirectionFlag in_
 void tmMoveTile(tmTile* io_pFrom, tmTile* io_pTo, tmMirroDirectionFlag in_eFlag);
 void tmSwapTile(tmTile* io_pTileA, tmTile* io_pTileB);
 
-tmTiledMemory* tmAllocTiledMemory(size_t in_iTileSize, size_t in_iNumOfTile);
+tmTiledMemory* tmAllocTiledMemory(size_t in_iTileSize, size_t in_iTilesPerRow, size_t in_iTilesPerCol);
 void tmFreeTiledMemory(tmTiledMemory* in_pTiledMemory);
+void tmMakeTile(unsigned char* in_pBuffer, size_t in_iTileSize);
 
 void tmFrameToTiledMemory(unsigned char* in_pBuffer, int in_iSize, tmTiledMemory* io_pOutputTiled);
 void tmTiledMemoryToFrame(unsigned char* io_pBuffer, int in_iSize, tmTiledMemory* in_pOutputTiled);
 
 void tmRotateTiledMemory(tmTiledMemory* io_pTiledMemory, tmRotionDirectionFlag in_eFlag);
 void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory, tmMirroDirectionFlag in_eFlag);
-void tmMirrorTiledMemory(tmTiledMemory* io_pTiledMemory, tmMirroDirectionFlag in_eFlag);
+void tmMirrorTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirroDirectionFlag in_eFlag);
+
+void tmMakeTile(tmTile* io_pTile, unsigned char* in_pBuffer){
+    io_pTile->m_pBuffer = in_pBuffer;
+    io_pTile->m_pRows = tmAlloc(unsigned char*, TILE_SIZE);
+    int i;
+    for (int i = 0 ; i < TILE_SIZE; i++){
+        io_pTile->m_pRows = io_pTile->m_pBuffer + i*TILE_SIZE;
+    }
+}
 
 
-tmTiledMemory* tmAllocTiledMemory(size_t in_iTileSize, size_t in_iNumOfTile){
+tmTiledMemory* tmAllocTiledMemory(size_t in_iTileSize, size_t in_iTilesPerRow, size_t in_iTilesPerCol){
+    size_t in_iNumOfTile = in_iTilesPerCol * in_iTilesPerRow;
     unsigned char* fullBuffer = tmAlloc(unsigned char,in_iTileSize*in_iTileSize*in_iNumOfTile);
     tmTiledMemory* returnMemory = tmAlloc(tmTiledMemory,1);
     returnMemory->m_iTileOffset = PIXEL_SIZE * TILE_SIZE * TILE_SIZE;
     returnMemory->m_iTiledDimension = TILE_SIZE;
     returnMemory->m_pBuffer = fullBuffer;
+    
     returnMemory->m_pTiles = tmAlloc(tmTile, in_iNumOfTile);
+    returnMemory->m_pTilesMap = tmAlloc(tmTile*, in_iNumOfTile);
+    returnMemory->m_iTilesPerCol = in_iTilesPerCol;
+    returnMemory->m_iTilesPerRow = in_iTilesPerRow;
+    // Allocate all the tiles
     int i,j;
     for (i = 0; i < in_iNumOfTile; i++){
-        returnMemory->m_pTiles[i].m_pBuffer = fullBuffer+i*returnMemory->m_iTileOffset;
-        returnMemory->m_pTiles[i].m_pRows = tmAlloc(unsigned char*, TILE_SIZE);
-        for (j = 0; j < TILE_SIZE; j++){
-            returnMemory->m_pTiles[i].m_pRows[j] = returnMemory->m_pBuffer + j*TILE_SIZE;
-        }
+        tmMakeTile(returnMemory->m_pTiles+i,fullBuffer+i*returnMemory->m_iTileOffset);
+        returnMemory->m_pTilesMap[i] = returnMemory->m_pTiles+i;
     }
     return returnMemory;
 }
 
 void tmFreeTiledMemory(tmTiledMemory* in_pTiledMemory){
+    // Free total buffer
     free(in_pTiledMemory->m_pBuffer);
     int i;
+    // Free tile's row-mapping buffer
     for (i = 0; i < TILE_SIZE; i++){
         free(in_pTiledMemory->m_pTiles[i].m_pRows);
     }
+    // Free tile-mapping buffer
     free(in_pTiledMemory->m_pTiles);
 }
 
-void tmRotateTiledMemory(tmTiledMemory* io_pTiledMemory, tmRotionDirectionFlag in_eFlag){
-    
+void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirroDirectionFlag in_eFlag){
+    if(io_pTiledMemory == NULL){
+        return;
+    }
+    else{
+        switch(in_eFlag){
+        case tmMoveDirectionFlagLeft:{
+            // Check if the offset is greater than the tile size, if it is greater then move tile first
+            int tile_to_move = in_iOffset / TILE_SIZE;
+            int row = 0;
+            if (tile_to_move!=0){
+                int tile_while_offset = io_pTiledMemory->m_iTilesPerRow-tile_to_move;
+                for(row = 0; row < io_pTiledMemory->m_iTilesPerRow; row++){
+                    tmTile** start = io_pTiledMemory->m_pTilesMap+row*io_pTiledMemory->m_iTilesPerRow;
+                    memcpy(start,start+tile_to_move, sizeof(tmTile*));
+                    memset(start+tile_while_offset,gWhileTile,tile_to_move);
+                }
+            }
+            in_iOffset %= TILE_SIZE;
+            int col = 0;
+            row = 0;
+            for (row = 0; row < io_pTiledMemory->m_iTilesPerRow; row++){
+                tmTile* from_tile = io_pTiledMemory->m_pTilesMap+row*io_pTiledMemory->m_iTilesPerRow;
+                tmTile* to_tile = NULL;
+                tmMoveTile(from_tile,to_tile,in_eFlag);
+                for (col = 1; col < io_pTiledMemory->m_iTilesPerCol-1; col++){
+                    to_tile = from_tile;
+                    from_tile+=1;
+                    tmMoveTile(from_tile, to_tile, in_eFlag);
+                }
+                tmMoveTile(NULL,from_tile, in_eFlag);
+            }
+        }
+        }
+    }
 }
-
-
 /***********************************************************************************************************************
  * @param buffer_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
  * @param width - width of the imported 24-bit bitmap image
