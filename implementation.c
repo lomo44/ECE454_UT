@@ -51,32 +51,34 @@ void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory, tmMirroDirectionFlag in_e
 void tmMirrorTiledMemory(tmTiledMemory* io_pTiledMemory, tmMirroDirectionFlag in_eFlag);
 
 void tmMoveTile(tmTile io_pFrom, tmTile io_pTo, int in_iOffset, tmMoveDirectionFlag in_eFlag){
-    int tile_row;
-    int tile_col;
-    int row_offset = 0;
-    int shift_bound = TILE_SIZE - in_iOffset;
-    if (io_pFrom == NULL){
-        if (in_eFlag == tmMoveDirectionFlagUP) {
-            
-        } else if (in_eFlag == tmMoveDirectionFlagDown) {
-            
-        } else if (in_eFlag == tmMoveDirectionFlagLeft) {
+    int shift_len = in_iOffset * PIXEL_SIZE;
+    int shift_n_len = (TILE_SIZE - in_iOffset)* PIXEL_SIZE;
+    if (in_eFlag == tmMoveDirectionFlagUP) { 
+    } else if (in_eFlag == tmMoveDirectionFlagDown) {
+    } else if (in_eFlag == tmMoveDirectionFlagLeft) {
+        int tile_row;
+        int row_start;
+        if (io_pFrom == NULL){
             for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
-                row_offset = row_offset + TILE_SIZE;
-                for (tile_col = 0; tile_col < shift_bound; tile_col++) {
-                    io_pTo[row_offset + tile_col] = io_pTo[row_offset + tile_col + in_iOffset];
-                }
-                
-            }  
-        } else if (in_eFlag == tmMoveDirectionFlagRight) {
-            
-        } else {
-            printf("ERROR: Move Direction does not exist.\n");    
-        }
-    } else if (io_pTo == NULL) {
-        
+                row_start = io_pTo + tile_row * TILE_SIZE * PIXEL_SIZE - shift_n_len;
+                memset (row_start, 0, shift_len);
+            }
+        } else if (io_pTo == NULL) {
+            for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
+                row_start = io_pFrom + tile_row * TILE_SIZE * PIXEL_SIZE;
+                memcpy (row_start, row_start + shift_len, shift_n_len);
+            }
+        } else { 
+            for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
+                row_start = io_pFrom + TILE_SIZE * PIXEL_SIZE;
+                memcpy (io_pTo+ TILE_SIZE * PIXEL_SIZE + shift_n_len, row_start, shift_len);
+                memcpy (row_start, row_start + shift_len, shift_n_len);
+            }
+        } 
+    } else if (in_eFlag == tmMoveDirectionFlagRight) {
+
     } else {
-        
+        printf("ERROR: Move Direction does not exist.\n");    
     }
 }
 
