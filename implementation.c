@@ -99,8 +99,8 @@ void tmMoveTile(tmTile* io_pFrom, tmTile* io_pTo, int in_iOffset, tmMoveDirectio
         char* row_start;
         for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
             row_start = io_pFrom->m_pRows[tile_row];
-            memcpy (io_pTo->m_pRows[tile_row] + shift_n_len, row_start, shift_len);
-            memcpy (row_start, row_start + shift_len, shift_n_len);
+            memmove (io_pTo->m_pRows[tile_row] + shift_n_len, row_start, shift_len);
+            memmove (row_start, row_start + shift_len, shift_n_len);
         } 
     //} else if (in_eFlag == tmMoveDirectionFlagRight) {
         } else {
@@ -109,8 +109,8 @@ void tmMoveTile(tmTile* io_pFrom, tmTile* io_pTo, int in_iOffset, tmMoveDirectio
         char* row_start;
         for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
             row_start = io_pFrom->m_pRows[tile_row];
-            memcpy (io_pTo->m_pRows[tile_row], row_start + shift_n_len, shift_len);
-            memcpy (row_start + shift_len, row_start, shift_n_len);
+            memmove (io_pTo->m_pRows[tile_row], row_start + shift_n_len, shift_len);
+            memmove (row_start + shift_len, row_start, shift_n_len);
         } 
     } 
 }
