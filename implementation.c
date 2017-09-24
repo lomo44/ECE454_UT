@@ -54,13 +54,13 @@ void tmSwapTile(tmTile* io_pTileA, tmTile* io_pTileB);
 
 tmTiledMemory* tmAllocTiledMemory(size_t in_iTileSize, size_t in_iTilesPerRow, size_t in_iTilesPerCol);
 void tmFreeTiledMemory(tmTiledMemory* in_pTiledMemory);
-void tmMakeTile(unsigned char* in_pBuffer, size_t in_iTileSize);
+void tmMakeTile(tmTile* io_pTile, unsigned char* in_pBuffer);
 
 void tmFrameToTiledMemory(unsigned char* in_pBuffer, int in_iSize, tmTiledMemory* io_pOutputTiled);
 void tmTiledMemoryToFrame(unsigned char* io_pBuffer, int in_iSize, tmTiledMemory* in_pOutputTiled);
 
 void tmRotateTiledMemory(tmTiledMemory* io_pTiledMemory, tmRotionDirectionFlag in_eFlag);
-void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory, tmMirroDirectionFlag in_eFlag);
+void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset,tmMirroDirectionFlag in_eFlag);
 void tmMirrorTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirroDirectionFlag in_eFlag);
 
 void tmMakeTile(tmTile* io_pTile, unsigned char* in_pBuffer){
@@ -68,7 +68,7 @@ void tmMakeTile(tmTile* io_pTile, unsigned char* in_pBuffer){
     io_pTile->m_pRows = tmAlloc(unsigned char*, TILE_SIZE);
     int i;
     for (int i = 0 ; i < TILE_SIZE; i++){
-        io_pTile->m_pRows = io_pTile->m_pBuffer + i*TILE_SIZE;
+        io_pTile->m_pRows[i] = io_pTile->m_pBuffer + i*TILE_SIZE;
     }
 }
 
@@ -199,28 +199,26 @@ void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirroDir
         case tmMoveDirectionFlagLeft:{
             // Check if the offset is greater than the tile size, if it is greater then move tile first
             int tile_to_move = in_iOffset / TILE_SIZE;
-            int row = 0;
+            int row,col;
             if (tile_to_move!=0){
                 int tile_while_offset = io_pTiledMemory->m_iTilesPerRow-tile_to_move;
                 for(row = 0; row < io_pTiledMemory->m_iTilesPerRow; row++){
                     tmTile** start = io_pTiledMemory->m_pTilesMap+row*io_pTiledMemory->m_iTilesPerRow;
                     memcpy(start,start+tile_to_move, sizeof(tmTile*));
-                    memset(start+tile_while_offset,gWhileTile,tile_to_move);
+                    for(col = tile_while_offset; col < io_pTiledMemory->m_iTilesPerCol; col++)
+                        start[col] = gWhileTile;
                 }
             }
             in_iOffset %= TILE_SIZE;
-            int col = 0;
+            col = 0;
             row = 0;
             for (row = 0; row < io_pTiledMemory->m_iTilesPerRow; row++){
-                tmTile* from_tile = io_pTiledMemory->m_pTilesMap+row*io_pTiledMemory->m_iTilesPerRow;
-                tmTile* to_tile = NULL;
-                tmMoveTile(from_tile,to_tile,in_eFlag);
-                for (col = 1; col < io_pTiledMemory->m_iTilesPerCol-1; col++){
-                    to_tile = from_tile;
-                    from_tile+=1;
-                    tmMoveTile(from_tile, to_tile, in_eFlag);
+                tmTile** from_tile = io_pTiledMemory->m_pTilesMap + row*io_pTiledMemory->m_iTilesPerRow;
+                tmMoveTile(from_tile[0],NULL,in_iOffset,in_eFlag);
+                for (col = 1; col < io_pTiledMemory->m_iTilesPerCol; col++){
+                    tmMoveTile(from_tile[col],from_tile[col-1],in_iOffset,in_eFlag);
                 }
-                tmMoveTile(NULL,from_tile, in_eFlag);
+                tmMoveTile(NULL,from_tile[io_pTiledMemory->m_iTilesPerCol-1],in_iOffset,in_eFlag);
             }
         }
         }
