@@ -18,7 +18,7 @@ typedef struct _tmTile{
 
 // Global While tile
 
-tmTile* gWhileTile = NULL;
+tmTile** gTempTiles = NULL;
 
 typedef struct _tmTiledBuffer{
     unsigned char* m_pBuffer;
@@ -195,32 +195,85 @@ void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirroDir
         return;
     }
     else{
+        int tile_to_move = in_iOffset / TILE_SIZE;
+        int tile_umove_offset = io_pTiledMemory->m_iTilesPerRow-tile_to_move;
+        int total_tiles = io_pTiledMemory->m_iTilesPerCol * io_pTiledMemory->m_iTilesPerRow;
+        int row,col;
         switch(in_eFlag){
-        case tmMoveDirectionFlagLeft:{
-            // Check if the offset is greater than the tile size, if it is greater then move tile first
-            int tile_to_move = in_iOffset / TILE_SIZE;
-            int row,col;
-            if (tile_to_move!=0){
-                int tile_while_offset = io_pTiledMemory->m_iTilesPerRow-tile_to_move;
-                for(row = 0; row < io_pTiledMemory->m_iTilesPerRow; row++){
-                    tmTile** start = io_pTiledMemory->m_pTilesMap+row*io_pTiledMemory->m_iTilesPerRow;
-                    memcpy(start,start+tile_to_move, sizeof(tmTile*));
-                    for(col = tile_while_offset; col < io_pTiledMemory->m_iTilesPerCol; col++)
-                        start[col] = gWhileTile;
+            case tmMoveDirectionFlagLeft:{
+                // Check if the offset is greater than the tile size, if it is greater then move tile first
+                if (tile_to_move!=0){
+                    for(row = 0; row < io_pTiledMemory->m_iTilesPerRow; row++){
+                        tmTile** start = io_pTiledMemory->m_pTilesMap+row*io_pTiledMemory->m_iTilesPerRow;
+                        memcpy(start,gTempTiles, tile_to_move*sizeof(tmTile*));
+                        memmove(start,start+tile_to_move, sizeof(tmTile*)*tile_umove_offset);
+                        memcpy(start+tile_umove_offset, gTempTiles, tile_to_move*sizeof(tmTile*));
+                    }
+                }
+                // Individual tile movement
+                in_iOffset %= TILE_SIZE;
+                col = 0;
+                row = 0;
+                for (row = 0; row < io_pTiledMemory->m_iTilesPerRow; row++){
+                    tmTile** start_tile = io_pTiledMemory->m_pTilesMap + row*io_pTiledMemory->m_iTilesPerRow;
+                    for (col = 1; col < io_pTiledMemory->m_iTilesPerCol; col++){
+                        tmMoveTile(start_tile[col],start_tile[col-1],in_iOffset,in_eFlag);
+                    }
+                    tmMoveTile(start_tile[0],start_tile[io_pTiledMemory->m_iTilesPerCol-1],in_iOffset,in_eFlag);
                 }
             }
-            in_iOffset %= TILE_SIZE;
-            col = 0;
-            row = 0;
-            for (row = 0; row < io_pTiledMemory->m_iTilesPerRow; row++){
-                tmTile** from_tile = io_pTiledMemory->m_pTilesMap + row*io_pTiledMemory->m_iTilesPerRow;
-                tmMoveTile(from_tile[0],NULL,in_iOffset,in_eFlag);
-                for (col = 1; col < io_pTiledMemory->m_iTilesPerCol; col++){
-                    tmMoveTile(from_tile[col],from_tile[col-1],in_iOffset,in_eFlag);
+            case tmMoveDirectionFlagRight:{
+                if (tile_to_move!=0){
+                    for(row = 0; row < io_pTiledMemory->m_iTilesPerRow; row++){
+                        tmTile** start = io_pTiledMemory->m_pTilesMap+row*io_pTiledMemory->m_iTilesPerRow;
+                        memcpy(start+tile_umove_offset,gTempTiles, tile_to_move*sizeof(tmTile*));
+                        memmove(start+tile_to_move,start, sizeof(tmTile*)*tile_umove_offset);
+                        memcpy(start, gTempTiles, tile_to_move*sizeof(tmTile*));
+                    }
                 }
-                tmMoveTile(NULL,from_tile[io_pTiledMemory->m_iTilesPerCol-1],in_iOffset,in_eFlag);
+                in_iOffset %= TILE_SIZE;
+                col = 0;
+                row = 0;
+                for (row = 0; row < io_pTiledMemory->m_iTilesPerRow; row++){
+                    tmTile** start_tile = io_pTiledMemory->m_pTilesMap + row*io_pTiledMemory->m_iTilesPerRow;
+                    for (col = 0; col < io_pTiledMemory->m_iTilesPerCol-1; col++){
+                        tmMoveTile(start_tile[col+1],start_tile[col],in_iOffset,in_eFlag);
+                    }
+                    tmMoveTile(start_tile[io_pTiledMemory->m_iTilesPerCol-1],start_tile[0],in_iOffset,in_eFlag);
+                }
             }
-        }
+            case tmMoveDirectionFlagUP:{
+                if (tile_to_move!=0){
+                    int element_to_move = tile_to_move*io_pTiledMemory->m_iTilesPerRow;
+                    int element_n_to_move = io_pTiledMemory->m_iTilesPerCol * io_pTiledMemory->m_iTilesPerRow-element_to_move;
+                    memcpy(gTempTiles,io_pTiledMemory->m_pTilesMap, element_to_move);
+                    memmove(io_pTiledMemory->m_pTilesMap, io_pTiledMemory->m_pTilesMap+element_to_move, element_n_to_move);
+                    memcpy(io_pTiledMemory->m_pTilesMap+element_to_move, gTempTiles, element_to_move);
+                }
+                int i = 0;
+                in_iOffset %= TILE_SIZE;
+                int to_index = 0;
+                for (i = 0; i < total_tiles; i++){
+                    to_index = (i + total_tiles-io_pTiledMemory->m_iTilesPerRow)%total_tiles;
+                    tmMoveTile(io_pTiledMemory->m_pTilesMap[i], io_pTiledMemory->m_pTilesMap[i+to_index],in_iOffset,in_eFlag);
+                }
+            }
+            case tmMoveDirectionFlagDown:{
+                if (tile_to_move!=0){
+                    int element_to_move = tile_to_move*io_pTiledMemory->m_iTilesPerRow;
+                    int element_n_to_move = io_pTiledMemory->m_iTilesPerCol * io_pTiledMemory->m_iTilesPerRow-element_to_move;
+                    memcpy(gTempTiles,io_pTiledMemory+element_n_to_move, element_to_move);
+                    memmove(io_pTiledMemory->m_pTilesMap+element_to_move, io_pTiledMemory->m_pTilesMap, element_n_to_move);
+                    memcpy(io_pTiledMemory->m_pTilesMap, gTempTiles, element_to_move);
+                }
+                int i = 0;
+                in_iOffset %= TILE_SIZE;
+                int to_index = 0;
+                for (i = 0; i < total_tiles; i++){
+                    to_index = (i + total_tiles-io_pTiledMemory->m_iTilesPerRow)%total_tiles;
+                    tmMoveTile(io_pTiledMemory->m_pTilesMap[i+to_index],io_pTiledMemory->m_pTilesMap[i],in_iOffset,in_eFlag);
+                }
+            }
         }
     }
 }
