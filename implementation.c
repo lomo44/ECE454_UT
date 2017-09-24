@@ -33,13 +33,13 @@ typedef enum _tmMoveDirectionFlag{
     tmMoveDirectionFlagRight,
 } tmMoveDirectionFlag;
 
-typedef enum _tmMirroDirectionFlag{
+typedef enum _tmMirrorDirectionFlag{
     tmMirrorDirectionX,
     tmMirrorDirectionY,
-} tmMirroDirectionFlag;
+} tmMirrorDirectionFlag;
 
 void tmRotateTile(tmTile* io_pTile, tmRotionDirectionFlag in_eFlag);
-void tmMirrorTile(tmTile* io_pTile, tmMirroDirectionFlag in_eFlag);
+void tmMirrorTile(tmTile* io_pTile, tmMirrorDirectionFlag in_eFlag);
 void tmMoveTile(tmTile* io_pFrom, tmTile* io_pTo, int in_iOffset, tmMoveDirectionFlag in_eFlag);
 void tmSwapTile(tmTile* io_pTileA, tmTile* io_pTileB);
 
@@ -50,8 +50,8 @@ void tmFrameToTiledMemory(unsigned char* in_pBuffer, int in_iSize, tmTiledMemory
 void tmTiledMemoryToFrame(unsigned char* io_pBuffer, int in_iSize, tmTiledMemory* in_pOutputTiled);
 
 void tmRotateTiledMemory(tmTiledMemory* io_pTiledMemory, tmRotionDirectionFlag in_eFlag);
-void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory, tmMirroDirectionFlag in_eFlag);
-void tmMirrorTiledMemory(tmTiledMemory* io_pTiledMemory, tmMirroDirectionFlag in_eFlag);
+void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory, tmMirrorDirectionFlag in_eFlag);
+void tmMirrorTiledMemory(tmTiledMemory* io_pTiledMemory, tmMirrorDirectionFlag in_eFlag);
 
 void tmMoveTile(tmTile* io_pFrom, tmTile* io_pTo, int in_iOffset, tmMoveDirectionFlag in_eFlag){
     if (in_iOffset == 0)
@@ -137,7 +137,7 @@ void tmMoveTile(tmTile* io_pFrom, tmTile* io_pTo, int in_iOffset, tmMoveDirectio
     }
 }
 
-void tmMirrorTile(tmTile* io_pTile, tmMirroDirectionFlag in_eFlag){
+void tmMirrorTile(tmTile* io_pTile, tmMirrorDirectionFlag in_eFlag){
     
 }
 tmTiledMemory* tmAllocTiledMemory(size_t in_iTileSize, size_t in_iNumOfTile){
