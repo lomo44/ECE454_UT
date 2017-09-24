@@ -1,10 +1,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include "utilities.h"  // DO NOT REMOVE this line
 #include "implementation_reference.h"   // DO NOT REMOVE this line
 
 #define TILE_SIZE 1000
+#define PIXEL_SIZE 3
+#define tmAlloc(type,size) (type*)malloc(sizeof(type)*size)
 
 typedef unsigned char* tmTile;
 
@@ -37,16 +40,35 @@ void tmMirrorTile(tmTile io_pTileA, tmTile io_pTileB, tmMirroDirectionFlag in_eF
 void tmMoveTile(tmTile io_pFrom, tmTile io_pTo, tmMirroDirectionFlag in_eFlag);
 void tmSwapTile(tmTile io_pTileA, tmTile io_pTileB);
 
-tmTiledMemory tmAllocTiledMemory(size_t in_iTileSize, size_t in_iNumOfTile);
-void tmFreeTiledMemory(tmTiledMemory in_pTiledMemory);
+tmTiledMemory* tmAllocTiledMemory(size_t in_iTileSize, size_t in_iNumOfTile);
+void tmFreeTiledMemory(tmTiledMemory* in_pTiledMemory);
 
-void tmFrameToTiledMemory(unsigned char* in_pBuffer, int in_iSize, tmTiledMemory io_pOutputTiled);
-void tmTiledMemoryToFrame(unsigned char* io_pBuffer, int in_iSize, tmTiledMemory in_pOutputTiled);
+void tmFrameToTiledMemory(unsigned char* in_pBuffer, int in_iSize, tmTiledMemory* io_pOutputTiled);
+void tmTiledMemoryToFrame(unsigned char* io_pBuffer, int in_iSize, tmTiledMemory* in_pOutputTiled);
 
-void tmRotateTiledMemory(tmTiledMemory io_pTiledMemory, tmRotionDirectionFlag in_eFlag);
-void tmMoveTiledMemory(tmTiledMemory io_pTiledMemory, tmMirroDirectionFlag in_eFlag);
-void tmMirrorTiledMemory(tmTiledMemory io_pTiledMemory, tmMirroDirectionFlag in_eFlag);
+void tmRotateTiledMemory(tmTiledMemory* io_pTiledMemory, tmRotionDirectionFlag in_eFlag);
+void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory, tmMirroDirectionFlag in_eFlag);
+void tmMirrorTiledMemory(tmTiledMemory* io_pTiledMemory, tmMirroDirectionFlag in_eFlag);
 
+
+tmTiledMemory* tmAllocTiledMemory(size_t in_iTileSize, size_t in_iNumOfTile){
+    unsigned char* fullBuffer = tmAlloc(unsigned char,in_iTileSize*in_iTileSize*in_iNumOfTile);
+    tmTiledMemory* returnMemory = tmAlloc(tmTiledMemory,1);
+    returnMemory->m_iTileOffset = PIXEL_SIZE * TILE_SIZE * TILE_SIZE;
+    returnMemory->m_iTiledDimension = TILE_SIZE;
+    returnMemory->m_pBuffer = fullBuffer;
+    returnMemory->m_pTilePositions = tmAlloc(tmTile, in_iNumOfTile);
+    int i = 0;
+    for (i = 0; i < in_iNumOfTile; i++){
+        returnMemory->m_pTilePositions[i] = (tmTile)fullBuffer+i*returnMemory->m_iTileOffset;
+    }
+    return returnMemory;
+}
+
+void tmFreeTiledMemory(tmTiledMemory* in_pTiledMemory){
+    free(in_pTiledMemory->m_pBuffer);
+    free(in_pTiledMemory->m_pTilePositions);
+}
 
 /***********************************************************************************************************************
  * @param buffer_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
