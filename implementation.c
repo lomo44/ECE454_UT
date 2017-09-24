@@ -50,6 +50,7 @@ typedef enum _tmMirrorDirectionFlag{
 void tmRotateTile(tmTile* io_pTile, tmRotionDirectionFlag in_eFlag);
 void tmMirrorTile(tmTile* io_pTile, tmMirrorDirectionFlag in_eFlag);
 void tmMoveTile(tmTile* io_pFrom, tmTile* io_pTo, int in_iOffset, tmMoveDirectionFlag in_eFlag);
+void tmWhiteTile(tmTile* io_pTile, int in_iOffset, tmMoveDirectionFlag in_eFlag);
 void tmSwapTile(tmTile* io_pTileA, tmTile* io_pTileB);
 
 tmTiledMemory* tmAllocTiledMemory(size_t in_iTileSize, size_t in_iTilesPerRow, size_t in_iTilesPerCol);
@@ -101,7 +102,8 @@ void tmMoveTile(tmTile* io_pFrom, tmTile* io_pTo, int in_iOffset, tmMoveDirectio
             memcpy (io_pTo->m_pRows[tile_row] + shift_n_len, row_start, shift_len);
             memcpy (row_start, row_start + shift_len, shift_n_len);
         } 
-    } else if (in_eFlag == tmMoveDirectionFlagRight) {
+    //} else if (in_eFlag == tmMoveDirectionFlagRight) {
+        } else {
         int shift_len = in_iOffset * PIXEL_SIZE;
         int shift_n_len = (TILE_SIZE - in_iOffset)* PIXEL_SIZE;
         char* row_start;
@@ -113,6 +115,32 @@ void tmMoveTile(tmTile* io_pFrom, tmTile* io_pTo, int in_iOffset, tmMoveDirectio
     } 
 }
 
+void tmWhiteTile(tmTile* io_pTile, int in_iOffset, tmMoveDirectionFlag in_eFlag) {
+   
+    int tile_row;
+    
+    if (in_eFlag == tmMoveDirectionFlagUP) { 
+        for (tile_row = TILE_SIZE - in_iOffset; tile_row < TILE_SIZE; tile_row++) {
+          memset (io_pTile->m_pRows[tile_row],0, TILE_SIZE * PIXEL_SIZE);   
+        }
+    } else if (in_eFlag == tmMoveDirectionFlagDown) { 
+        for (tile_row = 0; tile_row < in_iOffset; tile_row++) {
+          memset (io_pTile->m_pRows[tile_row],0, TILE_SIZE * PIXEL_SIZE);   
+        }
+    } else if (in_eFlag == tmMoveDirectionFlagLeft) { 
+        int white_size = in_iOffset * PIXEL_SIZE;
+        for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
+            memset (io_pTile->m_pRows[tile_row] + TILE_SIZE - in_iOffset, 0, white_size);       
+        }
+    //} else if (in_eFlag == tmMoveDirectionFlagRight) { 
+    } else {
+        int white_size = in_iOffset * PIXEL_SIZE;
+        for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
+            memset (io_pTile->m_pRows[tile_row], 0, white_size);       
+        }  
+    }
+    
+}
 void tmMirrorTile(tmTile* io_pTile, tmMirrorDirectionFlag in_eFlag){
     if (in_eFlag == tmMirrorDirectionX) {
         char *temp_ptr;
