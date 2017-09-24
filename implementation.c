@@ -4,10 +4,13 @@
 #include "utilities.h"  // DO NOT REMOVE this line
 #include "implementation_reference.h"   // DO NOT REMOVE this line
 
+#define TILE_SIZE 1000
+
 typedef unsigned char* tmTile;
 
 typedef struct _tmTiledBuffer{
     unsigned char* m_pBuffer;
+    tmTile* m_pTilePositions;
     size_t m_iTiledDimension;
     size_t m_iTileOffset;
 } tmTiledMemory;
