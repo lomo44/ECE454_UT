@@ -34,7 +34,7 @@ typedef enum _tmMirroDirectionFlag{
 
 void tmRotateTile(tmTile io_pTile, tmRotionDirectionFlag in_eFlag);
 void tmMirrorTile(tmTile io_pTileA, tmTile io_pTileB, tmMirroDirectionFlag in_eFlag);
-void tmMoveTile(tmTile io_pFrom, tmTile io_pTo, tmMirroDirectionFlag in_eFlag);
+void tmMoveTile(tmTile io_pFrom, tmTile io_pTo, int in_iOffset, tmMoveDirectionFlag in_eFlag);
 void tmSwapTile(tmTile io_pTileA, tmTile io_pTileB);
 
 tmTiledMemory tmAllocTiledMemory(size_t in_iTileSize, size_t in_iNumOfTile);
@@ -46,6 +46,36 @@ void tmTiledMemoryToFrame(unsigned char* io_pBuffer, int in_iSize, tmTiledMemory
 void tmRotateTiledMemory(tmTiledMemory io_pTiledMemory, tmRotionDirectionFlag in_eFlag);
 void tmMoveTiledMemory(tmTiledMemory io_pTiledMemory, tmMirroDirectionFlag in_eFlag);
 void tmMirrorTiledMemory(tmTiledMemory io_pTiledMemory, tmMirroDirectionFlag in_eFlag);
+
+void tmMoveTile(tmTile io_pFrom, tmTile io_pTo, int in_iOffset, tmMoveDirectionFlag in_eFlag){
+    int tile_row;
+    int tile_col;
+    int row_offset = 0;
+    int shift_bound = TILE_SIZE - in_iOffset;
+    if (io_pFrom == NULL){
+        if (in_eFlag == tmMoveDirectionFlagUP) {
+            
+        } else if (in_eFlag == tmMoveDirectionFlagDown) {
+            
+        } else if (in_eFlag == tmMoveDirectionFlagLeft) {
+            for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
+                row_offset = row_offset + TILE_SIZE;
+                for (tile_col = 0; tile_col < shift_bound; tile_col++) {
+                    io_pTo[row_offset + tile_col] = io_pTo[row_offset + tile_col + in_iOffset];
+                }
+                
+            }  
+        } else if (in_eFlag == tmMoveDirectionFlagRight) {
+            
+        } else {
+            printf("ERROR: Move Direction does not exist.\n");    
+        }
+    } else if (io_pTo == NULL) {
+        
+    } else {
+        
+    }
+}
 
 
 /***********************************************************************************************************************
