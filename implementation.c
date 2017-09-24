@@ -39,7 +39,7 @@ typedef enum _tmMirroDirectionFlag{
 } tmMirroDirectionFlag;
 
 void tmRotateTile(tmTile* io_pTile, tmRotionDirectionFlag in_eFlag);
-void tmMirrorTile(tmTile* io_pTileA, tmTile* io_pTileB, tmMirroDirectionFlag in_eFlag);
+void tmMirrorTile(tmTile* io_pTile, tmMirroDirectionFlag in_eFlag);
 void tmMoveTile(tmTile* io_pFrom, tmTile* io_pTo, int in_iOffset, tmMoveDirectionFlag in_eFlag);
 void tmSwapTile(tmTile* io_pTileA, tmTile* io_pTileB);
 
@@ -137,7 +137,9 @@ void tmMoveTile(tmTile* io_pFrom, tmTile* io_pTo, int in_iOffset, tmMoveDirectio
     }
 }
 
-
+void tmMirrorTile(tmTile* io_pTile, tmMirroDirectionFlag in_eFlag){
+    
+}
 tmTiledMemory* tmAllocTiledMemory(size_t in_iTileSize, size_t in_iNumOfTile){
     unsigned char* fullBuffer = tmAlloc(unsigned char,in_iTileSize*in_iTileSize*in_iNumOfTile);
     tmTiledMemory* returnMemory = tmAlloc(tmTiledMemory,1);
