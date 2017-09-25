@@ -26,12 +26,6 @@
 
 
 ///////////// Matrix Operation ////////////////////
-//typedef struct _tmMatrix3i{
-//    int m_iElements[16];
-//} tmMat3i;
-//typedef struct _tmVector3i{
-//    int m_iElements[4];
-//} tmVec3i;
 
 typedef int tmMat4i;
 typedef int tmVec4i;
@@ -151,6 +145,14 @@ tmVec4i* tmAllocVec(){
 }
 void tmFreeVec(tmVec4i* in_pA){
     free(in_pA);
+}
+void tmMatrixIndexToVec(int in_iIndex,int in_iStrideSize, tmVec4i* io_pVec){
+    io_pVec[VECTOR_X] = in_iIndex % in_iStrideSize;
+    io_pVec[VECTOR_Y] = in_iIndex / in_iStrideSize;
+    io_pVec[VECTOR_Z] = 1;
+}
+int tmVecToMatrixIndex(tmVec4i* in_pVec,int in_iStrideSize){
+    return in_pVec[VECTOR_X] + in_pVec[VECTOR_Y]*in_iStrideSize;
 }
 
 
