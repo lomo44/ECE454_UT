@@ -5,10 +5,153 @@
 #include "utilities.h"  // DO NOT REMOVE this line
 #include "implementation_reference.h"   // DO NOT REMOVE this line
 
+#define ENABLE_SIMD 0
+
 #define TILE_SIZE 1000
 #define PIXEL_SIZE 3
 #define tmAlloc(type,size) (type*)malloc(sizeof(type)*size)
 
+#define MATRIX_00 0
+#define MATRIX_01 1
+#define MATRIX_02 2
+#define MATRIX_10 3
+#define MATRIX_11 4
+#define MATRIX_12 5
+#define MATRIX_20 6
+#define MATRIX_21 7
+#define MATRIX_22 8
+#define VECTOR_X 0
+#define VECTOR_Y 1
+#define VECTOR_Z 2
+
+
+///////////// Matrix Operation ////////////////////
+//typedef struct _tmMatrix3i{
+//    int m_iElements[16];
+//} tmMat3i;
+//typedef struct _tmVector3i{
+//    int m_iElements[4];
+//} tmVec3i;
+
+typedef int tmMat4i;
+typedef int tmVec4i;
+
+typedef enum _tmMatrixType{
+    eMatrixType_Identity,
+    eMatrixType_CCW90,
+    eMatrixType_CW90,
+    eMatrixType_MirroX,
+    eMatrixType_MirroY
+} tmMatFlag;
+
+// MAT A * MAT B
+void tmMatMulVec(tmMat4i* in_pA, tmVec4i* in_pB, tmVec4i* io_pC){
+#if ENABLE_SIMD
+    
+#else
+    io_pC[VECTOR_X] = in_pA[MATRIX_00]*in_pB[VECTOR_X] + in_pA[MATRIX_01]*in_pB[VECTOR_Y] + in_pA[MATRIX_02]*in_pB[VECTOR_Z];
+    io_pC[VECTOR_Y] = in_pA[MATRIX_10]*in_pB[VECTOR_X] + in_pA[MATRIX_11]*in_pB[VECTOR_Y] + in_pA[MATRIX_12]*in_pB[VECTOR_Z];
+    io_pC[VECTOR_Z] = in_pA[MATRIX_20]*in_pB[VECTOR_X] + in_pA[MATRIX_21]*in_pB[VECTOR_Y] + in_pA[MATRIX_22]*in_pB[VECTOR_Z];
+#endif
+}
+void tmMatMulMat(tmMat4i* in_pA, tmMat4i* in_pB, tmMat4i* io_pC){
+#if ENABLE_SIMD
+    
+#else
+    io_pC[MATRIX_00] = in_pA[MATRIX_00]*in_pB[MATRIX_00] + in_pA[MATRIX_01]*in_pB[MATRIX_10] + in_pA[MATRIX_02]*in_pB[MATRIX_20];
+    io_pC[MATRIX_01] = in_pA[MATRIX_00]*in_pB[MATRIX_01] + in_pA[MATRIX_01]*in_pB[MATRIX_11] + in_pA[MATRIX_02]*in_pB[MATRIX_21];
+    io_pC[MATRIX_02] = in_pA[MATRIX_00]*in_pB[MATRIX_02] + in_pA[MATRIX_01]*in_pB[MATRIX_11] + in_pA[MATRIX_02]*in_pB[MATRIX_22];
+    io_pC[MATRIX_10] = in_pA[MATRIX_10]*in_pB[MATRIX_00] + in_pA[MATRIX_11]*in_pB[MATRIX_10] + in_pA[MATRIX_12]*in_pB[MATRIX_20];
+    io_pC[MATRIX_11] = in_pA[MATRIX_10]*in_pB[MATRIX_01] + in_pA[MATRIX_11]*in_pB[MATRIX_11] + in_pA[MATRIX_12]*in_pB[MATRIX_21];
+    io_pC[MATRIX_12] = in_pA[MATRIX_10]*in_pB[MATRIX_02] + in_pA[MATRIX_11]*in_pB[MATRIX_11] + in_pA[MATRIX_12]*in_pB[MATRIX_22];
+    io_pC[MATRIX_20] = in_pA[MATRIX_20]*in_pB[MATRIX_00] + in_pA[MATRIX_21]*in_pB[MATRIX_10] + in_pA[MATRIX_22]*in_pB[MATRIX_20];
+    io_pC[MATRIX_21] = in_pA[MATRIX_20]*in_pB[MATRIX_01] + in_pA[MATRIX_21]*in_pB[MATRIX_11] + in_pA[MATRIX_22]*in_pB[MATRIX_21];
+    io_pC[MATRIX_22] = in_pA[MATRIX_20]*in_pB[MATRIX_02] + in_pA[MATRIX_21]*in_pB[MATRIX_11] + in_pA[MATRIX_22]*in_pB[MATRIX_22];
+#endif
+}
+void tmLoadMatRotation(tmMat4i* in_pA, tmMatFlag in_eFlag){
+    switch(in_eFlag){
+        case eMatrixType_CCW90:{
+            in_pA[MATRIX_00] = 0;
+            in_pA[MATRIX_01] = -1;
+            in_pA[MATRIX_10] = 1;
+            in_pA[MATRIX_11] = 0;
+            in_pA[MATRIX_22] = 1;
+            break;
+        }
+        case eMatrixType_CW90:{
+            in_pA[MATRIX_00] = 0;
+            in_pA[MATRIX_01] = 1;
+            in_pA[MATRIX_10] = -1;
+            in_pA[MATRIX_11] = 0;
+            in_pA[MATRIX_22] = 1;
+            break;
+        }
+        default:{
+            in_pA[MATRIX_00] = 1;
+            in_pA[MATRIX_01] = 0;
+            in_pA[MATRIX_10] = 0;
+            in_pA[MATRIX_11] = 1;
+            in_pA[MATRIX_22] = 1;
+            break;
+        }
+    }
+}
+void tmLoadMatMirror(tmMat4i* in_pA, tmMatFlag in_eFlag){
+    switch(in_eFlag){
+        case eMatrixType_MirroX:{
+            in_pA[MATRIX_00] = -1;
+            in_pA[MATRIX_01] = 0;
+            in_pA[MATRIX_10] = 0;
+            in_pA[MATRIX_11] = 1;
+            in_pA[MATRIX_22] = 1;
+            break;
+        }
+        case eMatrixType_MirroY:{
+            in_pA[MATRIX_00] = 1;
+            in_pA[MATRIX_01] = 0;
+            in_pA[MATRIX_10] = 0;
+            in_pA[MATRIX_11] = -1;
+            in_pA[MATRIX_22] = 1;
+            break;
+        }
+        default:{
+            in_pA[MATRIX_00] = 1;
+            in_pA[MATRIX_01] = 0;
+            in_pA[MATRIX_10] = 0;
+            in_pA[MATRIX_11] = 1;
+            in_pA[MATRIX_22] = 1;
+            break;
+        }
+    } 
+}
+void tmLoadMatTranslate(tmMat4i* in_pA, int in_iOffsetX,int in_iOffsetY){
+    in_pA[MATRIX_02] = in_iOffsetX;
+    in_pA[MATRIX_02] = in_iOffsetY;
+}
+void tmLoadMatIdentity(tmMat4i* in_pA){
+    in_pA[MATRIX_00] = 1;
+    in_pA[MATRIX_01] = 0;
+    in_pA[MATRIX_10] = 0;
+    in_pA[MATRIX_11] = 1;
+    in_pA[MATRIX_22] = 1;
+}
+tmMat4i* tmAllocMat(){
+    tmMat4i* ret = tmAlloc(int, 16);
+    tmLoadMatIdentity(ret);
+    return ret;
+}
+void tmFreeMat(tmMat4i* in_pA){
+    free(in_pA);
+}
+tmVec4i* tmAllocVec(){
+    tmVec4i* ret = tmAlloc(int, 4);
+    ret[VECTOR_Z] = 1;
+    return ret;
+}
+void tmFreeVec(tmVec4i* in_pA){
+    free(in_pA);
+}
 
 
 typedef struct _tmTile{
@@ -206,7 +349,6 @@ void tmFreeTiledMemory(tmTiledMemory* in_pTiledMemory){
     // Free tile-mapping buffer
     free(in_pTiledMemory->m_pTiles);
 }
-
 void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirrorDirectionFlag in_eFlag){
     if(io_pTiledMemory == NULL){
         return;
@@ -316,6 +458,10 @@ void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirrorDi
         }
     }
 }
+void tmRotateTiledMemory(tmTiledMemory* io_pTiledMemory, tmRotionDirectionFlag in_eFlag){
+    
+}
+
 /***********************************************************************************************************************
  * @param buffer_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
  * @param width - width of the imported 24-bit bitmap image
