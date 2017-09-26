@@ -50,6 +50,8 @@ typedef enum _tmMatrixType{
 
 tmVec4i* gTempVec1 = NULL;
 tmVec4i* gTempVec2 = NULL;
+int      gVertex   = 0;
+int      gAxisFlip = 0;
 
 void        tmMatMulVec(tmMat4i* in_pA, tmVec4i* in_pB, tmVec4i* io_pC){
 #if ENABLE_SIMD
@@ -133,7 +135,7 @@ void        tmLoadMatMirror(tmMat4i* in_pA, tmMatFlag in_eFlag){
 }
 void        tmLoadMatTranslate(tmMat4i* in_pA, int in_iOffsetX,int in_iOffsetY){
     in_pA[MATRIX_02] = in_iOffsetX;
-    in_pA[MATRIX_02] = in_iOffsetY;
+    in_pA[MATRIX_12] = in_iOffsetY;
 }
 void        tmLoadMatIdentity(tmMat4i* in_pA){
     in_pA[MATRIX_00] = 1;
@@ -191,6 +193,11 @@ void        tmLoadIndexMapFromTransFormMatrix(tmMat4i* in_pMat, tmIndexMap* io_p
     }
 }
 
+void       tmMatixDecode(tmMat4i* io_pMat){
+    
+    
+    
+}
 /////// Tiling /////////////
 typedef struct _tmTile{
     unsigned char* m_pBuffer;
