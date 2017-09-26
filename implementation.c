@@ -43,10 +43,16 @@ typedef enum _tmMatrixType{
     eMatrixType_MirroX,
     eMatrixType_MirroY
 } tmMatFlag;
+typedef enum _tmVertexType{
+    etop_left,
+    etop_right,
+    ebot_left,
+    ebot_right,
+} tmVertexType;
 
 tmVec4i* gTempVec1 = NULL;
 tmVec4i* gTempVec2 = NULL;
-int      gVertex   = 0;
+int      gVertex   = etop_left;
 int      gAxisFlip = 0;
 
 void        tmMatMulVec(tmMat4i* in_pA, tmVec4i* in_pB, tmVec4i* io_pC){
@@ -203,6 +209,8 @@ typedef struct _tmTiledBuffer{
     unsigned char* m_pBuffer;
     tmTile* m_pTiles;
     tmTile** m_pTilesMap;
+    int m_iValidX;
+    int m_iValidY;
     size_t m_iTiledDimension;
     size_t m_iTileOffset;
     size_t m_iTilesPerRow;
@@ -311,7 +319,56 @@ tmTiledMemory* tmAllocTiledMemoryFromFrame(unsigned char* in_pBuffer, int in_iSi
         memcpy(retMemory->m_pBuffer+row*tiled_memory_size, in_pBuffer+row*in_iSize, in_iSize);
     }
 }
-void tmTiledMemoryToFrame(unsigned char* io_pBuffer, int in_iSize, tmTiledMemory* in_pOutputTiled);
+void tmTiledMemoryToFrame(unsigned char* io_pBuffer, int in_iSize, tmTiledMemory* in_pTiled){
+    int size_x;
+    int size_y;
+    size_x = in_pTiled->m_iValidX;
+    size_y = in_pTiled->m_iValidY;
+    
+    int white_size_x;
+    int white_size_y;
+    white_size_x = size_x % TILE_SIZE;
+    white_size_y = size_y % TILE_SIZE;
+    
+    int full_tile_per_row;
+    int full_tile_per_col;
+    full_tile_per_row = in_pTiled->m_iTilesPerRow;
+    full_tile_per_col = in_pTiled->m_iTilesPerCol;
+
+    
+    int row_count;
+    int col_count;
+    int tile_row_count;
+    int size_remian;
+    int row_remain;
+    if (gVertex == etop_left) {
+        row_remain = size_y;
+        for (row_count = 0; row_count < full_tile_per_row; row_count++){
+            size_remian = size_x;
+            for (col_count = 0; col_count < full_tile_per_col; col_count++){
+                if (row_remain < TILE_SIZE) {
+                    for (tile_row_count = 0; tile_row_count < row_remain; tile_row_count++) {
+                        if (size_remian >= TILE_SIZE)
+                        memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count)*size_x + col_count*TILE_SIZE)*PIXEL_SIZE, in_pTiled->m_pTilesMap + row_count*full_tile_per_row + col_count + tile_row_count*TILE_SIZE,TILE_SIZE);
+                        else 
+                        memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count)*size_x + col_count*TILE_SIZE)*PIXEL_SIZE, in_pTiled->m_pTilesMap + row_count*full_tile_per_row + col_count + tile_row_count*TILE_SIZE,size_remian);
+                    }
+                } else {
+                    for (tile_row_count = 0; tile_row_count < TILE_SIZE; tile_row_count++) {
+                        if (size_remian >= TILE_SIZE)
+                        memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count)*size_x + col_count*TILE_SIZE)*PIXEL_SIZE, in_pTiled->m_pTilesMap + row_count*full_tile_per_row + col_count + tile_row_count*TILE_SIZE,TILE_SIZE);
+                        else 
+                        memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count)*size_x + col_count*TILE_SIZE)*PIXEL_SIZE, in_pTiled->m_pTilesMap + row_count*full_tile_per_row + col_count + tile_row_count*TILE_SIZE,size_remian);
+                    }
+                }
+                size_remian -= TILE_SIZE;
+            }
+            row_remain -= TILE_SIZE;
+        }
+        
+    }
+    
+}
 void tmCleanTile(tmTile* io_pTile, int in_iOffset, tmMoveDirectionFlag in_eFlag) {
    
     int tile_row;
