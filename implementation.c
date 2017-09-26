@@ -9,6 +9,7 @@
 
 #define TILE_SIZE 1000
 #define PIXEL_SIZE 3
+#define PIXEL_DATA_TYPE unsigned char
 #define tmAlloc(type,size) (type*)malloc(sizeof(type)*size)
 
 #define MATRIX_00 0
@@ -20,16 +21,25 @@
 #define MATRIX_20 6
 #define MATRIX_21 7
 #define MATRIX_22 8
+#define MATRIX_INDEX_TRANSFORM_X MATRIX_02
+#define MATRIX_INDEX_TRANSFORM_Y MATRIX_12
 #define VECTOR_X 0
 #define VECTOR_Y 1
 #define VECTOR_Z 2
+// Global While tile
+
+
 
 
 ///////////// Matrix Operation ////////////////////
 
 typedef int tmMat4i;
 typedef int tmVec4i;
-
+typedef struct _tmIndexMap{
+    int m_iWidth;
+    int m_iLength;
+    int* m_pArray;
+} tmIndexMap;
 typedef enum _tmMatrixType{
     eMatrixType_Identity,
     eMatrixType_CCW90,
@@ -39,7 +49,7 @@ typedef enum _tmMatrixType{
 } tmMatFlag;
 
 // MAT A * MAT B
-void tmMatMulVec(tmMat4i* in_pA, tmVec4i* in_pB, tmVec4i* io_pC){
+void        tmMatMulVec(tmMat4i* in_pA, tmVec4i* in_pB, tmVec4i* io_pC){
 #if ENABLE_SIMD
     
 #else
@@ -48,7 +58,7 @@ void tmMatMulVec(tmMat4i* in_pA, tmVec4i* in_pB, tmVec4i* io_pC){
     io_pC[VECTOR_Z] = in_pA[MATRIX_20]*in_pB[VECTOR_X] + in_pA[MATRIX_21]*in_pB[VECTOR_Y] + in_pA[MATRIX_22]*in_pB[VECTOR_Z];
 #endif
 }
-void tmMatMulMat(tmMat4i* in_pA, tmMat4i* in_pB, tmMat4i* io_pC){
+void        tmMatMulMat(tmMat4i* in_pA, tmMat4i* in_pB, tmMat4i* io_pC){
 #if ENABLE_SIMD
     
 #else
@@ -63,7 +73,7 @@ void tmMatMulMat(tmMat4i* in_pA, tmMat4i* in_pB, tmMat4i* io_pC){
     io_pC[MATRIX_22] = in_pA[MATRIX_20]*in_pB[MATRIX_02] + in_pA[MATRIX_21]*in_pB[MATRIX_11] + in_pA[MATRIX_22]*in_pB[MATRIX_22];
 #endif
 }
-void tmLoadMatRotation(tmMat4i* in_pA, tmMatFlag in_eFlag){
+void        tmLoadMatRotation(tmMat4i* in_pA, tmMatFlag in_eFlag){
     switch(in_eFlag){
         case eMatrixType_CCW90:{
             in_pA[MATRIX_00] = 0;
@@ -91,7 +101,7 @@ void tmLoadMatRotation(tmMat4i* in_pA, tmMatFlag in_eFlag){
         }
     }
 }
-void tmLoadMatMirror(tmMat4i* in_pA, tmMatFlag in_eFlag){
+void        tmLoadMatMirror(tmMat4i* in_pA, tmMatFlag in_eFlag){
     switch(in_eFlag){
         case eMatrixType_MirroX:{
             in_pA[MATRIX_00] = -1;
@@ -119,52 +129,73 @@ void tmLoadMatMirror(tmMat4i* in_pA, tmMatFlag in_eFlag){
         }
     } 
 }
-void tmLoadMatTranslate(tmMat4i* in_pA, int in_iOffsetX,int in_iOffsetY){
+void        tmLoadMatTranslate(tmMat4i* in_pA, int in_iOffsetX,int in_iOffsetY){
     in_pA[MATRIX_02] = in_iOffsetX;
     in_pA[MATRIX_02] = in_iOffsetY;
 }
-void tmLoadMatIdentity(tmMat4i* in_pA){
+void        tmLoadMatIdentity(tmMat4i* in_pA){
     in_pA[MATRIX_00] = 1;
     in_pA[MATRIX_01] = 0;
     in_pA[MATRIX_10] = 0;
     in_pA[MATRIX_11] = 1;
     in_pA[MATRIX_22] = 1;
 }
-tmMat4i* tmAllocMat(){
+tmMat4i*    tmAllocMat(){
     tmMat4i* ret = tmAlloc(int, 16);
     tmLoadMatIdentity(ret);
     return ret;
 }
-void tmFreeMat(tmMat4i* in_pA){
+void        tmFreeMat(tmMat4i* in_pA){
     free(in_pA);
 }
-tmVec4i* tmAllocVec(){
+tmVec4i*    tmAllocVec(){
     tmVec4i* ret = tmAlloc(int, 4);
     ret[VECTOR_Z] = 1;
     return ret;
 }
-void tmFreeVec(tmVec4i* in_pA){
+void        tmFreeVec(tmVec4i* in_pA){
     free(in_pA);
 }
-void tmMatrixIndexToVec(int in_iIndex,int in_iStrideSize, tmVec4i* io_pVec){
-    io_pVec[VECTOR_X] = in_iIndex % in_iStrideSize;
-    io_pVec[VECTOR_Y] = in_iIndex / in_iStrideSize;
+void        tmMatrixIndexToVec(int in_iIndex,int in_iStrideSize, tmVec4i* io_pVec){
+    io_pVec[VECTOR_X] = (in_iIndex % in_iStrideSize - in_iStrideSize) * 2;
+    io_pVec[VECTOR_Y] = (in_iIndex / in_iStrideSize - in_iStrideSize) * 2;
     io_pVec[VECTOR_Z] = 1;
 }
-int tmVecToMatrixIndex(tmVec4i* in_pVec,int in_iStrideSize){
-    return in_pVec[VECTOR_X] + in_pVec[VECTOR_Y]*in_iStrideSize;
+int         tmVecToMatrixIndex(tmVec4i* in_pVec,int in_iStrideSize){
+    return (in_pVec[VECTOR_X]/2+in_iStrideSize)+ (in_pVec[VECTOR_Y]/2+in_iStrideSize)*in_iStrideSize;
+}
+void        tmExtractTransform(tmMat4i* in_pA, tmMat4i* io_pB){
+    io_pB[MATRIX_INDEX_TRANSFORM_X] = in_pA[MATRIX_INDEX_TRANSFORM_X];
+    io_pB[MATRIX_INDEX_TRANSFORM_Y] = in_pA[MATRIX_INDEX_TRANSFORM_Y];
 }
 
+tmIndexMap* tmAllocIndexMap(int in_iWidth, int in_iLength){
+    tmIndexMap* retMap = tmAlloc(tmIndexMap, 1);
+    retMap->m_iWidth = in_iWidth;
+    retMap->m_iLength = in_iLength;
+    retMap->m_pArray = tmAlloc(int,in_iWidth*in_iLength);
+}
+void        tmFreeIndexMap(tmIndexMap* in_pIndexMap){
+    free(in_pIndexMap->m_pArray);
+    free(in_pIndexMap);
+}
+void        tmLoadIndexMapFromTransFormMatrix(tmMat4i* in_pMat, tmIndexMap* io_pInputMap){
+    tmVec4i* from = tmAllocVec();
+    tmVec4i* to = tmAllocVec();
+    int i,j;
+    int total_indexes = io_pInputMap->m_iWidth * io_pInputMap->m_iLength; 
+    for (i = 0; i < total_indexes; i++){
+        tmMatrixIndexToVec(i,io_pInputMap->m_iWidth, from);
+        tmMatMulVec(in_pMat,from,to);
+        io_pInputMap->m_pArray[i] = tmVecToMatrixIndex(to,io_pInputMap->m_iWidth);
+    }
+}
 
+/////// Tiling /////////////
 typedef struct _tmTile{
     unsigned char* m_pBuffer;
     unsigned char** m_pRows;
 } tmTile;
-
-// Global While tile
-
-tmTile** gTempTiles = NULL;
-
 typedef struct _tmTiledBuffer{
     unsigned char* m_pBuffer;
     tmTile* m_pTiles;
@@ -174,41 +205,46 @@ typedef struct _tmTiledBuffer{
     size_t m_iTilesPerRow;
     size_t m_iTilesPerCol;
 } tmTiledMemory;
-
 typedef enum _tmRotionDirectionFlag{
     tmRotionDirectionFlagCCW,
     tmRotionDirectionFlagCW
 } tmRotionDirectionFlag;
-
 typedef enum _tmMoveDirectionFlag{
     tmMoveDirectionFlagUP,
     tmMoveDirectionFlagDown,
     tmMoveDirectionFlagLeft,
     tmMoveDirectionFlagRight,
 } tmMoveDirectionFlag;
-
 typedef enum _tmMirrorDirectionFlag{
     tmMirrorDirectionX,
     tmMirrorDirectionY,
 } tmMirrorDirectionFlag;
-
-void tmRotateTile(tmTile* io_pTile, tmRotionDirectionFlag in_eFlag);
-void tmMirrorTile(tmTile* io_pTile, tmMirrorDirectionFlag in_eFlag);
-void tmMoveTile(tmTile* io_pFrom, tmTile* io_pTo, int in_iOffset, tmMoveDirectionFlag in_eFlag);
-void tmWhiteTile(tmTile* io_pTile, int in_iOffset, tmMoveDirectionFlag in_eFlag);
-void tmSwapTile(tmTile* io_pTileA, tmTile* io_pTileB);
-
-tmTiledMemory* tmAllocTiledMemory(size_t in_iTileSize, size_t in_iTilesPerRow, size_t in_iTilesPerCol);
-void tmFreeTiledMemory(tmTiledMemory* in_pTiledMemory);
-void tmMakeTile(tmTile* io_pTile, unsigned char* in_pBuffer);
-
-void tmFrameToTiledMemory(unsigned char* in_pBuffer, int in_iSize, tmTiledMemory* io_pOutputTiled);
-void tmTiledMemoryToFrame(unsigned char* io_pBuffer, int in_iSize, tmTiledMemory* in_pOutputTiled);
-
-void tmRotateTiledMemory(tmTiledMemory* io_pTiledMemory, tmRotionDirectionFlag in_eFlag);
-void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset,tmMirrorDirectionFlag in_eFlag);
-void tmMirrorTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirrorDirectionFlag in_eFlag);
-
+// This tile is used for intra-tile remapping
+tmTile* gAuxTiles = NULL;
+// This tile arrays is used for inter-tile remapping
+tmTile** gAuxTiledMemory = NULL;
+tmIndexMap* gInterTileIndexMap = NULL;
+tmIndexMap* gIntraTileIndexMap = NULL;
+void tmSwapTile(tmTile* io_pA, tmTile* io_pB){
+    unsigned char* temp = io_pA->m_pBuffer;
+    io_pA->m_pBuffer = io_pB->m_pBuffer;
+    io_pB->m_pBuffer = temp;
+    
+    unsigned char** temp_row = io_pA->m_pRows;
+    io_pA->m_pRows = io_pB->m_pRows;
+    io_pB->m_pRows = temp_row;
+}
+void tmMapTile(tmTile* io_Tile, tmIndexMap* in_pIndexMap){
+    int row,col;
+    int target_index;
+    for(row = 0; row < TILE_SIZE; row++){
+        for(col = 0; col < TILE_SIZE; col++){
+            target_index = in_pIndexMap->m_pArray[row*TILE_SIZE+col];
+            memcpy(gAuxTiles->m_pBuffer+target_index*PIXEL_SIZE,io_Tile->m_pRows[row]+col*PIXEL_SIZE, PIXEL_SIZE);
+        }
+    }
+    tmSwapTile(io_Tile,gAuxTiles);
+}
 void tmMakeTile(tmTile* io_pTile, unsigned char* in_pBuffer){
     io_pTile->m_pBuffer = in_pBuffer;
     io_pTile->m_pRows = tmAlloc(unsigned char*, TILE_SIZE);
@@ -217,7 +253,84 @@ void tmMakeTile(tmTile* io_pTile, unsigned char* in_pBuffer){
         io_pTile->m_pRows[i] = io_pTile->m_pBuffer + i*TILE_SIZE;
     }
 }
+tmTile* tmAllocTile(int in_iSize){
+    tmTile* ret = tmAlloc(tmTile, 1);
+    ret->m_pBuffer = tmAlloc(PIXEL_DATA_TYPE, PIXEL_SIZE * in_iSize * in_iSize);
+    ret->m_pRows = tmAlloc(PIXEL_DATA_TYPE*, in_iSize);
+    int i;
+    for (i = 0; i < in_iSize; i++){
+        ret->m_pRows[i] = ret->m_pBuffer+i*in_iSize*PIXEL_SIZE;
+    }
+    return ret;
+}
+void tmMapTiledMemory(tmTiledMemory* io_Tile, tmIndexMap* in_pIndexMap){
+    int total_tiles = io_Tile->m_iTilesPerCol * io_Tile->m_iTilesPerRow;
+    int i;
+    for (i = 0; i < total_tiles; i++){
+        gAuxTiledMemory[in_pIndexMap->m_pArray[i]] = io_Tile->m_pTilesMap[i];
+    }
+    tmTile** temp = gAuxTiledMemory;
+    temp = io_Tile->m_pTilesMap;
+    io_Tile->m_pTilesMap = temp;
+}
+tmTiledMemory* tmAllocTiledMemory(size_t in_iTileSize, size_t in_iTilesPerRow, size_t in_iTilesPerCol){
+    size_t in_iNumOfTile = in_iTilesPerCol * in_iTilesPerRow;
+    unsigned char* fullBuffer = tmAlloc(unsigned char,in_iTileSize*in_iTileSize*in_iNumOfTile);
+    tmTiledMemory* returnMemory = tmAlloc(tmTiledMemory,1);
+    returnMemory->m_iTileOffset = PIXEL_SIZE * TILE_SIZE * TILE_SIZE;
+    returnMemory->m_iTiledDimension = TILE_SIZE;
+    returnMemory->m_pBuffer = fullBuffer;
+    
+    returnMemory->m_pTiles = tmAlloc(tmTile, in_iNumOfTile);
+    returnMemory->m_pTilesMap = tmAlloc(tmTile*, in_iNumOfTile);
+    returnMemory->m_iTilesPerCol = in_iTilesPerCol;
+    returnMemory->m_iTilesPerRow = in_iTilesPerRow;
+    // Allocate all the tiles
+    int i,j;
+    for (i = 0; i < in_iNumOfTile; i++){
+        tmMakeTile(returnMemory->m_pTiles+i,fullBuffer+i*returnMemory->m_iTileOffset);
+        returnMemory->m_pTilesMap[i] = returnMemory->m_pTiles+i;
+    }
+    return returnMemory;
+}
+void tmFreeTiledMemory(tmTiledMemory* in_pTiledMemory);
+void tmFrameToTiledMemory(unsigned char* in_pBuffer, int in_iSize, tmTiledMemory* io_pOutputTiled);
+void tmTiledMemoryToFrame(unsigned char* io_pBuffer, int in_iSize, tmTiledMemory* in_pOutputTiled);
+void tmSwapTile(tmTile* io_pTileA, tmTile* io_pTileB);
+void tmCleanTile(tmTile* io_pTile, int in_iOffset, tmMoveDirectionFlag in_eFlag) {
+   
+    int tile_row;
+    
+    if (in_eFlag == tmMoveDirectionFlagUP) { 
+        for (tile_row = TILE_SIZE - in_iOffset; tile_row < TILE_SIZE; tile_row++) {
+          memset (io_pTile->m_pRows[tile_row],0, TILE_SIZE * PIXEL_SIZE);   
+        }
+    } else if (in_eFlag == tmMoveDirectionFlagDown) { 
+        for (tile_row = 0; tile_row < in_iOffset; tile_row++) {
+          memset (io_pTile->m_pRows[tile_row],0, TILE_SIZE * PIXEL_SIZE);   
+        }
+    } else if (in_eFlag == tmMoveDirectionFlagLeft) { 
+        int white_size = in_iOffset * PIXEL_SIZE;
+        for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
+            memset (io_pTile->m_pRows[tile_row] + TILE_SIZE - in_iOffset, 0, white_size);       
+        }
+    //} else if (in_eFlag == tmMoveDirectionFlagRight) { 
+    } else {
+        int white_size = in_iOffset * PIXEL_SIZE;
+        for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
+            memset (io_pTile->m_pRows[tile_row], 0, white_size);       
+        }  
+    }
+    
+}
 
+/**
+ * Global tiled memory initialization function, any type of global variable should be 
+ * initialized here
+ */
+void tmInit(){
+    gAuxTiles = tmAllocTile(TILE_SIZE);
+}
 void tmMoveTile(tmTile* io_pFrom, tmTile* io_pTo, int in_iOffset, tmMoveDirectionFlag in_eFlag){
     if (in_iOffset == 0)
         return;
@@ -259,98 +372,6 @@ void tmMoveTile(tmTile* io_pFrom, tmTile* io_pTo, int in_iOffset, tmMoveDirectio
         } 
     } 
 }
-
-void tmWhiteTile(tmTile* io_pTile, int in_iOffset, tmMoveDirectionFlag in_eFlag) {
-   
-    int tile_row;
-    
-    if (in_eFlag == tmMoveDirectionFlagUP) { 
-        for (tile_row = TILE_SIZE - in_iOffset; tile_row < TILE_SIZE; tile_row++) {
-          memset (io_pTile->m_pRows[tile_row],0, TILE_SIZE * PIXEL_SIZE);   
-        }
-    } else if (in_eFlag == tmMoveDirectionFlagDown) { 
-        for (tile_row = 0; tile_row < in_iOffset; tile_row++) {
-          memset (io_pTile->m_pRows[tile_row],0, TILE_SIZE * PIXEL_SIZE);   
-        }
-    } else if (in_eFlag == tmMoveDirectionFlagLeft) { 
-        int white_size = in_iOffset * PIXEL_SIZE;
-        for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
-            memset (io_pTile->m_pRows[tile_row] + TILE_SIZE - in_iOffset, 0, white_size);       
-        }
-    //} else if (in_eFlag == tmMoveDirectionFlagRight) { 
-    } else {
-        int white_size = in_iOffset * PIXEL_SIZE;
-        for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
-            memset (io_pTile->m_pRows[tile_row], 0, white_size);       
-        }  
-    }
-    
-}
-void tmMirrorTile(tmTile* io_pTile, tmMirrorDirectionFlag in_eFlag){
-    if (in_eFlag == tmMirrorDirectionX) {
-        char *temp_ptr;
-        int tile_row;
-        int half_tile = TILE_SIZE >> 1;
-        for (tile_row=0; tile_row<half_tile; tile_row++) {
-            temp_ptr = io_pTile->m_pRows[tile_row];
-            io_pTile->m_pRows[tile_row] = io_pTile->m_pRows[TILE_SIZE - tile_row];
-            io_pTile->m_pRows[tile_row - tile_row] = temp_ptr;
-        }      
-    } else {
-        int tile_row;
-        int tile_col;
-        int half_tile = TILE_SIZE >> 1;
-        char temp_r;
-        char temp_g;
-        char temp_b;
-        for (tile_row=0; tile_row<TILE_SIZE; tile_row++){
-            for (tile_col=0; tile_col< half_tile; tile_col++){ 
-                temp_r = io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE];
-                temp_g = io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE + 1];
-                temp_b = io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE + 2];
-                io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE] = io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE];
-                io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE + 1] = io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE + 1];
-                io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE + 2] = io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE + 2];
-                io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE] = temp_r;
-                io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE + 1] = temp_g;
-                io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE + 2] = temp_b;
-            }       
-        }       
-    }
-}
-
-tmTiledMemory* tmAllocTiledMemory(size_t in_iTileSize, size_t in_iTilesPerRow, size_t in_iTilesPerCol){
-    size_t in_iNumOfTile = in_iTilesPerCol * in_iTilesPerRow;
-    unsigned char* fullBuffer = tmAlloc(unsigned char,in_iTileSize*in_iTileSize*in_iNumOfTile);
-    tmTiledMemory* returnMemory = tmAlloc(tmTiledMemory,1);
-    returnMemory->m_iTileOffset = PIXEL_SIZE * TILE_SIZE * TILE_SIZE;
-    returnMemory->m_iTiledDimension = TILE_SIZE;
-    returnMemory->m_pBuffer = fullBuffer;
-    
-    returnMemory->m_pTiles = tmAlloc(tmTile, in_iNumOfTile);
-    returnMemory->m_pTilesMap = tmAlloc(tmTile*, in_iNumOfTile);
-    returnMemory->m_iTilesPerCol = in_iTilesPerCol;
-    returnMemory->m_iTilesPerRow = in_iTilesPerRow;
-    // Allocate all the tiles
-    int i,j;
-    for (i = 0; i < in_iNumOfTile; i++){
-        tmMakeTile(returnMemory->m_pTiles+i,fullBuffer+i*returnMemory->m_iTileOffset);
-        returnMemory->m_pTilesMap[i] = returnMemory->m_pTiles+i;
-    }
-    return returnMemory;
-}
-
-void tmFreeTiledMemory(tmTiledMemory* in_pTiledMemory){
-    // Free total buffer
-    free(in_pTiledMemory->m_pBuffer);
-    int i;
-    // Free tile's row-mapping buffer
-    for (i = 0; i < TILE_SIZE; i++){
-        free(in_pTiledMemory->m_pTiles[i].m_pRows);
-    }
-    // Free tile-mapping buffer
-    free(in_pTiledMemory->m_pTiles);
-}
 void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirrorDirectionFlag in_eFlag){
     if(io_pTiledMemory == NULL){
         return;
@@ -366,9 +387,9 @@ void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirrorDi
                 if (tile_to_move!=0){
                     for(row = 0; row < io_pTiledMemory->m_iTilesPerRow; row++){
                         tmTile** start = io_pTiledMemory->m_pTilesMap+row*io_pTiledMemory->m_iTilesPerRow;
-                        memcpy(start,gTempTiles, tile_to_move*sizeof(tmTile*));
+                        memcpy(start,gAuxTiledMemory, tile_to_move*sizeof(tmTile*));
                         memmove(start,start+tile_to_move, sizeof(tmTile*)*tile_umove_offset);
-                        memcpy(start+tile_umove_offset, gTempTiles, tile_to_move*sizeof(tmTile*));
+                        memcpy(start+tile_umove_offset, gAuxTiledMemory, tile_to_move*sizeof(tmTile*));
                     }
                 }
                 // Individual tile movement
@@ -385,7 +406,7 @@ void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirrorDi
                 // White the tile
                 row = io_pTiledMemory->m_iTilesPerCol-1;
                 while(row < total_tiles){
-                    tmWhiteTile(io_pTiledMemory->m_pTilesMap[row],in_iOffset,in_eFlag);
+                    tmCleanTile(io_pTiledMemory->m_pTilesMap[row],in_iOffset,in_eFlag);
                     row += io_pTiledMemory->m_iTilesPerRow;
                 }
             }
@@ -393,9 +414,9 @@ void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirrorDi
                 if (tile_to_move!=0){
                     for(row = 0; row < io_pTiledMemory->m_iTilesPerRow; row++){
                         tmTile** start = io_pTiledMemory->m_pTilesMap+row*io_pTiledMemory->m_iTilesPerRow;
-                        memcpy(start+tile_umove_offset,gTempTiles, tile_to_move*sizeof(tmTile*));
+                        memcpy(start+tile_umove_offset,gAuxTiledMemory, tile_to_move*sizeof(tmTile*));
                         memmove(start+tile_to_move,start, sizeof(tmTile*)*tile_umove_offset);
-                        memcpy(start, gTempTiles, tile_to_move*sizeof(tmTile*));
+                        memcpy(start, gAuxTiledMemory, tile_to_move*sizeof(tmTile*));
                     }
                 }
                 in_iOffset %= TILE_SIZE;
@@ -410,7 +431,7 @@ void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirrorDi
                 }
                 row = 0;
                 while(row < total_tiles){
-                    tmWhiteTile(io_pTiledMemory->m_pTilesMap[row],in_iOffset,in_eFlag);
+                    tmCleanTile(io_pTiledMemory->m_pTilesMap[row],in_iOffset,in_eFlag);
                     row += io_pTiledMemory->m_iTilesPerRow;
                 }
             }
@@ -418,9 +439,9 @@ void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirrorDi
                 if (tile_to_move!=0){
                     int element_to_move = tile_to_move*io_pTiledMemory->m_iTilesPerRow;
                     int element_n_to_move = io_pTiledMemory->m_iTilesPerCol * io_pTiledMemory->m_iTilesPerRow-element_to_move;
-                    memcpy(gTempTiles,io_pTiledMemory->m_pTilesMap, element_to_move);
+                    memcpy(gAuxTiledMemory,io_pTiledMemory->m_pTilesMap, element_to_move);
                     memmove(io_pTiledMemory->m_pTilesMap, io_pTiledMemory->m_pTilesMap+element_to_move, element_n_to_move);
-                    memcpy(io_pTiledMemory->m_pTilesMap+element_to_move, gTempTiles, element_to_move);
+                    memcpy(io_pTiledMemory->m_pTilesMap+element_to_move, gAuxTiledMemory, element_to_move);
                 }
                 int i = 0;
                 in_iOffset %= TILE_SIZE;
@@ -431,7 +452,7 @@ void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirrorDi
                 }
                 row = total_tiles-io_pTiledMemory->m_iTilesPerRow;
                 while(row < total_tiles){
-                    tmWhiteTile(io_pTiledMemory->m_pTilesMap[row],in_iOffset,in_eFlag);
+                    tmCleanTile(io_pTiledMemory->m_pTilesMap[row],in_iOffset,in_eFlag);
                     row += 1;
                 }
             }
@@ -439,9 +460,9 @@ void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirrorDi
                 if (tile_to_move!=0){
                     int element_to_move = tile_to_move*io_pTiledMemory->m_iTilesPerRow;
                     int element_n_to_move = io_pTiledMemory->m_iTilesPerCol * io_pTiledMemory->m_iTilesPerRow-element_to_move;
-                    memcpy(gTempTiles,io_pTiledMemory+element_n_to_move, element_to_move);
+                    memcpy(gAuxTiledMemory,io_pTiledMemory+element_n_to_move, element_to_move);
                     memmove(io_pTiledMemory->m_pTilesMap+element_to_move, io_pTiledMemory->m_pTilesMap, element_n_to_move);
-                    memcpy(io_pTiledMemory->m_pTilesMap, gTempTiles, element_to_move);
+                    memcpy(io_pTiledMemory->m_pTilesMap, gAuxTiledMemory, element_to_move);
                 }
                 int i = 0;
                 in_iOffset %= TILE_SIZE;
@@ -452,7 +473,7 @@ void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirrorDi
                 }
                 row = 0;
                 while(row < io_pTiledMemory->m_iTilesPerRow){
-                    tmWhiteTile(io_pTiledMemory->m_pTilesMap[row],in_iOffset,in_eFlag);
+                    tmCleanTile(io_pTiledMemory->m_pTilesMap[row],in_iOffset,in_eFlag);
                     row += 1;
                 }
 
@@ -460,9 +481,87 @@ void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirrorDi
         }
     }
 }
-void tmRotateTiledMemory(tmTiledMemory* io_pTiledMemory, tmRotionDirectionFlag in_eFlag){
-    
+void tmTransformTiledMemory(tmTiledMemory* io_pTile, tmMat4i* in_pMat){
+    int tile_dimenson = io_pTile->m_iTiledDimension;
+    int x_movement = in_pMat[MATRIX_INDEX_TRANSFORM_X]%tile_dimenson;
+    int y_movement = in_pMat[MATRIX_INDEX_TRANSFORM_Y]%tile_dimenson;
+    if(x_movement!=0 || y_movement!=0){
+        // Inter-tile movement
+        if(x_movement!=0){
+            tmMoveTiledMemory(io_pTile, x_movement, tmMirrorDirectionX);
+        }
+        if(y_movement!=0){
+            tmMoveTiledMemory(io_pTile, y_movement, tmMirrorDirectionX);
+        }
+    }
+    x_movement = in_pMat[MATRIX_INDEX_TRANSFORM_X];
+    y_movement = in_pMat[MATRIX_INDEX_TRANSFORM_Y];
+    in_pMat[MATRIX_INDEX_TRANSFORM_Y] = 0;
+    in_pMat[MATRIX_INDEX_TRANSFORM_X] = 0;
+    tmLoadIndexMapFromTransFormMatrix(in_pMat,gInterTileIndexMap);
+    tmLoadIndexMapFromTransFormMatrix(in_pMat,gIntraTileIndexMap);
+    int i,total_tiles;
+    total_tiles = io_pTile->m_iTilesPerRow * io_pTile->m_iTilesPerCol;
+    for (i = 0 ; total_tiles; i++){
+        tmMapTile(io_pTile->m_pTilesMap[i],gInterTileIndexMap);
+    }
+    tmMapTiledMemory(io_pTile,gIntraTileIndexMap);
 }
+
+void tmRotateTile(tmTile* io_pTile, tmRotionDirectionFlag in_eFlag);
+void tmMirrorTile(tmTile* io_pTile, tmMirrorDirectionFlag in_eFlag);
+
+
+//void tmRotateTiledMemory(tmTiledMemory* io_pTiledMemory, tmRotionDirectionFlag in_eFlag);
+//void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset,tmMirrorDirectionFlag in_eFlag);
+//void tmMirrorTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirrorDirectionFlag in_eFlag);
+//void tmMirrorTile(tmTile* io_pTile, tmMirrorDirectionFlag in_eFlag){
+//    if (in_eFlag == tmMirrorDirectionX) {
+//        char *temp_ptr;
+//        int tile_row;
+//        int half_tile = TILE_SIZE >> 1;
+//        for (tile_row=0; tile_row<half_tile; tile_row++) {
+//            temp_ptr = io_pTile->m_pRows[tile_row];
+//            io_pTile->m_pRows[tile_row] = io_pTile->m_pRows[TILE_SIZE - tile_row];
+//            io_pTile->m_pRows[tile_row - tile_row] = temp_ptr;
+//        }      
+//    } else {
+//        int tile_row;
+//        int tile_col;
+//        int half_tile = TILE_SIZE >> 1;
+//        char temp_r;
+//        char temp_g;
+//        char temp_b;
+//        for (tile_row=0; tile_row<TILE_SIZE; tile_row++){
+//            for (tile_col=0; tile_col< half_tile; tile_col++){ 
+//                temp_r = io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE];
+//                temp_g = io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE + 1];
+//                temp_b = io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE + 2];
+//                io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE] = io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE];
+//                io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE + 1] = io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE + 1];
+//                io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE + 2] = io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE + 2];
+//                io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE] = temp_r;
+//                io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE + 1] = temp_g;
+//                io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE + 2] = temp_b;
+//            }       
+//        }       
+//    }
+//}
+//void tmFreeTiledMemory(tmTiledMemory* in_pTiledMemory){
+//    // Free total buffer
+//    free(in_pTiledMemory->m_pBuffer);
+//    int i;
+//    // Free tile's row-mapping buffer
+//    for (i = 0; i < TILE_SIZE; i++){
+//        free(in_pTiledMemory->m_pTiles[i].m_pRows);
+//    }
+//    // Free tile-mapping buffer
+//    free(in_pTiledMemory->m_pTiles);
+//}
+
+//void tmRotateTiledMemory(tmTiledMemory* io_pTiledMemory, tmRotionDirectionFlag in_eFlag){
+//    
+//}
 
 /***********************************************************************************************************************
  * @param buffer_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
