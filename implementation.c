@@ -48,7 +48,9 @@ typedef enum _tmMatrixType{
     eMatrixType_MirroY
 } tmMatFlag;
 
-// MAT A * MAT B
+tmVec4i* gTempVec1 = NULL;
+tmVec4i* gTempVec2 = NULL;
+
 void        tmMatMulVec(tmMat4i* in_pA, tmVec4i* in_pB, tmVec4i* io_pC){
 #if ENABLE_SIMD
     
@@ -180,14 +182,12 @@ void        tmFreeIndexMap(tmIndexMap* in_pIndexMap){
     free(in_pIndexMap);
 }
 void        tmLoadIndexMapFromTransFormMatrix(tmMat4i* in_pMat, tmIndexMap* io_pInputMap){
-    tmVec4i* from = tmAllocVec();
-    tmVec4i* to = tmAllocVec();
     int i,j;
     int total_indexes = io_pInputMap->m_iWidth * io_pInputMap->m_iLength; 
     for (i = 0; i < total_indexes; i++){
-        tmMatrixIndexToVec(i,io_pInputMap->m_iWidth, from);
-        tmMatMulVec(in_pMat,from,to);
-        io_pInputMap->m_pArray[i] = tmVecToMatrixIndex(to,io_pInputMap->m_iWidth);
+        tmMatrixIndexToVec(i,io_pInputMap->m_iWidth, gTempVec1);
+        tmMatMulVec(in_pMat,gTempVec1,gTempVec2);
+        io_pInputMap->m_pArray[i] = tmVecToMatrixIndex(gTempVec2,io_pInputMap->m_iWidth);
     }
 }
 
@@ -204,6 +204,8 @@ typedef struct _tmTiledBuffer{
     size_t m_iTileOffset;
     size_t m_iTilesPerRow;
     size_t m_iTilesPerCol;
+    tmVec4i* m_vBoundingBoxA;
+    tmVec4i* m_vBoundingBoxB;
 } tmTiledMemory;
 typedef enum _tmRotionDirectionFlag{
     tmRotionDirectionFlagCCW,
@@ -273,9 +275,9 @@ void tmMapTiledMemory(tmTiledMemory* io_Tile, tmIndexMap* in_pIndexMap){
     temp = io_Tile->m_pTilesMap;
     io_Tile->m_pTilesMap = temp;
 }
-tmTiledMemory* tmAllocTiledMemory(size_t in_iTileSize, size_t in_iTilesPerRow, size_t in_iTilesPerCol){
+tmTiledMemory* tmAllocTiledMemory(size_t in_iTilesPerRow, size_t in_iTilesPerCol){
     size_t in_iNumOfTile = in_iTilesPerCol * in_iTilesPerRow;
-    unsigned char* fullBuffer = tmAlloc(unsigned char,in_iTileSize*in_iTileSize*in_iNumOfTile);
+    unsigned char* fullBuffer = tmAlloc(PIXEL_DATA_TYPE,TILE_SIZE*TILE_SIZE*in_iNumOfTile);
     tmTiledMemory* returnMemory = tmAlloc(tmTiledMemory,1);
     returnMemory->m_iTileOffset = PIXEL_SIZE * TILE_SIZE * TILE_SIZE;
     returnMemory->m_iTiledDimension = TILE_SIZE;
@@ -285,6 +287,8 @@ tmTiledMemory* tmAllocTiledMemory(size_t in_iTileSize, size_t in_iTilesPerRow, s
     returnMemory->m_pTilesMap = tmAlloc(tmTile*, in_iNumOfTile);
     returnMemory->m_iTilesPerCol = in_iTilesPerCol;
     returnMemory->m_iTilesPerRow = in_iTilesPerRow;
+    returnMemory->m_vBoundingBoxA = tmAllocVec();
+    returnMemory->m_vBoundingBoxB = tmAllocVec();
     // Allocate all the tiles
     int i,j;
     for (i = 0; i < in_iNumOfTile; i++){
@@ -293,10 +297,28 @@ tmTiledMemory* tmAllocTiledMemory(size_t in_iTileSize, size_t in_iTilesPerRow, s
     }
     return returnMemory;
 }
-void tmFreeTiledMemory(tmTiledMemory* in_pTiledMemory);
-void tmFrameToTiledMemory(unsigned char* in_pBuffer, int in_iSize, tmTiledMemory* io_pOutputTiled);
+void tmFreeTiledMemory(tmTiledMemory* in_pTiledMemory){
+    tmFreeVec(in_pTiledMemory->m_vBoundingBoxA);
+    tmFreeVec(in_pTiledMemory->m_vBoundingBoxB);
+    free(in_pTiledMemory->m_pBuffer);
+    free(in_pTiledMemory->m_pTiles);
+    free(in_pTiledMemory->m_pTilesMap);
+    free(in_pTiledMemory);
+}
+tmTiledMemory* tmAllocTiledMemoryFromFrame(unsigned char* in_pBuffer, int in_iSize){
+    int num_of_tiles = in_iSize/TILE_SIZE + 1;
+    tmTiledMemory* retMemory = tmAllocTiledMemory(num_of_tiles,num_of_tiles);
+    int row,tiled_memory_size;
+    tiled_memory_size = retMemory->m_iTileOffset;
+    for (row = 0; row < in_iSize; row++){
+        memcpy(retMemory->m_pBuffer+row*tiled_memory_size, in_pBuffer+row*in_iSize, in_iSize);
+    }
+    // Setup Image Bounding box for future croping
+    tmMatrixIndexToVec(0, num_of_tiles*TILE_SIZE, retMemory->m_vBoundingBoxB);
+    tmMatrixIndexToVec(in_iSize*(num_of_tiles*TILE_SIZE+1), num_of_tiles*TILE_SIZE, retMemory->m_vBoundingBoxB);
+    retMemory->m_vBoundingBoxB[VECTOR_X] = 
+}
 void tmTiledMemoryToFrame(unsigned char* io_pBuffer, int in_iSize, tmTiledMemory* in_pOutputTiled);
-void tmSwapTile(tmTile* io_pTileA, tmTile* io_pTileB);
 void tmCleanTile(tmTile* io_pTile, int in_iOffset, tmMoveDirectionFlag in_eFlag) {
    
     int tile_row;
@@ -323,7 +345,6 @@ void tmCleanTile(tmTile* io_pTile, int in_iOffset, tmMoveDirectionFlag in_eFlag)
     }
     
 }
-
 /**
  * Global tiled memory initialization function, any type of global variable should be 
  * initialized here
@@ -505,6 +526,8 @@ void tmTransformTiledMemory(tmTiledMemory* io_pTile, tmMat4i* in_pMat){
     for (i = 0 ; total_tiles; i++){
         tmMapTile(io_pTile->m_pTilesMap[i],gInterTileIndexMap);
     }
+    in_pMat[MATRIX_INDEX_TRANSFORM_X] = x_movement/tile_dimenson;
+    in_pMat[MATRIX_INDEX_TRANSFORM_Y] = y_movement/tile_dimenson;
     tmMapTiledMemory(io_pTile,gIntraTileIndexMap);
 }
 
