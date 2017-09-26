@@ -538,9 +538,6 @@ void tmTransformTiledMemory(tmTiledMemory* io_pTile, tmMat4i* in_pMat){
     tmMapTiledMemory(io_pTile,gIntraTileIndexMap);
 }
 
-void tmRotateTile(tmTile* io_pTile, tmRotionDirectionFlag in_eFlag);
-void tmMirrorTile(tmTile* io_pTile, tmMirrorDirectionFlag in_eFlag);
-
 
 //void tmRotateTiledMemory(tmTiledMemory* io_pTiledMemory, tmRotionDirectionFlag in_eFlag);
 //void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset,tmMirrorDirectionFlag in_eFlag);
