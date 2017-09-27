@@ -57,7 +57,7 @@ typedef enum _tmVertexType{
 
 tmVec4i* gTempVec1 = NULL;
 tmVec4i* gTempVec2 = NULL;
-int      gVertex   = etop_left;
+//int      gVertex   = etop_left;
 int      gAxisFlip = 0;
 
 tmMat4i* gTempMul = NULL;
@@ -68,6 +68,46 @@ tmMat4i* gGlobalMirrorXMatrix = NULL;
 tmMat4i* gGlobalR180 = NULL;
 tmMat4i* gGlobalTransform = NULL;
 
+tmVec4i* gVertex = NULL;
+int      gbb_size = 0;
+void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int size, int length){
+    int pixel_index;
+    int x_min=length-1;
+    int x_max=0;
+    int y_min=length-1;
+    int y_max=0;
+    int x_temp;
+    int y_temp;
+    int x_size;
+    int y_size;
+    for (pixel_index = 0; pixel_index < size; pixel_index+= 3) {
+        if (in_iBuffer[pixel_index] !=0 ||in_iBuffer[pixel_index+1] !=0 ||in_iBuffer[pixel_index+2] !=0 ) {
+            y_temp = (pixel_index/PIXEL_SIZE)/length;
+            x_temp = (pixel_index/PIXEL_SIZE)%length;
+            if (x_temp > x_max){
+                x_max = x_temp;
+            }
+            if (x_temp < x_min){
+                x_min = x_temp;
+            }
+            if (y_temp > y_max){
+                y_max = y_temp;
+            }
+            if (y_temp < y_min){
+                y_min = y_temp;
+            }
+        }
+    }
+    gVertex[VECTOR_X]= x_min;
+    gVertex[VECTOR_Y]= y_min;
+    x_size = x_max - x_min + 1;
+    y_size = y_max - y_min + 1;
+    if (x_size < y_size)
+        gbb_size = y_size;
+    else 
+        gbb_size = x_size;
+    
+}
 void        tmCopyMat(tmMat4i* in_pA, tmMat4i* in_pB){
     memcpy(in_pA, in_pB,sizeof(int)*16);
 }
