@@ -6,6 +6,7 @@
 #include "implementation_reference.h"   // DO NOT REMOVE this line
 
 #define ENABLE_SIMD 0
+#define SPEED_UP 1
 
 #define TILE_SIZE 1000
 #define PIXEL_SIZE 3
@@ -40,6 +41,7 @@ typedef enum _tmMatrixType{
     eMatrixType_Identity,
     eMatrixType_CCW90,
     eMatrixType_CW90,
+    eMatrixType_R180,
     eMatrixType_MirroX,
     eMatrixType_MirroY
 } tmMatFlag;
@@ -47,6 +49,17 @@ typedef enum _tmMatrixType{
 tmVec4i* gTempVec1 = NULL;
 tmVec4i* gTempVec2 = NULL;
 
+tmMat4i* gTempMul = NULL;
+tmMat4i* gGlobalCW = NULL;
+tmMat4i* gGlobalCCW = NULL;
+tmMat4i* gGlobalMirrorYMatrix = NULL;
+tmMat4i* gGlobalMirrorXMatrix = NULL;
+tmMat4i* gGlobalR180 = NULL;
+tmMat4i* gGlobalTransform = NULL;
+
+void        tmCopyMat(tmMat4i* in_pA, tmMat4i* in_pB){
+    memcpy(in_pA, in_pB,sizeof(int)*16);
+}
 void        tmMatMulVec(tmMat4i* in_pA, tmVec4i* in_pB, tmVec4i* io_pC){
 #if ENABLE_SIMD
     
@@ -71,7 +84,12 @@ void        tmMatMulMat(tmMat4i* in_pA, tmMat4i* in_pB, tmMat4i* io_pC){
     io_pC[MATRIX_22] = in_pA[MATRIX_20]*in_pB[MATRIX_02] + in_pA[MATRIX_21]*in_pB[MATRIX_11] + in_pA[MATRIX_22]*in_pB[MATRIX_22];
 #endif
 }
-void        tmLoadMatRotation(tmMat4i* in_pA, tmMatFlag in_eFlag){
+void        tmMatMulVecInplace(tmMat4i* in_pA, tmVec4i* io_pB){
+    tmMatMulMat(in_pA, io_pB, gTempMul);
+    tmCopyMat(gTempMul,io_pB);
+}
+
+void        tmLoadMat(tmMat4i* in_pA, tmMatFlag in_eFlag){
     switch(in_eFlag){
         case eMatrixType_CCW90:{
             in_pA[MATRIX_00] = 0;
@@ -89,18 +107,6 @@ void        tmLoadMatRotation(tmMat4i* in_pA, tmMatFlag in_eFlag){
             in_pA[MATRIX_22] = 1;
             break;
         }
-        default:{
-            in_pA[MATRIX_00] = 1;
-            in_pA[MATRIX_01] = 0;
-            in_pA[MATRIX_10] = 0;
-            in_pA[MATRIX_11] = 1;
-            in_pA[MATRIX_22] = 1;
-            break;
-        }
-    }
-}
-void        tmLoadMatMirror(tmMat4i* in_pA, tmMatFlag in_eFlag){
-    switch(in_eFlag){
         case eMatrixType_MirroX:{
             in_pA[MATRIX_00] = -1;
             in_pA[MATRIX_01] = 0;
@@ -117,6 +123,15 @@ void        tmLoadMatMirror(tmMat4i* in_pA, tmMatFlag in_eFlag){
             in_pA[MATRIX_22] = 1;
             break;
         }
+        case eMatrixType_R180:{
+            in_pA[MATRIX_00] = -1;
+            in_pA[MATRIX_01] = 0;
+            in_pA[MATRIX_10] = 0;
+            in_pA[MATRIX_11] = -1;
+            in_pA[MATRIX_22] = 1;
+            break;
+        }
+        case eMatrixType_Identity:
         default:{
             in_pA[MATRIX_00] = 1;
             in_pA[MATRIX_01] = 0;
@@ -125,22 +140,11 @@ void        tmLoadMatMirror(tmMat4i* in_pA, tmMatFlag in_eFlag){
             in_pA[MATRIX_22] = 1;
             break;
         }
-    } 
+    }
 }
-void        tmLoadMatTranslate(tmMat4i* in_pA, int in_iOffsetX,int in_iOffsetY){
-    in_pA[MATRIX_02] = in_iOffsetX;
-    in_pA[MATRIX_02] = in_iOffsetY;
-}
-void        tmLoadMatIdentity(tmMat4i* in_pA){
-    in_pA[MATRIX_00] = 1;
-    in_pA[MATRIX_01] = 0;
-    in_pA[MATRIX_10] = 0;
-    in_pA[MATRIX_11] = 1;
-    in_pA[MATRIX_22] = 1;
-}
-tmMat4i*    tmAllocMat(){
+tmMat4i*    tmAllocMat(tmMatFlag in_eFlag){
     tmMat4i* ret = tmAlloc(int, 16);
-    tmLoadMatIdentity(ret);
+    tmLoadMat(ret, in_eFlag);
     return ret;
 }
 void        tmFreeMat(tmMat4i* in_pA){
@@ -335,8 +339,33 @@ void tmCleanTile(tmTile* io_pTile, int in_iOffset, tmMoveDirectionFlag in_eFlag)
  * Global tiled memory initialization function, any type of global variable should be 
  * initialized here
  */
-void tmInit(){
+void tmInit(int in_iTilesPerRow, int in_iTilesPerCol, int in_iTileSize){
+    // Initial global variable
     gAuxTiles = tmAllocTile(TILE_SIZE);
+    gAuxTiledMemory = tmAlloc(tmTile*, in_iTiledCount);
+    gGlobalCCW = tmAllocMat(eMatrixType_CCW90);
+    gGlobalCW = tmAllocMat(eMatrixType_CW90);
+    gGlobalMirrorXMatrix = tmAllocMat(eMatrixType_MirroX);
+    gGlobalMirrorYMatrix = tmAllocMat(eMatrixType_MirroY);
+    gGlobalR180 = tmAllocMat(eMatrixType_R180);
+    gGlobalTransform = tmAllocMat(eMatrixType_Identity);
+    gTempMul  =tmAllocMat(eMatrixType_Identity);
+    gInterTileIndexMap = tmAllocIndexMap(in_iTileSize, in_iTileSize);
+    gIntraTileIndexMap = tmAllocIndexMap(in_iTilesPerRow, in_iTilesPerCol);
+}
+void tmCleanUp(){
+    tmFreeMat(gTempMul);
+    tmFreeMat(gGlobalTransform);
+    tmFreeMat(gGlobalCCW);
+    tmFreeMat(gGlobalCW);
+    tmFreeMat(gGlobalMirrorXMatrix);
+    tmFreeMat(gGlobalMirrorYMatrix);
+    tmFreeMat(gGlobalR180);
+    tmFreeMat(gGlobalTransform);
+    tmFreeVec(gTempVec1);
+    tmFreeVec(gTempVec2);
+    tmFreeIndexMap(gInterTileIndexMap);
+    tmFreeIndexMap(gIntraTileIndexMap);
 }
 void tmMoveTile(tmTile* io_pFrom, tmTile* io_pTo, int in_iOffset, tmMoveDirectionFlag in_eFlag){
     if (in_iOffset == 0)
@@ -580,7 +609,12 @@ void tmMirrorTile(tmTile* io_pTile, tmMirrorDirectionFlag in_eFlag);
  * Note2: You can assume the object will never be moved off the screen
  **********************************************************************************************************************/
 unsigned char *processMoveUp(unsigned char *buffer_frame, unsigned width, unsigned height, int offset) {
+#ifndef SPEED_UP
     return processMoveUpReference(buffer_frame, width, height, offset);
+#else
+    gGlobalTransform[MATRIX_INDEX_TRANSFORM_Y] += offset;
+    return NULL;
+#endif
 }
 
 /***********************************************************************************************************************
@@ -594,6 +628,12 @@ unsigned char *processMoveUp(unsigned char *buffer_frame, unsigned width, unsign
  **********************************************************************************************************************/
 unsigned char *processMoveRight(unsigned char *buffer_frame, unsigned width, unsigned height, int offset) {
     return processMoveRightReference(buffer_frame, width, height, offset);
+#ifndef SPEED_UP
+    return processMoveRightReference()Reference(buffer_frame, width, height, offset);
+#else
+    gGlobalTransform[MATRIX_INDEX_TRANSFORM_X] += offset;
+    return NULL;
+#endif
 }
 
 /***********************************************************************************************************************
@@ -606,7 +646,12 @@ unsigned char *processMoveRight(unsigned char *buffer_frame, unsigned width, uns
  * Note2: You can assume the object will never be moved off the screen
  **********************************************************************************************************************/
 unsigned char *processMoveDown(unsigned char *buffer_frame, unsigned width, unsigned height, int offset) {
+#ifndef SPEED_UP
     return processMoveDownReference(buffer_frame, width, height, offset);
+#else
+    gGlobalTransform[MATRIX_INDEX_TRANSFORM_Y] -= offset;
+    return NULL;
+#endif
 }
 
 /***********************************************************************************************************************
@@ -619,7 +664,12 @@ unsigned char *processMoveDown(unsigned char *buffer_frame, unsigned width, unsi
  * Note2: You can assume the object will never be moved off the screen
  **********************************************************************************************************************/
 unsigned char *processMoveLeft(unsigned char *buffer_frame, unsigned width, unsigned height, int offset) {
-    return processMoveLeftReference(buffer_frame, width, height, offset);
+#ifndef SPEED_UP
+    return processMoveLeftReference()Reference(buffer_frame, width, height, offset);
+#else
+    gGlobalTransform[MATRIX_INDEX_TRANSFORM_X] -= offset;
+    return NULL;
+#endif
 }
 
 /***********************************************************************************************************************
@@ -632,7 +682,32 @@ unsigned char *processMoveLeft(unsigned char *buffer_frame, unsigned width, unsi
  **********************************************************************************************************************/
 unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsigned height,
                                int rotate_iteration) {
+#ifndef SPEED_UP
     return processRotateCWReference(buffer_frame, width, height, rotate_iteration);
+#else
+    switch(rotate_iteration%4){
+        case(0):{
+            break;
+        }
+        case(1):{
+            tmMatMulVecInplace(gGlobalCW, gGlobalTransform);
+            break;
+        }
+        case(2):{
+            tmMatMulVecInplace(gGlobalR180, gGlobalTransform);
+            break;
+        }
+        case(3):{
+            tmMatMulVecInplace(gGlobalCCW, gGlobalTransform);
+            break;
+        }
+        default:{
+            break;
+        }
+    }
+    return NULL;
+#endif
+    
 }
 
 /***********************************************************************************************************************
@@ -645,7 +720,31 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
  **********************************************************************************************************************/
 unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, unsigned height,
                                 int rotate_iteration) {
+#ifndef SPEED_UP
     return processRotateCCWReference(buffer_frame, width, height, rotate_iteration);
+#else
+    switch(rotate_iteration%4){
+        case(0):{
+            break;
+        }
+        case(1):{
+            tmMatMulVecInplace(gGlobalCCW, gGlobalTransform);
+            break;
+        }
+        case(2):{
+            tmMatMulVecInplace(gGlobalR180, gGlobalTransform);
+            break;
+        }
+        case(3):{
+            tmMatMulVecInplace(gGlobalCW, gGlobalTransform);
+            break;
+        }
+        default:{
+            break;
+        }
+    }
+    return NULL;
+#endif
 }
 
 /***********************************************************************************************************************
@@ -656,7 +755,12 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
  * @return
  **********************************************************************************************************************/
 unsigned char *processMirrorX(unsigned char *buffer_frame, unsigned int width, unsigned int height, int _unused) {
+#ifndef SPEED_UP
     return processMirrorXReference(buffer_frame, width, height, _unused);
+#else
+    tmMatMulVecInplace(gGlobalMirrorXMatrix, gGlobalTransform);
+    return NULL;
+#endif
 }
 
 /***********************************************************************************************************************
@@ -667,7 +771,12 @@ unsigned char *processMirrorX(unsigned char *buffer_frame, unsigned int width, u
  * @return
  **********************************************************************************************************************/
 unsigned char *processMirrorY(unsigned char *buffer_frame, unsigned width, unsigned height, int _unused) {
+#ifndef SPEED_UP
     return processMirrorYReference(buffer_frame, width, height, _unused);
+#else
+    tmMatMulVecInplace(gGlobalMirrorYMatrix, gGlobalTransform);
+    return NULL;
+#endif
 }
 
 /***********************************************************************************************************************
