@@ -16,12 +16,12 @@
 #define MATRIX_00 0
 #define MATRIX_01 1
 #define MATRIX_02 2
-#define MATRIX_10 3
-#define MATRIX_11 4
-#define MATRIX_12 5
-#define MATRIX_20 6
-#define MATRIX_21 7
-#define MATRIX_22 8
+#define MATRIX_10 4
+#define MATRIX_11 5
+#define MATRIX_12 6
+#define MATRIX_20 8
+#define MATRIX_21 9
+#define MATRIX_22 10
 #define MATRIX_INDEX_TRANSFORM_X MATRIX_02
 #define MATRIX_INDEX_TRANSFORM_Y MATRIX_12
 #define VECTOR_X 0
@@ -240,6 +240,7 @@ tmTile* gAuxTiles = NULL;
 tmTile** gAuxTiledMemory = NULL;
 tmIndexMap* gInterTileIndexMap = NULL;
 tmIndexMap* gIntraTileIndexMap = NULL;
+tmTiledMemory* gGlobalTiledMemory = NULL;
 void tmSwapTile(tmTile* io_pA, tmTile* io_pB){
     unsigned char* temp = io_pA->m_pBuffer;
     io_pA->m_pBuffer = io_pB->m_pBuffer;
@@ -430,10 +431,13 @@ void tmCleanTile(tmTile* io_pTile, int in_iOffset, tmMoveDirectionFlag in_eFlag)
  * Global tiled memory initialization function, any type of global variable should be 
  * initialized here
  */
-void tmInit(int in_iTilesPerRow, int in_iTilesPerCol, int in_iTileSize){
+void tmInit(unsigned char* in_pFrameBuffer, int in_iBufferSize){
     // Initial global variable
+    int in_iTilesPerRow, in_iTilesPerCol;
+    in_iTilesPerRow = in_iBufferSize / TILE_SIZE + 1;
+    in_iTilesPerCol = in_iTilesPerRow;
     gAuxTiles = tmAllocTile(TILE_SIZE);
-    gAuxTiledMemory = tmAlloc(tmTile*, in_iTiledCount);
+    gAuxTiledMemory = tmAlloc(tmTile*, in_iTilesPerRow * in_iTilesPerCol );
     gGlobalCCW = tmAllocMat(eMatrixType_CCW90);
     gGlobalCW = tmAllocMat(eMatrixType_CW90);
     gGlobalMirrorXMatrix = tmAllocMat(eMatrixType_MirroX);
@@ -441,8 +445,9 @@ void tmInit(int in_iTilesPerRow, int in_iTilesPerCol, int in_iTileSize){
     gGlobalR180 = tmAllocMat(eMatrixType_R180);
     gGlobalTransform = tmAllocMat(eMatrixType_Identity);
     gTempMul  =tmAllocMat(eMatrixType_Identity);
-    gInterTileIndexMap = tmAllocIndexMap(in_iTileSize, in_iTileSize);
+    gInterTileIndexMap = tmAllocIndexMap(TILE_SIZE, TILE_SIZE);
     gIntraTileIndexMap = tmAllocIndexMap(in_iTilesPerRow, in_iTilesPerCol);
+    gGlobalTiledMemory = tmAllocTiledMemoryFromFrame(in_pFrameBuffer, in_iBufferSize);
 }
 void tmCleanUp(){
     tmFreeMat(gTempMul);
@@ -457,6 +462,7 @@ void tmCleanUp(){
     tmFreeVec(gTempVec2);
     tmFreeIndexMap(gInterTileIndexMap);
     tmFreeIndexMap(gIntraTileIndexMap);
+    tmFreeTiledMemory(gGlobalTiledMemory);
 }
 void tmMoveTile(tmTile* io_pFrom, tmTile* io_pTo, int in_iOffset, tmMoveDirectionFlag in_eFlag){
     if (in_iOffset == 0)
@@ -914,6 +920,9 @@ void print_team_info(){
 void implementation_driver(struct kv *sensor_values, int sensor_values_count, unsigned char *frame_buffer,
                            unsigned int width, unsigned int height, bool grading_mode) {
     int processed_frames = 0;
+    tmInit(frame_buffer, width*height);
+    // Allocate global frame
+    
     for (int sensorValueIdx = 0; sensorValueIdx < sensor_values_count; sensorValueIdx++) {
 //        printf("Processing sensor value #%d: %s, %d\n", sensorValueIdx, sensor_values[sensorValueIdx].key,
 //               sensor_values[sensorValueIdx].value);
@@ -944,8 +953,11 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
         }
         processed_frames += 1;
         if (processed_frames % 25 == 0) {
+            tmTransformTiledMemory(gGlobalTiledMemory, gGlobalTransform);
+            tmTiledMemoryToFrame(frame_buffer,width*height,gGlobalTiledMemory);
             verifyFrame(frame_buffer, width, height, grading_mode);
         }
     }
+    tmCleanUp();
     return;
 }
