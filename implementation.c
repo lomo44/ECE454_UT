@@ -322,13 +322,24 @@ tmTiledMemory* tmAllocTiledMemoryFromFrame(unsigned char* in_pBuffer, int in_iSi
 void tmTiledMemoryToFrame(unsigned char* io_pBuffer, int in_iSize, tmTiledMemory* in_pTiled){
     int size_x;
     int size_y;
-    size_x = in_pTiled->m_iValidX;
-    size_y = in_pTiled->m_iValidY;
-    
-    int white_size_x;
-    int white_size_y;
-    white_size_x = size_x % TILE_SIZE;
-    white_size_y = size_y % TILE_SIZE;
+    if (gAxisFlip == 0) {
+        size_x = in_pTiled->m_iValidX;
+        size_y = in_pTiled->m_iValidY;  
+    } else {
+        size_x = in_pTiled->m_iValidY;
+        size_y = in_pTiled->m_iValidX;   
+    }
+
+    int x_offset;
+    int y_offset;
+    if (gVertex == etop_left || gVertex == etop_right) 
+        x_offset == 0;
+    else
+        x_offset == TILE_SIZE - size_x % TILE_SIZE;
+    if (gVertex == etop_left || gVertex == etop_left) 
+        y_offset == 0;
+    else
+        y_offset == TILE_SIZE - size_y % TILE_SIZE;
     
     int full_tile_per_row;
     int full_tile_per_col;
@@ -339,33 +350,44 @@ void tmTiledMemoryToFrame(unsigned char* io_pBuffer, int in_iSize, tmTiledMemory
     int row_count;
     int col_count;
     int tile_row_count;
-    int size_remian;
+    int col_remian;
     int row_remain;
-    if (gVertex == etop_left) {
-        row_remain = size_y;
-        for (row_count = 0; row_count < full_tile_per_row; row_count++){
-            size_remian = size_x;
-            for (col_count = 0; col_count < full_tile_per_col; col_count++){
-                if (row_remain < TILE_SIZE) {
-                    for (tile_row_count = 0; tile_row_count < row_remain; tile_row_count++) {
-                        if (size_remian >= TILE_SIZE)
-                        memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count)*size_x + col_count*TILE_SIZE)*PIXEL_SIZE, in_pTiled->m_pTilesMap + row_count*full_tile_per_row + col_count + tile_row_count*TILE_SIZE,TILE_SIZE);
-                        else 
-                        memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count)*size_x + col_count*TILE_SIZE)*PIXEL_SIZE, in_pTiled->m_pTilesMap + row_count*full_tile_per_row + col_count + tile_row_count*TILE_SIZE,size_remian);
-                    }
-                } else {
-                    for (tile_row_count = 0; tile_row_count < TILE_SIZE; tile_row_count++) {
-                        if (size_remian >= TILE_SIZE)
-                        memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count)*size_x + col_count*TILE_SIZE)*PIXEL_SIZE, in_pTiled->m_pTilesMap + row_count*full_tile_per_row + col_count + tile_row_count*TILE_SIZE,TILE_SIZE);
-                        else 
-                        memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count)*size_x + col_count*TILE_SIZE)*PIXEL_SIZE, in_pTiled->m_pTilesMap + row_count*full_tile_per_row + col_count + tile_row_count*TILE_SIZE,size_remian);
-                    }
+    row_remain = size_y + y_offset;
+  
+    for (row_count = 0; row_count < full_tile_per_row; row_count++){
+        col_remian = size_x +x_offset;
+        for (col_count = 0; col_count < full_tile_per_col; col_count++){
+            if (y_offset != 0 && row_count == 0) {
+                for (tile_row_count = y_offset; tile_row_count < TILE_SIZE; tile_row_count++) {
+                    if (x_offset != 0 && col_count == 0)
+                    memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count-y_offset)*size_x + col_count*TILE_SIZE)*PIXEL_SIZE, in_pTiled->m_pTilesMap[row_count*full_tile_per_row+col_count]->m_pRows[tile_row_count]+x_offset,TILE_SIZE - x_offset);    
+                    else if (col_remian >= TILE_SIZE)
+                    memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count-y_offset)*size_x + col_count*TILE_SIZE - x_offset)*PIXEL_SIZE, in_pTiled->m_pTilesMap[row_count*full_tile_per_row+col_count]->m_pRows[tile_row_count]+x_offset,TILE_SIZE);
+                    else 
+                    memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count-y_offset)*size_x + col_count*TILE_SIZE - x_offset)*PIXEL_SIZE, in_pTiled->m_pTilesMap[row_count*full_tile_per_row+col_count]->m_pRows[tile_row_count]+x_offset,col_remian);
+                }  
+            } else if (row_remain < TILE_SIZE) {
+                for (tile_row_count = 0; tile_row_count < row_remain; tile_row_count++) {
+                    if (x_offset != 0 && col_count == 0)
+                    memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count-y_offset)*size_x + col_count*TILE_SIZE)*PIXEL_SIZE, in_pTiled->m_pTilesMap[row_count*full_tile_per_row+col_count]->m_pRows[tile_row_count]+x_offset,TILE_SIZE - x_offset);    
+                    else if (col_remian >= TILE_SIZE)
+                    memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count-y_offset)*size_x + col_count*TILE_SIZE - x_offset)*PIXEL_SIZE, in_pTiled->m_pTilesMap[row_count*full_tile_per_row+col_count]->m_pRows[tile_row_count]+x_offset,TILE_SIZE);
+                    else 
+                    memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count-y_offset)*size_x + col_count*TILE_SIZE - x_offset)*PIXEL_SIZE, in_pTiled->m_pTilesMap[row_count*full_tile_per_row+col_count]->m_pRows[tile_row_count]+x_offset,col_remian);
                 }
-                size_remian -= TILE_SIZE;
+            } else {
+                for (tile_row_count = 0; tile_row_count < TILE_SIZE; tile_row_count++) {
+                    if (x_offset != 0 && col_count == 0)
+                    memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count-y_offset)*size_x + col_count*TILE_SIZE)*PIXEL_SIZE, in_pTiled->m_pTilesMap[row_count*full_tile_per_row+col_count]->m_pRows[tile_row_count]+x_offset,TILE_SIZE - x_offset);    
+                    else if (col_remian >= TILE_SIZE)
+                    memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count-y_offset)*size_x + col_count*TILE_SIZE - x_offset)*PIXEL_SIZE, in_pTiled->m_pTilesMap[row_count*full_tile_per_row+col_count]->m_pRows[tile_row_count]+x_offset,TILE_SIZE);
+                    else 
+                    memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count-y_offset)*size_x + col_count*TILE_SIZE - x_offset)*PIXEL_SIZE, in_pTiled->m_pTilesMap[row_count*full_tile_per_row+col_count]->m_pRows[tile_row_count]+x_offset,col_remian);
+                }
             }
-            row_remain -= TILE_SIZE;
+            col_remian -= TILE_SIZE;
         }
-        
+        row_remain -= TILE_SIZE;
     }
     
 }
