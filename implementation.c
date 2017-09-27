@@ -107,8 +107,16 @@ void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int size, int length
         gbb_size = y_size;
     else 
         gbb_size = x_size;
-    
 }
+void        tmWhitePic (unsigned char* in_iBuffer, int length) {
+    int row_count;
+    int start_row = gVertex[VECTOR_Y];
+    int start_col = gVertex[VECTOR_X];
+    for (row_count = 0; row_count < gbb_size; row_count++) {
+        memset(in_iBuffer + ( (start_row + row_count) * length + start_col)*PIXEL_SIZE,0,gbb_size);
+    }
+}
+
 void        tmCopyMat(tmMat4i* in_pA, tmMat4i* in_pB){
     memcpy(in_pA, in_pB,sizeof(int)*16);
 }
@@ -288,6 +296,7 @@ void tmWriteOrientationToBuffer(tmBuffer in_pBuffer,
                gOrientationBuffer[in_eOrientation]+in_iBoundingBoxDimension*PIXEL_SIZE*row,
                in_iBoundingBoxDimension*PIXEL_SIZE);
     }
+    gVertex = in_pTopLeft;
 }
 
 void tmGenerateOrientationBuffer(tmBuffer in_pFrameBuffer,int in_iFrameDimension, int in_iBBDimension, tmOrientation in_eOrientation){
