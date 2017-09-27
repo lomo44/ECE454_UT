@@ -199,8 +199,22 @@ void        tmLoadIndexMapFromTransFormMatrix(tmMat4i* in_pMat, tmIndexMap* io_p
     }
 }
 
-void       tmMatixDecode(tmMat4i* io_pMat){
-    
+void       tmUpdateVertex (tmMat4i* io_pMat){
+    if (io_pMat[MATRIX_01] == 0 )
+        gAxisFlip == 0;
+    else 
+        gAxisFlip == 1;
+    if ((io_pMat[MATRIX_00] == 1 && io_pMat[MATRIX_11] == 1)||(io_pMat[MATRIX_01] == -1 && io_pMat[MATRIX_10] == -1))
+        gVertex = etop_left;
+    else if ((io_pMat[MATRIX_00] == -1 && io_pMat[MATRIX_11] == 1)||(io_pMat[MATRIX_01] == 1 && io_pMat[MATRIX_10] == -1))
+        gVertex = etop_right;
+    else if ((io_pMat[MATRIX_00] == 1 && io_pMat[MATRIX_11] == -1)||(io_pMat[MATRIX_01] == -1 && io_pMat[MATRIX_10] == 1))
+        gVertex = ebot_right;
+    else if ((io_pMat[MATRIX_00] == -1 && io_pMat[MATRIX_11] == -1)||(io_pMat[MATRIX_01] == 1 && io_pMat[MATRIX_10] == 1))
+        gVertex = ebot_left;
+    else
+        printf("Error: Update Vertex Fail");
+        
     
     
 }
