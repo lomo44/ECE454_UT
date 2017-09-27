@@ -70,7 +70,6 @@ tmMat4i* gGlobalR180 = NULL;
 tmMat4i* gGlobalTransform = NULL;
 
 tmVec4i* gVertex = NULL;
-tmVec4i* gVertex_nxt = NULL;
 int      gbb_size = 0;
 void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int size, int length){
     int pixel_index;
@@ -297,6 +296,7 @@ void tmWriteOrientationToBuffer(tmBuffer in_pBuffer,
                gOrientationBuffer[in_eOrientation]+in_iBoundingBoxDimension*PIXEL_SIZE*row,
                in_iBoundingBoxDimension*PIXEL_SIZE);
     }
+    gVertex = in_pTopLeft;
 }
 
 void tmGenerateOrientationBuffer(tmBuffer in_pBoundingBox,int in_iBBDimension, tmOrientation in_eOrientation){
