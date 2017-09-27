@@ -32,6 +32,7 @@
 
 typedef int tmMat4i;
 typedef int tmVec4i;
+typedef unsigned char* tmBuffer;
 
 typedef struct _tmIndexMap{
     int m_iWidth;
@@ -181,6 +182,79 @@ void        tmExtractTransform(tmMat4i* in_pA, tmMat4i* io_pB){
     io_pB[MATRIX_INDEX_TRANSFORM_X] = in_pA[MATRIX_INDEX_TRANSFORM_X];
     io_pB[MATRIX_INDEX_TRANSFORM_Y] = in_pA[MATRIX_INDEX_TRANSFORM_Y];
 }
+
+
+
+typedef enum _tmOrientation {
+    e_X_Y = 0,
+    e_X_NY,
+    e_NX_Y,
+    e_NX_NY,
+    e_F_X_Y,
+    e_F_X_NY,
+    e_F_NX_Y,
+    e_F_NX_NY
+} tmOrientation;
+
+
+tmOrientation tmGetOrientationFromMat(tmMat4i* in_pMat){
+    if(in_pMat[MATRIX_00] == 1){
+        if(in_pMat[MATRIX_11] == 1) {
+            return e_X_Y;
+        }
+        else{
+            return e_X_NY;
+        }
+    } else if(in_pMat[MATRIX_00] == -1){
+        if(in_pMat[MATRIX_11] == 1) {
+            return e_NX_Y;
+        }
+        else{
+            return e_NX_NY;
+        }
+    }
+
+    if(in_pMat[MATRIX_01] == 1){
+        if(in_pMat[MATRIX_10] == 1) {
+            return e_F_X_Y;
+        }
+        else{
+            return e_F_X_NY;
+        }
+    }
+    else{
+        if(in_pMat[MATRIX_10] == 1) {
+            return e_F_NX_Y;
+        }
+        else{
+            return e_F_NX_NY;
+        }
+    }
+}
+
+tmBuffer* gOrientationBuffer = NULL;
+
+void tmWriteOrientationToBuffer(tmBuffer in_pBuffer,
+                                int in_iDimension,
+                                tmVec4i* in_pTopLeft,
+                                int in_iBoundingBoxDimension,
+                                tmOrientation in_eOrientation){
+    int line_size_in_bytes = in_iDimension * PIXEL_SIZE;
+    int total_offset = in_pTopLeft[VECTOR_Y]*line_size_in_bytes;
+    int toal_x_offset = in_pTopLeft[VECTOR_X] * PIXEL_SIZE;
+    int row = 0;
+    for (row = 0; row < in_iBoundingBoxDimension; row++){
+        memcpy(in_pBuffer+total_offset+row*line_size_in_bytes+toal_x_offset,
+               gOrientationBuffer[in_eOrientation]+in_iBoundingBoxDimension*PIXEL_SIZE*row,
+               in_iBoundingBoxDimension*PIXEL_SIZE);
+    }
+}
+
+//void tmGenerateOrientationBuffer(tmBuffer in_pBoundingBox,int in_iBBDimension, tmOrientation in_eOrientation){
+//
+//}
+
+
 
 //tmIndexMap* tmAllocIndexMap(int in_iWidth, int in_iLength){
 //    tmIndexMap* retMap = tmAlloc(tmIndexMap, 1);
