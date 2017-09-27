@@ -99,7 +99,7 @@ void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int size, int length
         }
     }
     gVertex[VECTOR_X]= x_min;
-    gVertex[VECTOR_Y]= y_min;
+    gVertex[VECTOR_Y]= y_max;
     x_size = x_max - x_min + 1;
     y_size = y_max - y_min + 1;
     if (x_size < y_size)
@@ -287,6 +287,15 @@ tmOrientation tmGetOrientationFromMat(tmMat4i* in_pMat){
 
 tmBuffer* gOrientationBuffer = NULL;
 
+void        tmWhitePic (unsigned char* in_iBuffer, int length) {
+    int row_count;
+    int start_row = gVertex[VECTOR_Y];
+    int start_col = gVertex[VECTOR_X];
+    for (row_count = 0; row_count < gbb_size; row_count++) {
+        memset(in_iBuffer + ( (start_row + row_count) * length + start_col)*PIXEL_SIZE,0,gbb_size);
+    }
+}
+
 void tmWriteOrientationToBuffer(tmBuffer in_pBuffer,
                                 int in_iDimension,
                                 tmVec4i* in_pTopLeft,
@@ -351,7 +360,7 @@ void tmGenerateOrientationBuffer(tmBuffer in_pFrameBuffer,int in_iFrameDimension
             int start,end;
             start = 0;
             end = (in_iBBDimension-1)*line_size_in_bytes;
-            while(start < end){
+            while(end == 0){
                 memcpy(gOrientationBuffer[in_eOrientation]+end,gOrientationBuffer[e_X_Y]+start, line_size_in_bytes);
                 end -= line_size_in_bytes;
                 start += line_size_in_bytes;
@@ -359,6 +368,22 @@ void tmGenerateOrientationBuffer(tmBuffer in_pFrameBuffer,int in_iFrameDimension
             break;
         }
         case e_NX_NY: {
+            if (gOrientationBuffer[e_X_NY] != NULL) {
+                int start,end;
+                start = 0;
+                end = (in_iBBDimension-1)*line_size_in_bytes;
+                while(end == 0){
+                    memcpy(gOrientationBuffer[in_eOrientation]+end,gOrientationBuffer[e_X_Y]+start, line_size_in_bytes);
+                    end -= line_size_in_bytes;
+                    start += line_size_in_bytes;
+                }
+            } else {
+                int buffer_size = in_iBBDimension * in_iBBDimension*PIXEL_SIZE;
+                int pixel_index;
+                for (pixel_index = 0; pixel_index < buffer_size; pixel_index += 3) {
+                    memcpy(gOrientationBuffer[in_eOrientation] + pixel_index, gOrientationBuffer[e_X_Y] + buffer_size -1 - pixel_index, PIXEL_SIZE);
+                }
+            }
             break;
         }
         case e_F_X_Y: {
