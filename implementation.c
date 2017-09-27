@@ -1221,8 +1221,8 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
                 tmGenerateOrientationBuffer(NULL,width,gbb_size,orientation);
             }
             tmWhitePic(frame_buffer,width);
-            tmMatMulVecInplace(gGlobalTransform,gVertex);
-            tmWriteOrientationToBuffer(frame_buffer,width,gVertex,)
+            tmUpdateVertex(gGlobalTransform);
+            tmWriteOrientationToBuffer(frame_buffer,width,gVertex,gbb_size,orientation);
             //tmTransformTiledMemory(gGlobalTiledMemory, gGlobalTransform);
             //tmTiledMemoryToFrame(frame_buffer,width*height,gGlobalTiledMemory);
             verifyFrame(frame_buffer, width, height, grading_mode);
