@@ -45,9 +45,17 @@ typedef enum _tmMatrixType{
     eMatrixType_MirroX,
     eMatrixType_MirroY
 } tmMatFlag;
+typedef enum _tmVertexType{
+    etop_left,
+    etop_right,
+    ebot_left,
+    ebot_right,
+} tmVertexType;
 
 tmVec4i* gTempVec1 = NULL;
 tmVec4i* gTempVec2 = NULL;
+int      gVertex   = etop_left;
+int      gAxisFlip = 0;
 
 tmMat4i* gTempMul = NULL;
 tmMat4i* gGlobalCW = NULL;
@@ -191,6 +199,11 @@ void        tmLoadIndexMapFromTransFormMatrix(tmMat4i* in_pMat, tmIndexMap* io_p
     }
 }
 
+void       tmMatixDecode(tmMat4i* io_pMat){
+    
+    
+    
+}
 /////// Tiling /////////////
 typedef struct _tmTile{
     unsigned char* m_pBuffer;
@@ -200,6 +213,8 @@ typedef struct _tmTiledBuffer{
     unsigned char* m_pBuffer;
     tmTile* m_pTiles;
     tmTile** m_pTilesMap;
+    int m_iValidX;
+    int m_iValidY;
     size_t m_iTiledDimension;
     size_t m_iTileOffset;
     size_t m_iTilesPerRow;
@@ -308,7 +323,83 @@ tmTiledMemory* tmAllocTiledMemoryFromFrame(unsigned char* in_pBuffer, int in_iSi
         memcpy(retMemory->m_pBuffer+row*tiled_memory_size, in_pBuffer+row*in_iSize, in_iSize);
     }
 }
-void tmTiledMemoryToFrame(unsigned char* io_pBuffer, int in_iSize, tmTiledMemory* in_pOutputTiled);
+void tmTiledMemoryToFrame(unsigned char* io_pBuffer, int in_iSize, tmTiledMemory* in_pTiled){
+    int size_x;
+    int size_y;
+    if (gAxisFlip == 0) {
+        size_x = in_pTiled->m_iValidX;
+        size_y = in_pTiled->m_iValidY;  
+    } else {
+        size_x = in_pTiled->m_iValidY;
+        size_y = in_pTiled->m_iValidX;   
+    }
+
+    int x_offset;
+    int y_offset;
+    if (gVertex == etop_left || gVertex == etop_right) 
+        x_offset == 0;
+    else
+        x_offset == TILE_SIZE - size_x % TILE_SIZE;
+    
+    if (gVertex == etop_left || gVertex == etop_left) 
+        y_offset == 0;
+    else
+        y_offset == TILE_SIZE - size_y % TILE_SIZE;
+    
+    int tile_per_row;
+    tile_per_row = in_pTiled->m_iTilesPerRow;
+
+    int row_count;
+    int col_count;
+    int remain_row;
+    int remain_col;
+    int copied_row;
+    int copied_col;
+    int row_to_copy;
+    int col_to_copy;
+    int tile_y_offset;
+    int tile_x_offset;
+    int in_tile_row_count;
+    int tile_index;
+    
+    while (remain_row > 0){
+            remain_col = size_x;
+            if ( y_offset != 0 && row_count ==0) {
+                    row_to_copy = TILE_SIZE - y_offset;
+                    tile_y_offset = y_offset;
+            } else if (remain_row < TILE_SIZE) {
+                    row_to_copy = remain_row;
+                    tile_y_offset = 0;
+            } else {
+                    row_to_copy = TILE_SIZE;	
+                    tile_y_offset = 0;
+            }
+            while (remain_col > 0){
+                    copied_row = size_y - remain_row;
+                    copied_col = size_x - remain_col;
+                    tile_index = tile_per_row*row_count+col_count;
+                    for (in_tile_row_count = 0; in_tile_row_count < row_to_copy ; in_tile_row_count ++){
+                            if (x_offset != 0 && col_count == 0) {
+                                    col_to_copy = TILE_SIZE - x_offset;
+                                    tile_x_offset = x_offset;
+                            } else if (remain_col <TILE_SIZE){
+                                    col_to_copy = remain_col;
+                                    tile_x_offset = 0;
+                            } else {
+                                    col_to_copy = TILE_SIZE;
+                                    tile_x_offset = 0;
+                            }
+                            memcpy (io_pBuffer+(copied_row*size_x+copied_col)*PIXEL_SIZE,in_pTiled->m_pTilesMap[tile_index]->m_pRows[tile_y_offset+in_tile_row_count]+tile_x_offset,col_to_copy);
+                            copied_row ++;
+                    }
+                    remain_col -=col_to_copy;
+                    col_count ++;
+            }
+            remain_row -= row_to_copy;
+            row_count++;
+    }
+    
+}
 void tmCleanTile(tmTile* io_pTile, int in_iOffset, tmMoveDirectionFlag in_eFlag) {
    
     int tile_row;
@@ -543,9 +634,6 @@ void tmTransformTiledMemory(tmTiledMemory* io_pTile, tmMat4i* in_pMat){
     }
     tmMapTiledMemory(io_pTile,gIntraTileIndexMap);
 }
-
-void tmRotateTile(tmTile* io_pTile, tmRotionDirectionFlag in_eFlag);
-void tmMirrorTile(tmTile* io_pTile, tmMirrorDirectionFlag in_eFlag);
 
 
 //void tmRotateTiledMemory(tmTiledMemory* io_pTiledMemory, tmRotionDirectionFlag in_eFlag);
