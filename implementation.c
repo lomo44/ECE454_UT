@@ -290,21 +290,40 @@ void tmWriteOrientationToBuffer(tmBuffer in_pBuffer,
     }
 }
 
-void tmGenerateOrientationBuffer(tmBuffer in_pBoundingBox,int in_iBBDimension, tmOrientation in_eOrientation){
+void tmGenerateOrientationBuffer(tmBuffer in_pFrameBuffer,int in_iFrameDimension, int in_iBBDimension, tmOrientation in_eOrientation){
+
     if(gOrientationBuffer[in_eOrientation] == NULL){
         gOrientationBuffer[in_eOrientation] = tmAlloc(unsigned char, in_iBBDimension*in_iBBDimension*PIXEL_SIZE);
     }
-    else{
+    else {
         return;
     }
+    int line_size_in_bytes = in_iBBDimension * PIXEL_SIZE;
     switch(in_eOrientation){
         case e_X_Y: {
+
+            int total_offset = gVertex[VECTOR_Y]*line_size_in_bytes;
+            int toal_x_offset = gVertex[VECTOR_X] * PIXEL_SIZE;
+            int row = 0;
+            for (row = 0; row < in_iBBDimension; row++){
+                memcpy(gOrientationBuffer[in_eOrientation]+in_iBBDimension*PIXEL_SIZE*row,
+                       in_pFrameBuffer+total_offset+row*line_size_in_bytes+toal_x_offset,
+                       in_iBBDimension*PIXEL_SIZE);
+            }
             break;
         }
         case e_X_NY: {
             break;
         }
         case e_NX_Y: {
+            int start,end;
+            start = 0;
+            end = (in_iBBDimension-1)*line_size_in_bytes;
+            while(start < end){
+                memcpy(gOrientationBuffer[in_eOrientation]+end,gOrientationBuffer[e_X_Y]+start, line_size_in_bytes);
+                end -= line_size_in_bytes;
+                start += line_size_in_bytes;
+            }
             break;
         }
         case e_NX_NY: {
