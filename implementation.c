@@ -336,58 +336,63 @@ void tmTiledMemoryToFrame(unsigned char* io_pBuffer, int in_iSize, tmTiledMemory
         x_offset == 0;
     else
         x_offset == TILE_SIZE - size_x % TILE_SIZE;
+    
     if (gVertex == etop_left || gVertex == etop_left) 
         y_offset == 0;
     else
         y_offset == TILE_SIZE - size_y % TILE_SIZE;
     
-    int full_tile_per_row;
-    int full_tile_per_col;
-    full_tile_per_row = in_pTiled->m_iTilesPerRow;
-    full_tile_per_col = in_pTiled->m_iTilesPerCol;
+    int tile_per_row;
+    tile_per_row = in_pTiled->m_iTilesPerRow;
 
-    
     int row_count;
     int col_count;
-    int tile_row_count;
-    int col_remian;
-    int row_remain;
-    row_remain = size_y + y_offset;
-  
-    for (row_count = 0; row_count < full_tile_per_row; row_count++){
-        col_remian = size_x +x_offset;
-        for (col_count = 0; col_count < full_tile_per_col; col_count++){
-            if (y_offset != 0 && row_count == 0) {
-                for (tile_row_count = y_offset; tile_row_count < TILE_SIZE; tile_row_count++) {
-                    if (x_offset != 0 && col_count == 0)
-                    memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count-y_offset)*size_x + col_count*TILE_SIZE)*PIXEL_SIZE, in_pTiled->m_pTilesMap[row_count*full_tile_per_row+col_count]->m_pRows[tile_row_count]+x_offset,TILE_SIZE - x_offset);    
-                    else if (col_remian >= TILE_SIZE)
-                    memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count-y_offset)*size_x + col_count*TILE_SIZE - x_offset)*PIXEL_SIZE, in_pTiled->m_pTilesMap[row_count*full_tile_per_row+col_count]->m_pRows[tile_row_count]+x_offset,TILE_SIZE);
-                    else 
-                    memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count-y_offset)*size_x + col_count*TILE_SIZE - x_offset)*PIXEL_SIZE, in_pTiled->m_pTilesMap[row_count*full_tile_per_row+col_count]->m_pRows[tile_row_count]+x_offset,col_remian);
-                }  
-            } else if (row_remain < TILE_SIZE) {
-                for (tile_row_count = 0; tile_row_count < row_remain; tile_row_count++) {
-                    if (x_offset != 0 && col_count == 0)
-                    memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count-y_offset)*size_x + col_count*TILE_SIZE)*PIXEL_SIZE, in_pTiled->m_pTilesMap[row_count*full_tile_per_row+col_count]->m_pRows[tile_row_count]+x_offset,TILE_SIZE - x_offset);    
-                    else if (col_remian >= TILE_SIZE)
-                    memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count-y_offset)*size_x + col_count*TILE_SIZE - x_offset)*PIXEL_SIZE, in_pTiled->m_pTilesMap[row_count*full_tile_per_row+col_count]->m_pRows[tile_row_count]+x_offset,TILE_SIZE);
-                    else 
-                    memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count-y_offset)*size_x + col_count*TILE_SIZE - x_offset)*PIXEL_SIZE, in_pTiled->m_pTilesMap[row_count*full_tile_per_row+col_count]->m_pRows[tile_row_count]+x_offset,col_remian);
-                }
+    int remain_row;
+    int remain_col;
+    int copied_row;
+    int copied_col;
+    int row_to_copy;
+    int col_to_copy;
+    int tile_y_offset;
+    int tile_x_offset;
+    int in_tile_row_count;
+    int tile_index;
+    
+    while (remain_row > 0){
+            remain_col = size_x;
+            if ( y_offset != 0 && row_count ==0) {
+                    row_to_copy = TILE_SIZE - y_offset;
+                    tile_y_offset = y_offset;
+            } else if (remain_row < TILE_SIZE) {
+                    row_to_copy = remain_row;
+                    tile_y_offset = 0;
             } else {
-                for (tile_row_count = 0; tile_row_count < TILE_SIZE; tile_row_count++) {
-                    if (x_offset != 0 && col_count == 0)
-                    memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count-y_offset)*size_x + col_count*TILE_SIZE)*PIXEL_SIZE, in_pTiled->m_pTilesMap[row_count*full_tile_per_row+col_count]->m_pRows[tile_row_count]+x_offset,TILE_SIZE - x_offset);    
-                    else if (col_remian >= TILE_SIZE)
-                    memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count-y_offset)*size_x + col_count*TILE_SIZE - x_offset)*PIXEL_SIZE, in_pTiled->m_pTilesMap[row_count*full_tile_per_row+col_count]->m_pRows[tile_row_count]+x_offset,TILE_SIZE);
-                    else 
-                    memcpy(io_pBuffer+((row_count*TILE_SIZE +tile_row_count-y_offset)*size_x + col_count*TILE_SIZE - x_offset)*PIXEL_SIZE, in_pTiled->m_pTilesMap[row_count*full_tile_per_row+col_count]->m_pRows[tile_row_count]+x_offset,col_remian);
-                }
+                    row_to_copy = TILE_SIZE;	
+                    tile_y_offset = 0;
             }
-            col_remian -= TILE_SIZE;
-        }
-        row_remain -= TILE_SIZE;
+            while (remain_col > 0){
+                    copied_row = size_y - remain_row;
+                    copied_col = size_x - remain_col;
+                    tile_index = tile_per_row*row_count+col_count;
+                    for (in_tile_row_count = 0; in_tile_row_count < row_to_copy ; in_tile_row_count ++){
+                            if (x_offset != 0 && col_count == 0) {
+                                    col_to_copy = TILE_SIZE - x_offset;
+                                    tile_x_offset = x_offset;
+                            } else if (remain_col <TILE_SIZE){
+                                    col_to_copy = remain_col;
+                                    tile_x_offset = 0;
+                            } else {
+                                    col_to_copy = TILE_SIZE;
+                                    tile_x_offset = 0;
+                            }
+                            memcpy (io_pBuffer+(copied_row*size_x+copied_col)*PIXEL_SIZE,in_pTiled->m_pTilesMap[tile_index]->m_pRows[tile_y_offset+in_tile_row_count]+tile_x_offset,col_to_copy);
+                            copied_row ++;
+                    }
+                    remain_col -=col_to_copy;
+                    col_count ++;
+            }
+            remain_row -= row_to_copy;
+            row_count++;
     }
     
 }
