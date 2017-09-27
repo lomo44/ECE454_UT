@@ -290,9 +290,43 @@ void tmWriteOrientationToBuffer(tmBuffer in_pBuffer,
     }
 }
 
-//void tmGenerateOrientationBuffer(tmBuffer in_pBoundingBox,int in_iBBDimension, tmOrientation in_eOrientation){
-//
-//}
+void tmGenerateOrientationBuffer(tmBuffer in_pBoundingBox,int in_iBBDimension, tmOrientation in_eOrientation){
+    if(gOrientationBuffer[in_eOrientation] == NULL){
+        gOrientationBuffer[in_eOrientation] = tmAlloc(unsigned char, in_iBBDimension*in_iBBDimension*PIXEL_SIZE);
+    }
+    else{
+        return;
+    }
+    switch(in_eOrientation){
+        case e_X_Y: {
+            break;
+        }
+        case e_X_NY: {
+            break;
+        }
+        case e_NX_Y: {
+            break;
+        }
+        case e_NX_NY: {
+            break;
+        }
+        case e_F_X_Y: {
+            break;
+        }
+        case e_F_X_NY: {
+            break;
+        }
+        case e_F_NX_Y: {
+            break;
+        }
+        case e_F_NX_NY: {
+            break;
+        }
+        default:{
+            break;
+        }
+    }
+}
 
 
 
