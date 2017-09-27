@@ -26,13 +26,44 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wincompatible-pointer-types"
 #pragma GCC diagnostic ignored "-Wint-conversion"
+#pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
 
-void implementation_driver_reference_wraper(char **argv){
-    implementation_driver_reference(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5]);
+void implementation_driver_reference_wraper(void *argv[]){
+    struct kv *sensor_values    = (struct kv *)     argv[0];
+    int sensor_values_count     = (int)             argv[1];
+    unsigned char *frame_buffer = (unsigned char *) argv[2];
+    int width                   = (unsigned int)    argv[3];
+    int height                  = (unsigned int)    argv[4];
+    bool grading_mode           = (bool)            argv[4];
+
+    // Provide fresh copy of input frame buffer
+    unsigned char *frame_copy = allocateFrame(width, height);
+    frame_copy = copyFrame(frame_buffer, frame_copy, width, height);
+
+    implementation_driver_reference(sensor_values, sensor_values_count,
+                                    frame_copy, width, height,
+                                    grading_mode);
+
+    deallocateFrame(frame_copy);
 }
 
-void implementation_driver_wraper(char **argv){
-    implementation_driver(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5]);
+void implementation_driver_wraper(void *argv[]){
+    struct kv *sensor_values    = (struct kv *)     argv[0];
+    int sensor_values_count     = (int)             argv[1];
+    unsigned char *frame_buffer = (unsigned char *) argv[2];
+    int width                   = (unsigned int)    argv[3];
+    int height                  = (unsigned int)    argv[4];
+    bool grading_mode           = (bool)            argv[4];
+
+    // Provide fresh copy of input frame buffer
+    unsigned char *frame_copy = allocateFrame(width, height);
+    frame_copy = copyFrame(frame_buffer, frame_copy, width, height);
+
+    implementation_driver(sensor_values, sensor_values_count,
+                          frame_copy, width, height,
+                          grading_mode);
+
+    deallocateFrame(frame_copy);
 }
 // restore compiler switches
 #pragma GCC diagnostic pop
