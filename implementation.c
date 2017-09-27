@@ -213,10 +213,7 @@ void       tmUpdateVertex (tmMat4i* io_pMat){
     else if ((io_pMat[MATRIX_00] == -1 && io_pMat[MATRIX_11] == -1)||(io_pMat[MATRIX_01] == 1 && io_pMat[MATRIX_10] == 1))
         gVertex = ebot_left;
     else
-        printf("Error: Update Vertex Fail");
-        
-    
-    
+        printf("Error: Update Vertex Fail");    
 }
 /////// Tiling /////////////
 typedef struct _tmTile{
