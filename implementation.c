@@ -59,7 +59,6 @@ typedef enum _tmVertexType{
 tmVec4i* gTempVec1 = NULL;
 tmVec4i* gTempVec2 = NULL;
 //int      gVertex   = etop_left;
-int      gAxisFlip = 0;
 
 tmMat4i* gTempMul = NULL;
 tmMat4i* gGlobalCW = NULL;
@@ -123,8 +122,22 @@ void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int size, int length
     
 }
 void        tmCopyMat(tmMat4i* in_pA, tmMat4i* in_pB){
-    memcpy(in_pA, in_pB,sizeof(int)*16);
+    in_pA[MATRIX_00] = in_pB[MATRIX_00];
+    in_pA[MATRIX_01] = in_pB[MATRIX_01];
+    in_pA[MATRIX_02] = in_pB[MATRIX_02];
+    in_pA[MATRIX_10] = in_pB[MATRIX_10];
+    in_pA[MATRIX_11] = in_pB[MATRIX_11];
+    in_pA[MATRIX_12] = in_pB[MATRIX_12];
+    in_pA[MATRIX_20] = in_pB[MATRIX_20];
+    in_pA[MATRIX_21] = in_pB[MATRIX_21];
+    in_pA[MATRIX_22] = in_pB[MATRIX_22];
 }
+void        tmCopyVec(tmVec4i* in_pA, tmVec4i* in_pB){
+    in_pA[VECTOR_X] = in_pB[VECTOR_X];
+    in_pA[VECTOR_Y] = in_pB[VECTOR_Y];
+    in_pA[VECTOR_Z] = in_pB[VECTOR_Z];
+}
+
 void        tmMatMulVec(tmMat4i* in_pA, tmVec4i* in_pB, tmVec4i* io_pC){
 #if ENABLE_SIMD
     
@@ -150,8 +163,8 @@ void        tmMatMulMat(tmMat4i* in_pA, tmMat4i* in_pB, tmMat4i* io_pC){
 #endif
 }
 void        tmMatMulVecInplace(tmMat4i* in_pA, tmVec4i* io_pB){
-    tmMatMulMat(in_pA, io_pB, gTempMul);
-    tmCopyMat(gTempMul,io_pB);
+    tmMatMulVec(in_pA, io_pB, gTempVec1);
+    tmCopyVec(gTempVec1, io_pB);
 }
 
 void        tmLoadMat(tmMat4i* in_pA, tmMatFlag in_eFlag){
@@ -338,6 +351,29 @@ void tmWriteOrientationToBuffer(tmBuffer in_pBuffer,
     }
 }
 
+void tmBufferMirrorX(tmBuffer in_iInputBuffer, tmBuffer in_iOutputBuffer, int in_iSize){
+    int row, col;
+    int offset = 0;
+    for (row = 0; row < in_iSize; row++){
+        offset = row * in_iSize*PIXEL_SIZE;
+        for (col = 0 ; col < in_iSize; col++){
+            memcpy(in_iOutputBuffer+offset+(in_iSize-1-col)*PIXEL_SIZE,in_iInputBuffer+offset+col*PIXEL_SIZE, PIXEL_SIZE);
+        }
+    }
+}
+
+void tmBufferMirrorY(tmBuffer in_iInputBuffer, tmBuffer in_iOutputBuffer, int in_iSize){
+    int start,end,line_size_in_Bytes;
+    line_size_in_Bytes = in_iSize * PIXEL_SIZE;
+    start = 0;
+    end = (in_iSize-1)*in_iSize*PIXEL_SIZE;
+    while(end == 0){
+        memcpy(in_iOutputBuffer+end,in_iInputBuffer+start, line_size_in_Bytes);
+        end -= line_size_in_Bytes;
+        start += line_size_in_Bytes;
+    }
+}
+
 void tmGenerateOrientationBuffer(tmBuffer in_pFrameBuffer,int in_iFrameDimension, int in_iBBDimension, tmOrientation in_eOrientation){
 
     if(gOrientationBuffer[in_eOrientation] == NULL){
@@ -361,48 +397,19 @@ void tmGenerateOrientationBuffer(tmBuffer in_pFrameBuffer,int in_iFrameDimension
         }
         case e_X_NY: {
             if(gOrientationBuffer[e_NX_NY]!=NULL){
-                int start,end;
-                start = 0;
-                end = (in_iBBDimension-1)*line_size_in_bytes;
-                while(end == 0){
-                    memcpy(gOrientationBuffer[e_X_Y]+end,gOrientationBuffer[e_NX_NY]+start, line_size_in_bytes);
-                    end -= line_size_in_bytes;
-                    start += line_size_in_bytes;
-                }
+                tmBufferMirrorX(gOrientationBuffer[e_NX_NY],gOrientationBuffer[e_X_NY],in_iBBDimension);
             }
             else{
-                int row, col;
-                int offset = 0;
-                for (row = 0; row < in_iBBDimension; row++){
-                    offset = row * line_size_in_bytes;
-                    for (col = 0 ; col < in_iBBDimension; col++){
-                        memcpy(gOrientationBuffer[e_X_NY]+offset+(in_iBBDimension-1-col)*PIXEL_SIZE,gOrientationBuffer[e_X_Y]+offset+col*PIXEL_SIZE, PIXEL_SIZE);
-                    }
-                }
+                tmBufferMirrorY(gOrientationBuffer[e_X_Y],gOrientationBuffer[e_X_NY],in_iBBDimension);
             }
             break;
         }
         case e_NX_Y: {
-            int start,end;
-            start = 0;
-            end = (in_iBBDimension-1)*line_size_in_bytes;
-            while(end == 0){
-                memcpy(gOrientationBuffer[in_eOrientation]+end,gOrientationBuffer[e_X_Y]+start, line_size_in_bytes);
-                end -= line_size_in_bytes;
-                start += line_size_in_bytes;
-            }
-            break;
+            tmBufferMirrorX(gOrientationBuffer[e_X_Y],gOrientationBuffer[e_NX_Y],in_iBBDimension);
         }
         case e_NX_NY: {
             if (gOrientationBuffer[e_X_NY] != NULL) {
-                int start,end;
-                start = 0;
-                end = (in_iBBDimension-1)*line_size_in_bytes;
-                while(end == 0){
-                    memcpy(gOrientationBuffer[in_eOrientation]+end,gOrientationBuffer[e_X_Y]+start, line_size_in_bytes);
-                    end -= line_size_in_bytes;
-                    start += line_size_in_bytes;
-                }
+                tmBufferMirrorX(gOrientationBuffer[e_X_NY],gOrientationBuffer[e_NX_NY],in_iBBDimension);
             } else {
                 int buffer_size = in_iBBDimension * in_iBBDimension*PIXEL_SIZE;
                 int pixel_index;
@@ -1175,8 +1182,10 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
                            unsigned int width, unsigned int height, bool grading_mode) {
     int processed_frames = 0;
     tmInit(frame_buffer, width*height);
+
     // Allocate global frame
-    
+    tmUpdateBoundingBox(frame_buffer, height*height, height);
+    tmGenerateOrientationBuffer(frame_buffer,width, gbb_size,e_X_Y);
     for (int sensorValueIdx = 0; sensorValueIdx < sensor_values_count; sensorValueIdx++) {
 //        printf("Processing sensor value #%d: %s, %d\n", sensorValueIdx, sensor_values[sensorValueIdx].key,
 //               sensor_values[sensorValueIdx].value);
@@ -1207,11 +1216,18 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
         }
         processed_frames += 1;
         if (processed_frames % 25 == 0) {
+            tmOrientation orientation  = tmGetOrientationFromMat(gGlobalTransform);
+            if(gOrientationBuffer[orientation] == NULL){
+                tmGenerateOrientationBuffer(NULL,width,gbb_size,orientation);
+            }
+            tmWhitePic(frame_buffer,width);
+            tmMatMulVecInplace(gGlobalTransform,gVertex);
+            tmWriteOrientationToBuffer(frame_buffer,width,gVertex,)
             //tmTransformTiledMemory(gGlobalTiledMemory, gGlobalTransform);
             //tmTiledMemoryToFrame(frame_buffer,width*height,gGlobalTiledMemory);
             verifyFrame(frame_buffer, width, height, grading_mode);
         }
     }
-    //tmCleanUp();
+    tmCleanUp();
     return;
 }
