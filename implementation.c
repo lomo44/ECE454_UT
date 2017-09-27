@@ -55,7 +55,6 @@ typedef enum _tmVertexType{
 tmVec4i* gTempVec1 = NULL;
 tmVec4i* gTempVec2 = NULL;
 int      gVertex   = etop_left;
-int      gAxisFlip = 0;
 
 tmMat4i* gTempMul = NULL;
 tmMat4i* gGlobalCW = NULL;
@@ -200,10 +199,6 @@ void        tmLoadIndexMapFromTransFormMatrix(tmMat4i* in_pMat, tmIndexMap* io_p
 }
 
 void       tmUpdateVertex (tmMat4i* io_pMat){
-    if (io_pMat[MATRIX_01] == 0 )
-        gAxisFlip == 0;
-    else 
-        gAxisFlip == 1;
     if ((io_pMat[MATRIX_00] == 1 && io_pMat[MATRIX_11] == 1)||(io_pMat[MATRIX_01] == -1 && io_pMat[MATRIX_10] == -1))
         gVertex = etop_left;
     else if ((io_pMat[MATRIX_00] == -1 && io_pMat[MATRIX_11] == 1)||(io_pMat[MATRIX_01] == 1 && io_pMat[MATRIX_10] == -1))
@@ -213,7 +208,8 @@ void       tmUpdateVertex (tmMat4i* io_pMat){
     else if ((io_pMat[MATRIX_00] == -1 && io_pMat[MATRIX_11] == -1)||(io_pMat[MATRIX_01] == 1 && io_pMat[MATRIX_10] == 1))
         gVertex = ebot_left;
     else
-        printf("Error: Update Vertex Fail");    
+        printf("Error: Update Vertex Fail");
+    
 }
 /////// Tiling /////////////
 typedef struct _tmTile{
@@ -336,27 +332,19 @@ tmTiledMemory* tmAllocTiledMemoryFromFrame(unsigned char* in_pBuffer, int in_iSi
     }
 }
 void tmTiledMemoryToFrame(unsigned char* io_pBuffer, int in_iSize, tmTiledMemory* in_pTiled){
-    int size_x;
-    int size_y;
-    if (gAxisFlip == 0) {
-        size_x = in_pTiled->m_iValidX;
-        size_y = in_pTiled->m_iValidY;  
-    } else {
-        size_x = in_pTiled->m_iValidY;
-        size_y = in_pTiled->m_iValidX;   
-    }
-
+    int size = in_pTiled->m_iValidX;
+    
     int x_offset;
     int y_offset;
     if (gVertex == etop_left || gVertex == etop_right) 
         x_offset == 0;
     else
-        x_offset == TILE_SIZE - size_x % TILE_SIZE;
+        x_offset == TILE_SIZE - size % TILE_SIZE;
     
     if (gVertex == etop_left || gVertex == etop_left) 
         y_offset == 0;
     else
-        y_offset == TILE_SIZE - size_y % TILE_SIZE;
+        y_offset == TILE_SIZE - size % TILE_SIZE;
     
     int tile_per_row;
     tile_per_row = in_pTiled->m_iTilesPerRow;
@@ -375,7 +363,7 @@ void tmTiledMemoryToFrame(unsigned char* io_pBuffer, int in_iSize, tmTiledMemory
     int tile_index;
     
     while (remain_row > 0){
-            remain_col = size_x;
+            remain_col = size;
             if ( y_offset != 0 && row_count ==0) {
                     row_to_copy = TILE_SIZE - y_offset;
                     tile_y_offset = y_offset;
@@ -387,8 +375,8 @@ void tmTiledMemoryToFrame(unsigned char* io_pBuffer, int in_iSize, tmTiledMemory
                     tile_y_offset = 0;
             }
             while (remain_col > 0){
-                    copied_row = size_y - remain_row;
-                    copied_col = size_x - remain_col;
+                    copied_row = size - remain_row;
+                    copied_col = size - remain_col;
                     tile_index = tile_per_row*row_count+col_count;
                     for (in_tile_row_count = 0; in_tile_row_count < row_to_copy ; in_tile_row_count ++){
                             if (x_offset != 0 && col_count == 0) {
@@ -401,7 +389,7 @@ void tmTiledMemoryToFrame(unsigned char* io_pBuffer, int in_iSize, tmTiledMemory
                                     col_to_copy = TILE_SIZE;
                                     tile_x_offset = 0;
                             }
-                            memcpy (io_pBuffer+(copied_row*size_x+copied_col)*PIXEL_SIZE,in_pTiled->m_pTilesMap[tile_index]->m_pRows[tile_y_offset+in_tile_row_count]+tile_x_offset,col_to_copy);
+                            memcpy (io_pBuffer+(copied_row*size+copied_col)*PIXEL_SIZE,in_pTiled->m_pTilesMap[tile_index]->m_pRows[tile_y_offset+in_tile_row_count]+tile_x_offset,col_to_copy);
                             copied_row ++;
                     }
                     remain_col -=col_to_copy;
@@ -965,6 +953,7 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
         processed_frames += 1;
         if (processed_frames % 25 == 0) {
             tmTransformTiledMemory(gGlobalTiledMemory, gGlobalTransform);
+            tmUpdateVertex(gGlobalTransform);
             tmTiledMemoryToFrame(frame_buffer,width*height,gGlobalTiledMemory);
             verifyFrame(frame_buffer, width, height, grading_mode);
         }
