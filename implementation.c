@@ -59,7 +59,6 @@ typedef enum _tmVertexType{
 tmVec4i* gTempVec1 = NULL;
 tmVec4i* gTempVec2 = NULL;
 //int      gVertex   = etop_left;
-int      gAxisFlip = 0;
 
 tmMat4i* gTempMul = NULL;
 tmMat4i* gGlobalCW = NULL;
@@ -110,8 +109,22 @@ void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int size, int length
     
 }
 void        tmCopyMat(tmMat4i* in_pA, tmMat4i* in_pB){
-    memcpy(in_pA, in_pB,sizeof(int)*16);
+    in_pA[MATRIX_00] = in_pB[MATRIX_00];
+    in_pA[MATRIX_01] = in_pB[MATRIX_01];
+    in_pA[MATRIX_02] = in_pB[MATRIX_02];
+    in_pA[MATRIX_10] = in_pB[MATRIX_10];
+    in_pA[MATRIX_11] = in_pB[MATRIX_11];
+    in_pA[MATRIX_12] = in_pB[MATRIX_12];
+    in_pA[MATRIX_20] = in_pB[MATRIX_20];
+    in_pA[MATRIX_21] = in_pB[MATRIX_21];
+    in_pA[MATRIX_22] = in_pB[MATRIX_22];
 }
+void        tmCopyVec(tmVec4i* in_pA, tmVec4i* in_pB){
+    in_pA[VECTOR_X] = in_pB[VECTOR_X];
+    in_pA[VECTOR_Y] = in_pB[VECTOR_Y];
+    in_pA[VECTOR_Z] = in_pB[VECTOR_Z];
+}
+
 void        tmMatMulVec(tmMat4i* in_pA, tmVec4i* in_pB, tmVec4i* io_pC){
 #if ENABLE_SIMD
     
@@ -137,8 +150,8 @@ void        tmMatMulMat(tmMat4i* in_pA, tmMat4i* in_pB, tmMat4i* io_pC){
 #endif
 }
 void        tmMatMulVecInplace(tmMat4i* in_pA, tmVec4i* io_pB){
-    tmMatMulMat(in_pA, io_pB, gTempMul);
-    tmCopyMat(gTempMul,io_pB);
+    tmMatMulVec(in_pA, io_pB, gTempVec1);
+    tmCopyVec(gTempVec1, io_pB);
 }
 
 void        tmLoadMat(tmMat4i* in_pA, tmMatFlag in_eFlag){
@@ -1111,8 +1124,10 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
                            unsigned int width, unsigned int height, bool grading_mode) {
     int processed_frames = 0;
     tmInit(frame_buffer, width*height);
+
     // Allocate global frame
-    
+    tmUpdateBoundingBox(frame_buffer, height*height, height);
+    tmGenerateOrientationBuffer(frame_buffer,width, gbb_size,e_X_Y);
     for (int sensorValueIdx = 0; sensorValueIdx < sensor_values_count; sensorValueIdx++) {
 //        printf("Processing sensor value #%d: %s, %d\n", sensorValueIdx, sensor_values[sensorValueIdx].key,
 //               sensor_values[sensorValueIdx].value);
@@ -1143,11 +1158,17 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
         }
         processed_frames += 1;
         if (processed_frames % 25 == 0) {
+            tmOrientation orientation  = tmGetOrientationFromMat(gGlobalTransform);
+            if(gOrientationBuffer[orientation] == NULL){
+                tmGenerateOrientationBuffer(NULL,width,gbb_size,orientation);
+            }
+
+            tmWriteOrientationToBuffer(frame_buffer,width,gVertex,)
             //tmTransformTiledMemory(gGlobalTiledMemory, gGlobalTransform);
             //tmTiledMemoryToFrame(frame_buffer,width*height,gGlobalTiledMemory);
             verifyFrame(frame_buffer, width, height, grading_mode);
         }
     }
-    //tmCleanUp();
+    tmCleanUp();
     return;
 }
