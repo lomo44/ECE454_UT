@@ -70,6 +70,10 @@ tmMat4i* gGlobalR180 = NULL;
 tmMat4i* gGlobalTransform = NULL;
 
 tmVec4i* gVertex = NULL;
+tmVec4i* gTL= NULL;
+tmVec4i* gTR= NULL;
+tmVec4i* gBL = NULL;
+tmVec4i* gBR = NULL;
 int      gbb_size = 0;
 void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int size, int length){
     int pixel_index;
@@ -101,6 +105,15 @@ void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int size, int length
     }
     gVertex[VECTOR_X]= x_min;
     gVertex[VECTOR_Y]= y_max;
+    gTL[VECTOR_X]= x_min;
+    gTL[VECTOR_Y]= y_max;
+    gTR[VECTOR_X]= x_max;
+    gTR[VECTOR_Y]= y_max;
+    gBL[VECTOR_X]= x_min;
+    gBL[VECTOR_Y]= y_min;
+    gBR[VECTOR_X]= x_max;
+    gBR[VECTOR_Y]= y_min;
+
     x_size = x_max - x_min + 1;
     y_size = y_max - y_min + 1;
     if (x_size < y_size)
@@ -236,7 +249,33 @@ typedef enum _tmOrientation {
     e_F_NX_NY
 } tmOrientation;
 
+void tmUpdateVertex (tmMat4i* in_pMat) {
 
+    tmMatMulVecInplace(in_pMat, gTL);
+    tmMatMulVecInplace(in_pMat, gTR);
+    tmMatMulVecInplace(in_pMat, gBL);
+    tmMatMulVecInplace(in_pMat, gBR);
+
+    int x_min= gTL[VECTOR_X];
+    if (gTR[VECTOR_X] < x_min)
+        x_min = gTR[VECTOR_X];
+    if (gBL[VECTOR_X] < x_min)
+        x_min = gBL[VECTOR_X];
+    if (gBR[VECTOR_X] < x_min)
+        x_min = gBR[VECTOR_X];
+
+    int y_max= gTL[VECTOR_Y];
+    if (gTR[VECTOR_Y] > y_max)
+        y_max = gTR[VECTOR_Y];
+    if (gBL[VECTOR_Y] > y_max)
+        y_max = gBL[VECTOR_Y];
+    if (gBR[VECTOR_Y] > y_max)
+        y_max = gBR[VECTOR_Y];
+
+    gVertex [VECTOR_X] = x_min;
+    gVertex [VECTOR_Y] = y_max;
+
+};
 tmOrientation tmGetOrientationFromMat(tmMat4i* in_pMat){
     if(in_pMat[MATRIX_00] == 1){
         if(in_pMat[MATRIX_11] == 1) {
