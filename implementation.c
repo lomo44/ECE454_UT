@@ -214,8 +214,6 @@ void       tmUpdateVertex (tmMat4i* io_pMat){
         gVertex = ebot_left;
     else
         printf("Error: Update Vertex Fail");
-        
-    
     
 }
 /////// Tiling /////////////
@@ -968,6 +966,7 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
         processed_frames += 1;
         if (processed_frames % 25 == 0) {
             tmTransformTiledMemory(gGlobalTiledMemory, gGlobalTransform);
+            tmUpdateVertex(gGlobalTransform);
             tmTiledMemoryToFrame(frame_buffer,width*height,gGlobalTiledMemory);
             verifyFrame(frame_buffer, width, height, grading_mode);
         }
