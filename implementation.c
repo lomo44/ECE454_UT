@@ -274,6 +274,15 @@ tmOrientation tmGetOrientationFromMat(tmMat4i* in_pMat){
 
 tmBuffer* gOrientationBuffer = NULL;
 
+void        tmWhitePic (unsigned char* in_iBuffer, int length) {
+    int row_count;
+    int start_row = gVertex[VECTOR_Y];
+    int start_col = gVertex[VECTOR_X];
+    for (row_count = 0; row_count < gbb_size; row_count++) {
+        memset(in_iBuffer + ( (start_row + row_count) * length + start_col)*PIXEL_SIZE,0,gbb_size);
+    }
+}
+
 void tmWriteOrientationToBuffer(tmBuffer in_pBuffer,
                                 int in_iDimension,
                                 tmVec4i* in_pTopLeft,
