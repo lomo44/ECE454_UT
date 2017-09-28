@@ -102,6 +102,25 @@ void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int size, int length
             }
         }
     }
+
+    x_size = x_max - x_min + 1;
+    y_size = y_max - y_min + 1;
+
+    if (x_size < y_size)
+        gbb_size = y_size;
+    else
+        gbb_size = x_size;
+
+    if (y_min + gbb_size > length) {
+        y_min= length - gbb_size ;
+    }
+    if (x_min + gbb_size > length) {
+        x_min= length - gbb_size ;
+    }
+
+    x_max = x_min + gbb_size -1 ;
+    y_max = y_min + gbb_size -1 ;
+
     gVertex[VECTOR_X]= x_min;
     gVertex[VECTOR_Y]= y_min;
     gTL[VECTOR_X]= x_min;
@@ -113,8 +132,7 @@ void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int size, int length
     gBR[VECTOR_X]= x_max;
     gBR[VECTOR_Y]= y_max;
 
-    x_size = x_max - x_min + 1;
-    y_size = y_max - y_min + 1;
+
     if (x_size < y_size)
         gbb_size = y_size;
     else 
