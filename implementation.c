@@ -131,12 +131,6 @@ void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int size, int length
     gBL[VECTOR_Y]= y_max;
     gBR[VECTOR_X]= x_max;
     gBR[VECTOR_Y]= y_max;
-
-
-    if (x_size < y_size)
-        gbb_size = y_size;
-    else 
-        gbb_size = x_size;
     
 }
 void        tmCopyMat(tmMat4i* in_pA, tmMat4i* in_pB){
