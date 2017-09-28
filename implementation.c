@@ -27,6 +27,9 @@
 #define VECTOR_X 0
 #define VECTOR_Y 1
 #define VECTOR_Z 2
+#define R_OFFSET 0
+#define G_OFFSET 1
+#define B_OFFSET 2
 
 ///////////// Matrix Operation ////////////////////
 
@@ -54,7 +57,13 @@ typedef enum _tmVertexType{
     ebot_right,
 } tmVertexType;
 
-
+int tmMin(int x, int y){
+    if(x>y){
+        return x;
+    }
+    else
+        return y;
+}
 
 tmVec4i* gTempVec1 = NULL;
 tmVec4i* gTempVec2 = NULL;
@@ -263,7 +272,6 @@ void        tmExtractTransform(tmMat4i* in_pA, tmMat4i* io_pB){
 }
 
 
-
 typedef enum _tmOrientation {
     e_X_Y = 0,
     e_X_NY,
@@ -411,6 +419,8 @@ void tmGenerateOrientationBuffer(tmBuffer in_pFrameBuffer,int in_iFrameDimension
         return;
     }
     int line_size_in_bytes = in_iBBDimension * PIXEL_SIZE;
+    tmBuffer src_buffer = gOrientationBuffer[e_X_Y];
+    tmBuffer dst_buffer = gOrientationBuffer[in_eOrientation];
     switch(in_eOrientation){
         case e_X_Y: {
             int total_offset = gVertex[VECTOR_Y]*line_size_in_bytes;
@@ -448,15 +458,138 @@ void tmGenerateOrientationBuffer(tmBuffer in_pFrameBuffer,int in_iFrameDimension
             break;
         }
         case e_F_X_Y: {
+            if(gOrientationBuffer[e_NX_Y]!=NULL){
+                tmBufferMirrorX(gOrientationBuffer[e_NX_Y],gOrientationBuffer[e_X_Y],in_iBBDimension);
+            }
+            else{
+
+                int f_row,f_col,t_row,t_col;
+                int blk_col_size, blk_row_size;
+                int src_x,src_y,src_index,dst_index;
+                f_row = 0;
+                f_col = 0;
+                while(f_row < in_iBBDimension){
+                    blk_row_size = tmMin(TILE_SIZE, in_iBBDimension-f_row);
+                    while(f_col < in_iBBDimension){
+                        blk_col_size = tmMin(TILE_SIZE, in_iBBDimension-f_col);
+                        for(t_row = 0; t_row < blk_row_size; t_row++){
+                            src_y = f_row+t_row;
+                            for(t_col = 0 ; t_col < blk_col_size; t_col++){
+                                src_x = f_col+t_col;
+                                src_index = src_y*in_iBBDimension + src_x*PIXEL_SIZE;
+                                dst_index = src_x*in_iBBDimension + src_y*PIXEL_SIZE;
+                                dst_buffer[dst_index+R_OFFSET] = src_buffer[src_index+R_OFFSET];
+                                dst_buffer[dst_index+G_OFFSET] = src_buffer[src_index+G_OFFSET];
+                                dst_buffer[dst_index+B_OFFSET] = src_buffer[src_index+B_OFFSET];
+                            }
+                        }
+                        f_col += blk_col_size;
+                    }
+                    f_row+=blk_row_size;
+                }
+            }
             break;
         }
         case e_F_X_NY: {
+            if(gOrientationBuffer[e_F_X_Y]!=NULL){
+                tmBufferMirrorY(gOrientationBuffer[e_F_X_Y],gOrientationBuffer[e_F_X_NY], in_iBBDimension);
+            }
+            else {
+                int f_row, f_col, t_row, t_col;
+                int blk_col_size, blk_row_size;
+                int src_x, src_y, src_index, dst_index, dst_x, dst_y;
+                f_row = 0;
+                f_col = 0;
+                while (f_row < in_iBBDimension) {
+                    blk_row_size = tmMin(TILE_SIZE, in_iBBDimension - f_row);
+                    while (f_col < in_iBBDimension) {
+                        blk_col_size = tmMin(TILE_SIZE, in_iBBDimension - f_col);
+                        for (t_row = 0; t_row < blk_row_size; t_row++) {
+                            src_y = f_row + t_row;
+                            for (t_col = 0; t_col < blk_col_size; t_col++) {
+                                src_x = f_col + t_col;
+                                dst_x = src_y;
+                                dst_y = (in_iBBDimension - 1) - src_x;
+                                src_index = src_y * in_iBBDimension + src_x * PIXEL_SIZE;
+                                dst_index = dst_y * in_iBBDimension + dst_x * PIXEL_SIZE;
+                                dst_buffer[dst_index + R_OFFSET] = src_buffer[src_index + R_OFFSET];
+                                dst_buffer[dst_index + G_OFFSET] = src_buffer[src_index + G_OFFSET];
+                                dst_buffer[dst_index + B_OFFSET] = src_buffer[src_index + B_OFFSET];
+                            }
+                        }
+                        f_col += blk_col_size;
+                    }
+                    f_row += blk_row_size;
+                }
+            }
             break;
         }
         case e_F_NX_Y: {
+            if(gOrientationBuffer[e_F_X_Y]!=NULL){
+                tmBufferMirrorX(gOrientationBuffer[e_F_X_Y],gOrientationBuffer[e_F_NX_Y], in_iBBDimension);
+            }
+            else {
+                int f_row, f_col, t_row, t_col;
+                int blk_col_size, blk_row_size;
+                int src_x, src_y, src_index, dst_index, dst_x, dst_y;
+                f_row = 0;
+                f_col = 0;
+                while (f_row < in_iBBDimension) {
+                    blk_row_size = tmMin(TILE_SIZE, in_iBBDimension - f_row);
+                    while (f_col < in_iBBDimension) {
+                        blk_col_size = tmMin(TILE_SIZE, in_iBBDimension - f_col);
+                        for (t_row = 0; t_row < blk_row_size; t_row++) {
+                            src_y = f_row + t_row;
+                            for (t_col = 0; t_col < blk_col_size; t_col++) {
+                                src_x = f_col + t_col;
+                                dst_x = (in_iBBDimension - 1) - src_y;
+                                dst_y = src_x;
+                                src_index = src_y * in_iBBDimension + src_x * PIXEL_SIZE;
+                                dst_index = dst_y * in_iBBDimension + dst_x * PIXEL_SIZE;
+                                dst_buffer[dst_index + R_OFFSET] = src_buffer[src_index + R_OFFSET];
+                                dst_buffer[dst_index + G_OFFSET] = src_buffer[src_index + G_OFFSET];
+                                dst_buffer[dst_index + B_OFFSET] = src_buffer[src_index + B_OFFSET];
+                            }
+                        }
+                        f_col += blk_col_size;
+                    }
+                    f_row += blk_row_size;
+                }
+            }
             break;
         }
         case e_F_NX_NY: {
+            if(gOrientationBuffer[e_F_X_NY]!=NULL){
+                tmBufferMirrorX(gOrientationBuffer[e_F_X_NY],gOrientationBuffer[e_F_NX_NY], in_iBBDimension);
+            }
+            else {
+                int f_row, f_col, t_row, t_col;
+                int blk_col_size, blk_row_size;
+                int src_x, src_y, src_index, dst_index, dst_x, dst_y;
+                f_row = 0;
+                f_col = 0;
+                while (f_row < in_iBBDimension) {
+                    blk_row_size = tmMin(TILE_SIZE, in_iBBDimension - f_row);
+                    while (f_col < in_iBBDimension) {
+                        blk_col_size = tmMin(TILE_SIZE, in_iBBDimension - f_col);
+                        for (t_row = 0; t_row < blk_row_size; t_row++) {
+                            src_y = f_row + t_row;
+                            for (t_col = 0; t_col < blk_col_size; t_col++) {
+                                src_x = f_col + t_col;
+                                dst_x = (in_iBBDimension - 1) - src_y;
+                                dst_y = (in_iBBDimension - 1) - src_x;
+                                src_index = src_y * in_iBBDimension + src_x * PIXEL_SIZE;
+                                dst_index = dst_y * in_iBBDimension + dst_x * PIXEL_SIZE;
+                                dst_buffer[dst_index + R_OFFSET] = src_buffer[src_index + R_OFFSET];
+                                dst_buffer[dst_index + G_OFFSET] = src_buffer[src_index + G_OFFSET];
+                                dst_buffer[dst_index + B_OFFSET] = src_buffer[src_index + B_OFFSET];
+                            }
+                        }
+                        f_col += blk_col_size;
+                    }
+                    f_row += blk_row_size;
+                }
+            }
             break;
         }
         default:{
