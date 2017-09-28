@@ -133,6 +133,7 @@ void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int size, int length
     gBR[VECTOR_Y]= y_max;
     
 }
+
 void        tmCopyMat(tmMat4i* in_pA, tmMat4i* in_pB){
     in_pA[MATRIX_00] = in_pB[MATRIX_00];
     in_pA[MATRIX_01] = in_pB[MATRIX_01];
@@ -314,10 +315,8 @@ void tmUpdateVertex (tmMat4i* in_pMat, int length) {
     } else {
         gVertex [VECTOR_Y] = y_min;
     }
+}
 
-
-
-};
 tmOrientation tmGetOrientationFromMat(tmMat4i* in_pMat){
     if(in_pMat[MATRIX_00] == 1){
         if(in_pMat[MATRIX_11] == 1) {
