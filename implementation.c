@@ -103,15 +103,15 @@ void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int size, int length
         }
     }
     gVertex[VECTOR_X]= x_min;
-    gVertex[VECTOR_Y]= y_max;
+    gVertex[VECTOR_Y]= y_min;
     gTL[VECTOR_X]= x_min;
-    gTL[VECTOR_Y]= y_max;
+    gTL[VECTOR_Y]= y_min;
     gTR[VECTOR_X]= x_max;
-    gTR[VECTOR_Y]= y_max;
+    gTR[VECTOR_Y]= y_min;
     gBL[VECTOR_X]= x_min;
-    gBL[VECTOR_Y]= y_min;
+    gBL[VECTOR_Y]= y_max;
     gBR[VECTOR_X]= x_max;
-    gBR[VECTOR_Y]= y_min;
+    gBR[VECTOR_Y]= y_max;
 
     x_size = x_max - x_min + 1;
     y_size = y_max - y_min + 1;
@@ -171,33 +171,33 @@ void        tmLoadMat(tmMat4i* in_pA, tmMatFlag in_eFlag){
     switch(in_eFlag){
         case eMatrixType_CCW90:{
             in_pA[MATRIX_00] = 0;
-            in_pA[MATRIX_01] = -1;
-            in_pA[MATRIX_10] = 1;
-            in_pA[MATRIX_11] = 0;
-            in_pA[MATRIX_22] = 1;
-            break;
-        }
-        case eMatrixType_CW90:{
-            in_pA[MATRIX_00] = 0;
             in_pA[MATRIX_01] = 1;
             in_pA[MATRIX_10] = -1;
             in_pA[MATRIX_11] = 0;
             in_pA[MATRIX_22] = 1;
             break;
         }
-        case eMatrixType_MirroX:{
-            in_pA[MATRIX_00] = -1;
-            in_pA[MATRIX_01] = 0;
-            in_pA[MATRIX_10] = 0;
-            in_pA[MATRIX_11] = 1;
+        case eMatrixType_CW90:{
+            in_pA[MATRIX_00] = 0;
+            in_pA[MATRIX_01] = -1;
+            in_pA[MATRIX_10] = 1;
+            in_pA[MATRIX_11] = 0;
             in_pA[MATRIX_22] = 1;
             break;
         }
-        case eMatrixType_MirroY:{
+        case eMatrixType_MirroX:{
             in_pA[MATRIX_00] = 1;
             in_pA[MATRIX_01] = 0;
             in_pA[MATRIX_10] = 0;
             in_pA[MATRIX_11] = -1;
+            in_pA[MATRIX_22] = 1;
+            break;
+        }
+        case eMatrixType_MirroY:{
+            in_pA[MATRIX_00] = -1;
+            in_pA[MATRIX_01] = 0;
+            in_pA[MATRIX_10] = 0;
+            in_pA[MATRIX_11] = 1;
             in_pA[MATRIX_22] = 1;
             break;
         }
@@ -262,7 +262,7 @@ typedef enum _tmOrientation {
     e_F_NX_NY
 } tmOrientation;
 
-void tmUpdateVertex (tmMat4i* in_pMat) {
+void tmUpdateVertex (tmMat4i* in_pMat, int length) {
 
     tmMatMulVecInplace(in_pMat, gTL);
     tmMatMulVecInplace(in_pMat, gTR);
@@ -277,16 +277,33 @@ void tmUpdateVertex (tmMat4i* in_pMat) {
     if (gBR[VECTOR_X] < x_min)
         x_min = gBR[VECTOR_X];
 
-    int y_max= gTL[VECTOR_Y];
-    if (gTR[VECTOR_Y] > y_max)
-        y_max = gTR[VECTOR_Y];
-    if (gBL[VECTOR_Y] > y_max)
-        y_max = gBL[VECTOR_Y];
-    if (gBR[VECTOR_Y] > y_max)
-        y_max = gBR[VECTOR_Y];
+    int y_min= gTL[VECTOR_Y];
+    if (gTR[VECTOR_Y] < y_min)
+        y_min = gTR[VECTOR_Y];
+    if (gBL[VECTOR_Y] < y_min)
+        y_min = gBL[VECTOR_Y];
+    if (gBR[VECTOR_Y] < y_min)
+        y_min = gBR[VECTOR_Y];
+    if (x_min < 0) {
+        gVertex [VECTOR_X] = x_min + length -1;
+        gTL[VECTOR_X] =  gTL[VECTOR_X] + length -1;
+        gTR[VECTOR_X] =  gTR[VECTOR_X] + length -1;
+        gBL[VECTOR_X] =  gBL[VECTOR_X] + length -1;
+        gBR[VECTOR_X] =  gBR[VECTOR_X] + length -1;
+    } else {
+        gVertex [VECTOR_X] = x_min;
+    }
+    if (y_min < 0) {
+        gVertex [VECTOR_Y] = y_min + length -1;
+        gTL[VECTOR_Y] =  gTL[VECTOR_Y] + length -1;
+        gTR[VECTOR_Y] =  gTR[VECTOR_Y] + length -1;
+        gBL[VECTOR_Y] =  gBL[VECTOR_Y] + length -1;
+        gBR[VECTOR_Y] =  gBR[VECTOR_Y] + length -1;
+    } else {
+        gVertex [VECTOR_Y] = y_min;
+    }
 
-    gVertex [VECTOR_X] = x_min;
-    gVertex [VECTOR_Y] = y_max;
+
 
 };
 tmOrientation tmGetOrientationFromMat(tmMat4i* in_pMat){
@@ -714,6 +731,11 @@ void tmInit(){
     gGlobalR180 = tmAllocMat(eMatrixType_R180);
     gGlobalTransform = tmAllocMat(eMatrixType_Identity);
     gTempMul  =tmAllocMat(eMatrixType_Identity);
+    gTL = tmAlloc(tmVec4i, 1);
+    gTR = tmAlloc(tmVec4i, 1);
+    gBL = tmAlloc(tmVec4i, 1);
+    gBR = tmAlloc(tmVec4i, 1);
+    gVertex = tmAlloc(tmVec4i, 1);
 }
 void tmCleanUp(){
     tmFreeMat(gTempMul);
@@ -724,6 +746,12 @@ void tmCleanUp(){
     tmFreeMat(gGlobalMirrorYMatrix);
     tmFreeMat(gGlobalR180);
     tmFreeMat(gGlobalTransform);
+    tmFreeVec(gTL);
+    tmFreeVec(gBL);
+    tmFreeVec(gTR);
+    tmFreeVec(gBR);
+    tmFreeVec(gVertex);
+
 }
 //void tmMoveTile(tmTile* io_pFrom, tmTile* io_pTo, int in_iOffset, tmMoveDirectionFlag in_eFlag){
 //    if (in_iOffset == 0)
@@ -1221,7 +1249,7 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
                 tmGenerateOrientationBuffer(NULL,width,gbb_size,orientation);
             }
             tmWhitePic(frame_buffer,width);
-            tmUpdateVertex(gGlobalTransform);
+            tmUpdateVertex(gGlobalTransform,width);
             tmWriteOrientationToBuffer(frame_buffer,width,gVertex,gbb_size,orientation);
             //tmTransformTiledMemory(gGlobalTiledMemory, gGlobalTransform);
             //tmTiledMemoryToFrame(frame_buffer,width*height,gGlobalTiledMemory);
