@@ -555,12 +555,12 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
             dst_buffer = gFrameCache[e_X_NY].m_pBuffer;
             gFrameCache[in_eOrientation].m_iWidth = gFrameCache[e_X_Y].m_iWidth;
             gFrameCache[in_eOrientation].m_iLength = gFrameCache[e_X_Y].m_iLength;
-            if(gFrameCache[e_NX_NY].m_pBuffer!=NULL){
-                tmBufferMirrorX(gFrameCache[e_NX_NY].m_pBuffer,dst_buffer,gFrameCache[e_X_NY].m_iWidth,gFrameCache[e_X_NY].m_iLength);
-            }
-            else{
-                tmBufferMirrorY(gFrameCache[e_X_Y].m_pBuffer,dst_buffer,gFrameCache[e_X_NY].m_iWidth,gFrameCache[e_X_NY].m_iLength);
-            }
+            //if(gFrameCache[e_NX_NY].m_pBuffer!=NULL){
+            //    tmBufferMirrorX(gFrameCache[e_NX_NY].m_pBuffer,dst_buffer,gFrameCache[e_X_NY].m_iWidth,gFrameCache[e_X_NY].m_iLength);
+            //}
+            //else{
+                tmBufferMirrorX(gFrameCache[e_X_Y].m_pBuffer,dst_buffer,gFrameCache[e_X_NY].m_iWidth,gFrameCache[e_X_NY].m_iLength);
+            //}
 
             break;
         }
@@ -568,7 +568,12 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
             dst_buffer = gFrameCache[e_NX_Y].m_pBuffer;
             gFrameCache[in_eOrientation].m_iWidth = gFrameCache[e_X_Y].m_iWidth;
             gFrameCache[in_eOrientation].m_iLength = gFrameCache[e_X_Y].m_iLength;
-            tmBufferMirrorX(gFrameCache[e_X_Y].m_pBuffer,dst_buffer,gFrameCache[e_NX_Y].m_iWidth,gFrameCache[e_NX_Y].m_iLength);
+            if (gFrameCache[e_NX_NY].m_pBuffer!=NULL){
+                tmBufferMirrorX(gFrameCache[e_NX_NY].m_pBuffer,dst_buffer,gFrameCache[e_X_NY].m_iWidth,gFrameCache[e_X_NY].m_iLength);
+            } else {
+                tmBufferMirrorY(gFrameCache[e_X_Y].m_pBuffer,dst_buffer,gFrameCache[e_NX_Y].m_iWidth,gFrameCache[e_NX_Y].m_iLength);
+            }
+
             break;
         }
         case e_NX_NY: {
@@ -588,6 +593,7 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
             break;
         }
         case e_F_X_Y: {
+            printf("Mike is doing this\n");
             gFrameCache[in_eOrientation].m_iWidth = gFrameCache[e_X_Y].m_iLength;
             gFrameCache[in_eOrientation].m_iLength = gFrameCache[e_X_Y].m_iWidth;
             width = gFrameCache[in_eOrientation].m_iWidth;
@@ -606,9 +612,9 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
                 f_col = 0;
                 width = gFrameCache[e_X_Y].m_iWidth;
                 length = gFrameCache[e_X_Y].m_iLength;
-                while(f_row < width){
+                while(f_row < length){
                     blk_row_size = tmMin(TILE_SIZE, length-f_row);
-                    while(f_col < length){
+                    while(f_col < width){
                         blk_col_size = tmMin(TILE_SIZE, width-f_col);
                         for(t_row = 0; t_row < blk_row_size; t_row++){
                             src_y = f_row+t_row;
