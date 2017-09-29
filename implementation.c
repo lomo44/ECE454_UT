@@ -527,7 +527,9 @@ void tmGenerateBaseBuffer(tmBuffer in_pFrameBuffer, int in_iFrameDimension){
         total_y_offset = gTL[VECTOR_Y] * line_size_in_bytes;
         total_x_offset = gTL[VECTOR_X] * PIXEL_SIZE;
         for(row = 0; row < base_length;row++){
-            memcpy(gFrameCache[e_X_Y].m_pBuffer+row*base_Width*PIXEL_SIZE, in_pFrameBuffer+total_x_offset+total_y_offset+row*line_size_in_bytes,base_Width*PIXEL_SIZE);
+            memcpy(gFrameCache[e_X_Y].m_pBuffer+row*base_Width*PIXEL_SIZE,
+                   in_pFrameBuffer+total_x_offset+total_y_offset+row*line_size_in_bytes,
+                   base_Width*PIXEL_SIZE);
         }
         //tmPrintFrame(gFrameCache[e_X_Y].m_pBuffer,base_Width,base_length);
     }
@@ -535,7 +537,7 @@ void tmGenerateBaseBuffer(tmBuffer in_pFrameBuffer, int in_iFrameDimension){
 
 void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
     if(gFrameCache[in_eOrientation].m_pBuffer == NULL){
-        //printf("Generate Buffer Orientation %d\n",in_eOrientation);
+        printf("Generate Buffer Orientation %d\n",in_eOrientation);
         int size = gFrameCache[e_X_Y].m_iWidth * gFrameCache[e_X_Y].m_iLength;
         gFrameCache[in_eOrientation].m_pBuffer = tmAlloc(unsigned char, size*PIXEL_SIZE);
     }
@@ -578,7 +580,7 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
                 int buffer_size = gFrameCache[e_X_Y].m_iLength*gFrameCache[e_X_Y].m_iWidth*PIXEL_SIZE;
                 int pixel_index;
                 for (pixel_index = 0; pixel_index < buffer_size; pixel_index += 3) {
-                    memcpy(gFrameCache[in_eOrientation].m_pBuffer + pixel_index, gFrameCache[e_X_Y].m_pBuffer + buffer_size -1 - pixel_index, PIXEL_SIZE);
+                    memcpy(gFrameCache[in_eOrientation].m_pBuffer + pixel_index, gFrameCache[e_X_Y].m_pBuffer + (buffer_size -PIXEL_SIZE) - pixel_index, PIXEL_SIZE);
                 }
             }
 
@@ -788,6 +790,7 @@ void tmInit(){
         gInited = 1;
     }
     else{
+        tmLoadMat(gGlobalTransform,eMatrixType_Identity);
         tmCleanVec(gTL);
         tmCleanVec(gTR);
         tmCleanVec(gBL);
@@ -1133,6 +1136,9 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
             tmClearFrame(frame_buffer,width,gVertex,bb_width,bb_length);
             //tmPrintFrame(frame_buffer,width,height);
             tmUpdateVertex(gGlobalTransform,width);
+            printf("T_M\n");
+            tmPrintMat(gGlobalTransform);
+            printf("T_V\n");
             tmPrintVec(gVertex);
             printf("Orientation: %d\n",orientation);
             tmWriteFrameFromCache(frame_buffer, width, gVertex,orientation);
