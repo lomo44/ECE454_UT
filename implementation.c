@@ -1053,7 +1053,7 @@ unsigned char *processMirrorY(unsigned char *buffer_frame, unsigned width, unsig
  **********************************************************************************************************************/
 void print_team_info(){
     // Please modify this field with something interesting
-    char team_name[] = "ECE_Beauty";
+    char team_name[] = "NSFW";
 
     // Please fill in your information
     char student1_first_name[] = "Zhuang";
