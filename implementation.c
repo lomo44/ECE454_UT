@@ -67,12 +67,32 @@ bool gInited = 0;
 
 int tmMin(int x, int y){
     if(x>y){
-        return x;
+        return y;
     }
     else
-        return y;
+        return x;
+}
+int tmMin4(int w, int x, int y, int z){
+    int min = w;
+    if(x < min)
+        min = x;
+    if(y < min)
+        min = y;
+    if(z < min)
+        min = z;
+    return min;
 }
 
+int tmMax4(int w, int x, int y, int z){
+    int max = w;
+    if(x > max)
+        max = x;
+    if(y > max)
+        max = y;
+    if(z > max)
+        max = z;
+    return max;
+}
 tmVec4i* gTempVec1 = NULL;
 
 //int      gVertex   = etop_left;
@@ -301,40 +321,69 @@ void tmUpdateVertex (tmMat4i* in_pMat, int length) {
 //    tmPrintVec(gTR);
 //    tmPrintVec(gBL);
 //    tmPrintVec(gBR);
-    int x_min= gTL[VECTOR_X];
-    if (gTR[VECTOR_X] < x_min)
-        x_min = gTR[VECTOR_X];
-    if (gBL[VECTOR_X] < x_min)
-        x_min = gBL[VECTOR_X];
-    if (gBR[VECTOR_X] < x_min)
-        x_min = gBR[VECTOR_X];
-
-    int y_min= gTL[VECTOR_Y];
-    if (gTR[VECTOR_Y] < y_min)
-        y_min = gTR[VECTOR_Y];
-    if (gBL[VECTOR_Y] < y_min)
-        y_min = gBL[VECTOR_Y];
-    if (gBR[VECTOR_Y] < y_min)
-        y_min = gBR[VECTOR_Y];
-
-    if (x_min < 0) {
-        gVertex [VECTOR_X] = x_min + length -1;
-        gTL[VECTOR_X] =  gTL[VECTOR_X] + length -1;
-        gTR[VECTOR_X] =  gTR[VECTOR_X] + length -1;
-        gBL[VECTOR_X] =  gBL[VECTOR_X] + length -1;
-        gBR[VECTOR_X] =  gBR[VECTOR_X] + length -1;
-    } else {
-        gVertex [VECTOR_X] = x_min;
+    if (gTL[VECTOR_X] < 0 || gTR[VECTOR_X] < 0 || gBL[VECTOR_X] < 0 || gBR[VECTOR_X] <0){
+        gTL[VECTOR_X]+=length-1;
+        gTR[VECTOR_X]+=length-1;
+        gBR[VECTOR_X]+=length-1;
+        gBL[VECTOR_X]+=length-1;
     }
-    if (y_min < 0) {
-        gVertex [VECTOR_Y] = y_min + length -1;
-        gTL[VECTOR_Y] =  gTL[VECTOR_Y] + length -1;
-        gTR[VECTOR_Y] =  gTR[VECTOR_Y] + length -1;
-        gBL[VECTOR_Y] =  gBL[VECTOR_Y] + length -1;
-        gBR[VECTOR_Y] =  gBR[VECTOR_Y] + length -1;
-    } else {
-        gVertex [VECTOR_Y] = y_min;
+    if (gTL[VECTOR_Y] < 0 || gTR[VECTOR_Y] < 0 || gBL[VECTOR_Y] < 0 || gBR[VECTOR_Y] <0){
+        gTL[VECTOR_Y]+=length-1;
+        gTR[VECTOR_Y]+=length-1;
+        gBR[VECTOR_Y]+=length-1;
+        gBL[VECTOR_Y]+=length-1;
     }
+    int xmin,xmax,ymin,ymax;
+    xmin = tmMin4(gTL[VECTOR_X],gTR[VECTOR_X],gBL[VECTOR_X],gBR[VECTOR_X]);
+    xmax = tmMax4(gTL[VECTOR_X],gTR[VECTOR_X],gBL[VECTOR_X],gBR[VECTOR_X]);
+    ymin = tmMin4(gTL[VECTOR_Y],gTR[VECTOR_Y],gBL[VECTOR_Y],gBR[VECTOR_Y]);
+    ymax = tmMax4(gTL[VECTOR_Y],gTR[VECTOR_Y],gBL[VECTOR_Y],gBR[VECTOR_Y]);
+    //printf("%d,%d,%d,%d\n",xmin,xmax,ymin,ymax);
+    gVertex[VECTOR_X] = xmin;
+    gVertex[VECTOR_Y] = ymin;
+    gTL[VECTOR_X] = xmin;
+    gTL[VECTOR_Y] = ymin;
+    gTR[VECTOR_X] = xmax;
+    gTR[VECTOR_Y] = ymin;
+    gBL[VECTOR_X] = xmin;
+    gBL[VECTOR_Y] = ymax;
+    gBR[VECTOR_X] = xmax;
+    gBR[VECTOR_Y] = ymax;
+
+//    int x_min= gTL[VECTOR_X];
+//    if (gTR[VECTOR_X] < x_min)
+//        x_min = gTR[VECTOR_X];
+//    if (gBL[VECTOR_X] < x_min)
+//        x_min = gBL[VECTOR_X];
+//    if (gBR[VECTOR_X] < x_min)
+//        x_min = gBR[VECTOR_X];
+//
+//    int y_min= gTL[VECTOR_Y];
+//    if (gTR[VECTOR_Y] < y_min)
+//        y_min = gTR[VECTOR_Y];
+//    if (gBL[VECTOR_Y] < y_min)
+//        y_min = gBL[VECTOR_Y];
+//    if (gBR[VECTOR_Y] < y_min)
+//        y_min = gBR[VECTOR_Y];
+//
+//    if (x_min < 0) {
+//        gVertex [VECTOR_X] = x_min + length -1;
+//        gTL[VECTOR_X] =  gTL[VECTOR_X] + length -1;
+//        gTR[VECTOR_X] =  gTR[VECTOR_X] + length -1;
+//        gBL[VECTOR_X] =  gBL[VECTOR_X] + length -1;
+//        gBR[VECTOR_X] =  gBR[VECTOR_X] + length -1;
+//    } else {
+//        gVertex [VECTOR_X] = x_min;
+//    }
+//    if (y_min < 0) {
+//        gVertex [VECTOR_Y] = y_min + length -1;
+//        gTL[VECTOR_Y] =  gTL[VECTOR_Y] + length -1;
+//        gTR[VECTOR_Y] =  gTR[VECTOR_Y] + length -1;
+//        gBL[VECTOR_Y] =  gBL[VECTOR_Y] + length -1;
+//        gBR[VECTOR_Y] =  gBR[VECTOR_Y] + length -1;
+//    } else {
+//        gVertex [VECTOR_Y] = y_min;
+//    }
 
 
 
@@ -486,7 +535,7 @@ void tmGenerateBaseBuffer(tmBuffer in_pFrameBuffer, int in_iFrameDimension){
 
 void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
     if(gFrameCache[in_eOrientation].m_pBuffer == NULL){
-        printf("Generate Buffer Orientation %d\n",in_eOrientation);
+        //printf("Generate Buffer Orientation %d\n",in_eOrientation);
         int size = gFrameCache[e_X_Y].m_iWidth * gFrameCache[e_X_Y].m_iLength;
         gFrameCache[in_eOrientation].m_pBuffer = tmAlloc(unsigned char, size*PIXEL_SIZE);
     }
@@ -540,12 +589,13 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
             gFrameCache[in_eOrientation].m_iLength = gFrameCache[e_X_Y].m_iWidth;
             width = gFrameCache[in_eOrientation].m_iWidth;
             length = gFrameCache[in_eOrientation].m_iLength;
-            if(gFrameCache[e_F_NX_Y].m_pBuffer!=NULL){
-                tmBufferMirrorX(gFrameCache[e_F_NX_Y].m_pBuffer,gFrameCache[e_F_X_Y].m_pBuffer,width,length);
+            src_buffer = gFrameCache[e_NX_Y].m_pBuffer;
+            dst_buffer = gFrameCache[e_F_X_Y].m_pBuffer;
+            if(src_buffer!=NULL){
+                tmBufferMirrorX(src_buffer,dst_buffer,width,length);
             }
             else{
                 src_buffer = gFrameCache[e_X_Y].m_pBuffer;
-                dst_buffer = gFrameCache[e_F_X_Y].m_pBuffer;
                 int f_row,f_col,t_row,t_col;
                 int blk_col_size, blk_row_size;
                 int src_x,src_y,src_index,dst_index;
@@ -561,8 +611,8 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
                             src_y = f_row+t_row;
                             for(t_col = 0 ; t_col < blk_col_size; t_col++){
                                 src_x = f_col+t_col;
-                                src_index = src_y*width + src_x*PIXEL_SIZE;
-                                dst_index = src_x*length+ src_y*PIXEL_SIZE;
+                                src_index = (src_y*width + src_x)*PIXEL_SIZE;
+                                dst_index = (src_x*length+ src_y)*PIXEL_SIZE;
                                 dst_buffer[dst_index+R_OFFSET] = src_buffer[src_index+R_OFFSET];
                                 dst_buffer[dst_index+G_OFFSET] = src_buffer[src_index+G_OFFSET];
                                 dst_buffer[dst_index+B_OFFSET] = src_buffer[src_index+B_OFFSET];
@@ -580,10 +630,13 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
             gFrameCache[in_eOrientation].m_iLength = gFrameCache[e_X_Y].m_iWidth;
             width = gFrameCache[in_eOrientation].m_iWidth;
             length = gFrameCache[in_eOrientation].m_iLength;
-            if(gFrameCache[e_F_NX_NY].m_pBuffer!=NULL){
-                tmBufferMirrorY(gFrameCache[e_F_NX_NY].m_pBuffer,gFrameCache[e_F_X_NY].m_pBuffer, width,length);
+            src_buffer = gFrameCache[e_NX_NY].m_pBuffer;
+            dst_buffer = gFrameCache[in_eOrientation].m_pBuffer;
+            if(src_buffer!=NULL){
+                tmBufferMirrorY(src_buffer,dst_buffer, width,length);
             }
             else {
+                src_buffer = gFrameCache[e_X_Y].m_pBuffer;
                 int f_row, f_col, t_row, t_col;
                 int blk_col_size, blk_row_size;
                 int src_x, src_y, src_index, dst_index, dst_x, dst_y;
@@ -601,8 +654,8 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
                                 src_x = f_col + t_col;
                                 dst_x = src_y;
                                 dst_y = (width - 1) - src_x;
-                                src_index = src_y * width+ src_x * PIXEL_SIZE;
-                                dst_index = dst_y * length+ dst_x * PIXEL_SIZE;
+                                src_index = (src_y * width+ src_x) * PIXEL_SIZE;
+                                dst_index = (dst_y * length+ dst_x) * PIXEL_SIZE;
                                 dst_buffer[dst_index + R_OFFSET] = src_buffer[src_index + R_OFFSET];
                                 dst_buffer[dst_index + G_OFFSET] = src_buffer[src_index + G_OFFSET];
                                 dst_buffer[dst_index + B_OFFSET] = src_buffer[src_index + B_OFFSET];
@@ -620,10 +673,13 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
             gFrameCache[in_eOrientation].m_iLength = gFrameCache[e_X_Y].m_iWidth;
             width = gFrameCache[in_eOrientation].m_iWidth;
             length = gFrameCache[in_eOrientation].m_iLength;
-            if(gFrameCache[e_F_X_Y].m_pBuffer!=NULL){
-                tmBufferMirrorX(gFrameCache[e_F_X_Y].m_pBuffer,gFrameCache[e_F_NX_Y].m_pBuffer, width,length);
+            src_buffer = gFrameCache[e_F_X_Y].m_pBuffer;
+            dst_buffer = gFrameCache[e_NX_Y].m_pBuffer;
+            if(src_buffer!=NULL){
+                tmBufferMirrorX(src_buffer,dst_buffer, width,length);
             }
             else {
+                src_buffer = gFrameCache[e_X_Y].m_pBuffer;
                 int f_row, f_col, t_row, t_col;
                 int blk_col_size, blk_row_size;
                 int src_x, src_y, src_index, dst_index, dst_x, dst_y;
@@ -641,8 +697,8 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
                                 src_x = f_col + t_col;
                                 dst_x = (width - 1) - src_y;
                                 dst_y = src_x;
-                                src_index = src_y * width + src_x * PIXEL_SIZE;
-                                dst_index = dst_y * width + dst_x * PIXEL_SIZE;
+                                src_index = (src_y * width + src_x) * PIXEL_SIZE;
+                                dst_index = (dst_y * width + dst_x) * PIXEL_SIZE;
                                 dst_buffer[dst_index + R_OFFSET] = src_buffer[src_index + R_OFFSET];
                                 dst_buffer[dst_index + G_OFFSET] = src_buffer[src_index + G_OFFSET];
                                 dst_buffer[dst_index + B_OFFSET] = src_buffer[src_index + B_OFFSET];
@@ -660,10 +716,13 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
             gFrameCache[in_eOrientation].m_iLength = gFrameCache[e_X_Y].m_iWidth;
             width = gFrameCache[in_eOrientation].m_iWidth;
             length = gFrameCache[in_eOrientation].m_iLength;
-            if(gFrameCache[e_F_X_NY].m_pBuffer!=NULL){
-                tmBufferMirrorX(gFrameCache[e_F_X_NY].m_pBuffer,gFrameCache[e_F_NX_NY].m_pBuffer, width,length);
+            src_buffer = gFrameCache[e_F_X_Y].m_pBuffer;
+            dst_buffer = gFrameCache[e_F_NX_NY].m_pBuffer;
+            if(src_buffer!=NULL){
+                tmBufferMirrorX(src_buffer,dst_buffer, width,length);
             }
             else {
+                src_buffer = gFrameCache[e_X_Y].m_pBuffer;
                 int f_row, f_col, t_row, t_col;
                 int blk_col_size, blk_row_size;
                 int src_x, src_y, src_index, dst_index, dst_x, dst_y;
@@ -681,8 +740,8 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
                                 src_x = f_col + t_col;
                                 dst_x = (length - 1) - src_y;
                                 dst_y = (width- 1) - src_x;
-                                src_index = src_y * width+ src_x * PIXEL_SIZE;
-                                dst_index = dst_y * length+ dst_x * PIXEL_SIZE;
+                                src_index = (src_y * width+ src_x) * PIXEL_SIZE;
+                                dst_index = (dst_y * length+ dst_x) * PIXEL_SIZE;
                                 dst_buffer[dst_index + R_OFFSET] = src_buffer[src_index + R_OFFSET];
                                 dst_buffer[dst_index + G_OFFSET] = src_buffer[src_index + G_OFFSET];
                                 dst_buffer[dst_index + B_OFFSET] = src_buffer[src_index + B_OFFSET];
@@ -1071,14 +1130,11 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
             bb_width = tmGetCurrentBoundingBoxWidth();
             bb_length = tmGetCurrentBoundingBoxLength();
             //tmPrintVec(gVertex);
-            tmPrintVec(gTL);
-            tmPrintVec(gTR);
-            tmPrintVec(gBL);
-            tmPrintVec(gBR);
             tmClearFrame(frame_buffer,width,gVertex,bb_width,bb_length);
             //tmPrintFrame(frame_buffer,width,height);
             tmUpdateVertex(gGlobalTransform,width);
-            //tmPrintVec(gVertex);
+            tmPrintVec(gVertex);
+            printf("Orientation: %d\n",orientation);
             tmWriteFrameFromCache(frame_buffer, width, gVertex,orientation);
 
             //tmPrintFrame(frame_buffer,width,height);
