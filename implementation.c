@@ -291,11 +291,16 @@ typedef enum _tmOrientation {
 
 void tmUpdateVertex (tmMat4i* in_pMat, int length) {
 
+
     tmMatMulVecInplace(in_pMat, gTL);
     tmMatMulVecInplace(in_pMat, gTR);
     tmMatMulVecInplace(in_pMat, gBL);
     tmMatMulVecInplace(in_pMat, gBR);
 
+//    tmPrintVec(gTL);
+//    tmPrintVec(gTR);
+//    tmPrintVec(gBL);
+//    tmPrintVec(gBR);
     int x_min= gTL[VECTOR_X];
     if (gTR[VECTOR_X] < x_min)
         x_min = gTR[VECTOR_X];
@@ -311,6 +316,7 @@ void tmUpdateVertex (tmMat4i* in_pMat, int length) {
         y_min = gBL[VECTOR_Y];
     if (gBR[VECTOR_Y] < y_min)
         y_min = gBR[VECTOR_Y];
+
     if (x_min < 0) {
         gVertex [VECTOR_X] = x_min + length -1;
         gTL[VECTOR_X] =  gTL[VECTOR_X] + length -1;
@@ -332,7 +338,12 @@ void tmUpdateVertex (tmMat4i* in_pMat, int length) {
 
 
 
-};
+//    tmPrintVec(gTL);
+//    tmPrintVec(gTR);
+//    tmPrintVec(gBL);
+//    tmPrintVec(gBR);
+
+}
 tmOrientation tmGetOrientationFromMat(tmMat4i* in_pMat){
     if(in_pMat[MATRIX_00] == 1){
         if(in_pMat[MATRIX_11] == 1) {
@@ -1060,6 +1071,10 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
             bb_width = tmGetCurrentBoundingBoxWidth();
             bb_length = tmGetCurrentBoundingBoxLength();
             //tmPrintVec(gVertex);
+            tmPrintVec(gTL);
+            tmPrintVec(gTR);
+            tmPrintVec(gBL);
+            tmPrintVec(gBR);
             tmClearFrame(frame_buffer,width,gVertex,bb_width,bb_length);
             //tmPrintFrame(frame_buffer,width,height);
             tmUpdateVertex(gGlobalTransform,width);
