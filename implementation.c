@@ -140,7 +140,7 @@ void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int in_iFrameDimensi
         pixel_offset = pixel_index*PIXEL_SIZE;
         if (in_iBuffer[pixel_offset] != COLOR_WHITE || in_iBuffer[pixel_offset+1] != COLOR_WHITE || in_iBuffer[pixel_offset+2] != COLOR_WHITE ) {
             y_temp = pixel_index/in_iFrameDimension;
-            x_temp = pixel_index%in_iFrameDimension;
+            x_temp = pixel_index - y_temp*in_iFrameDimension;
             if (x_temp > x_max){
                 x_max = x_temp;
             }
@@ -946,7 +946,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
         processRotateCCW(buffer_frame,width,height,-rotate_iteration);
     }
     else{
-        switch(rotate_iteration%4){
+        switch(rotate_iteration - (rotate_iteration>>2)<<2){
             case(0):{
                 break;
             }
@@ -989,7 +989,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
         processRotateCW(buffer_frame,width,height,-rotate_iteration);
     }
     else {
-        switch (rotate_iteration % 4) {
+        switch (rotate_iteration - (rotate_iteration>>2)<<2) {
             case (0): {
                 break;
             }
