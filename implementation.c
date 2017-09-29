@@ -30,7 +30,7 @@
 #define R_OFFSET 0
 #define G_OFFSET 1
 #define B_OFFSET 2
-
+#define COLOR_WHITE 255
 ///////////// Matrix Operation ////////////////////
 
 typedef int tmMat4i;
@@ -57,16 +57,44 @@ typedef enum _tmVertexType{
     ebot_right,
 } tmVertexType;
 
+typedef struct _tmBoundingCache{
+    tmBuffer m_pBuffer;
+    int m_iWidth;
+    int m_iLength;
+} tmFrameCache;
+
+bool gInited = 0;
+
 int tmMin(int x, int y){
     if(x>y){
-        return x;
+        return y;
     }
     else
-        return y;
+        return x;
+}
+int tmMin4(int w, int x, int y, int z){
+    int min = w;
+    if(x < min)
+        min = x;
+    if(y < min)
+        min = y;
+    if(z < min)
+        min = z;
+    return min;
 }
 
+int tmMax4(int w, int x, int y, int z){
+    int max = w;
+    if(x > max)
+        max = x;
+    if(y > max)
+        max = y;
+    if(z > max)
+        max = z;
+    return max;
+}
 tmVec4i* gTempVec1 = NULL;
-tmVec4i* gTempVec2 = NULL;
+
 //int      gVertex   = etop_left;
 
 tmMat4i* gTempMul = NULL;
@@ -75,6 +103,7 @@ tmMat4i* gGlobalCCW = NULL;
 tmMat4i* gGlobalMirrorYMatrix = NULL;
 tmMat4i* gGlobalMirrorXMatrix = NULL;
 tmMat4i* gGlobalR180 = NULL;
+tmMat4i* gGlobalTranslate = NULL;
 tmMat4i* gGlobalTransform = NULL;
 
 tmVec4i* gVertex = NULL;
@@ -82,21 +111,31 @@ tmVec4i* gTL= NULL;
 tmVec4i* gTR= NULL;
 tmVec4i* gBL = NULL;
 tmVec4i* gBR = NULL;
-int      gbb_size = 0;
-void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int size, int length){
+
+void        tmPrintVec(tmVec4i* in_pVec){
+    printf("%d,%d,%d\n",in_pVec[VECTOR_X],in_pVec[VECTOR_Y],in_pVec[VECTOR_Z]);
+}
+void        tmPrintMat(tmMat4i* in_pMat){
+    printf("%d,%d,%d\n",in_pMat[MATRIX_00],in_pMat[MATRIX_01],in_pMat[MATRIX_02]);
+    printf("%d,%d,%d\n",in_pMat[MATRIX_10],in_pMat[MATRIX_11],in_pMat[MATRIX_12]);
+    printf("%d,%d,%d\n",in_pMat[MATRIX_20],in_pMat[MATRIX_21],in_pMat[MATRIX_22]);
+
+}
+void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int in_iFrameDimension){
     int pixel_index;
-    int x_min=length-1;
+    int x_min=in_iFrameDimension-1;
     int x_max=0;
-    int y_min=length-1;
+    int y_min=in_iFrameDimension-1;
     int y_max=0;
     int x_temp;
     int y_temp;
-    int x_size;
-    int y_size;
-    for (pixel_index = 0; pixel_index < size; pixel_index+= 3) {
-        if (in_iBuffer[pixel_index] !=0 ||in_iBuffer[pixel_index+1] !=0 ||in_iBuffer[pixel_index+2] !=0 ) {
-            y_temp = (pixel_index/PIXEL_SIZE)/length;
-            x_temp = (pixel_index/PIXEL_SIZE)%length;
+    int pixel_offset = 0;
+    int total_pixel_count = in_iFrameDimension*in_iFrameDimension;
+    for (pixel_index = 0; pixel_index < total_pixel_count; pixel_index++) {
+        pixel_offset = pixel_index*PIXEL_SIZE;
+        if (in_iBuffer[pixel_offset] != COLOR_WHITE || in_iBuffer[pixel_offset+1] != COLOR_WHITE || in_iBuffer[pixel_offset+2] != COLOR_WHITE ) {
+            y_temp = pixel_index/in_iFrameDimension;
+            x_temp = pixel_index%in_iFrameDimension;
             if (x_temp > x_max){
                 x_max = x_temp;
             }
@@ -112,24 +151,6 @@ void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int size, int length
         }
     }
 
-    x_size = x_max - x_min + 1;
-    y_size = y_max - y_min + 1;
-
-    if (x_size < y_size)
-        gbb_size = y_size;
-    else
-        gbb_size = x_size;
-
-    if (y_min + gbb_size > length) {
-        y_min= length - gbb_size ;
-    }
-    if (x_min + gbb_size > length) {
-        x_min= length - gbb_size ;
-    }
-
-    x_max = x_min + gbb_size -1 ;
-    y_max = y_min + gbb_size -1 ;
-
     gVertex[VECTOR_X]= x_min;
     gVertex[VECTOR_Y]= y_min;
     gTL[VECTOR_X]= x_min;
@@ -142,22 +163,27 @@ void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int size, int length
     gBR[VECTOR_Y]= y_max;
     
 }
-
-void        tmCopyMat(tmMat4i* in_pA, tmMat4i* in_pB){
-    in_pA[MATRIX_00] = in_pB[MATRIX_00];
-    in_pA[MATRIX_01] = in_pB[MATRIX_01];
-    in_pA[MATRIX_02] = in_pB[MATRIX_02];
-    in_pA[MATRIX_10] = in_pB[MATRIX_10];
-    in_pA[MATRIX_11] = in_pB[MATRIX_11];
-    in_pA[MATRIX_12] = in_pB[MATRIX_12];
-    in_pA[MATRIX_20] = in_pB[MATRIX_20];
-    in_pA[MATRIX_21] = in_pB[MATRIX_21];
-    in_pA[MATRIX_22] = in_pB[MATRIX_22];
+void        tmCopyMat(tmMat4i* in_pFrom, tmMat4i* in_pTo){
+    in_pTo[MATRIX_00] = in_pFrom[MATRIX_00];
+    in_pTo[MATRIX_01] = in_pFrom[MATRIX_01];
+    in_pTo[MATRIX_02] = in_pFrom[MATRIX_02];
+    in_pTo[MATRIX_10] = in_pFrom[MATRIX_10];
+    in_pTo[MATRIX_11] = in_pFrom[MATRIX_11];
+    in_pTo[MATRIX_12] = in_pFrom[MATRIX_12];
+    in_pTo[MATRIX_20] = in_pFrom[MATRIX_20];
+    in_pTo[MATRIX_21] = in_pFrom[MATRIX_21];
+    in_pTo[MATRIX_22] = in_pFrom[MATRIX_22];
 }
-void        tmCopyVec(tmVec4i* in_pA, tmVec4i* in_pB){
-    in_pA[VECTOR_X] = in_pB[VECTOR_X];
-    in_pA[VECTOR_Y] = in_pB[VECTOR_Y];
-    in_pA[VECTOR_Z] = in_pB[VECTOR_Z];
+void        tmCopyVec(tmVec4i* in_pFrom, tmVec4i* in_pTo){
+    in_pTo[VECTOR_X] = in_pFrom[VECTOR_X];
+    in_pTo[VECTOR_Y] = in_pFrom[VECTOR_Y];
+    in_pTo[VECTOR_Z] = in_pFrom[VECTOR_Z];
+}
+void        tmCleanVec(tmVec4i* in_pA){
+    in_pA[VECTOR_X] = 0;
+    in_pA[VECTOR_Y] = 0;
+    in_pA[VECTOR_Z] = 1;
+
 }
 
 void        tmMatMulVec(tmMat4i* in_pA, tmVec4i* in_pB, tmVec4i* io_pC){
@@ -168,6 +194,7 @@ void        tmMatMulVec(tmMat4i* in_pA, tmVec4i* in_pB, tmVec4i* io_pC){
     io_pC[VECTOR_Y] = in_pA[MATRIX_10]*in_pB[VECTOR_X] + in_pA[MATRIX_11]*in_pB[VECTOR_Y] + in_pA[MATRIX_12]*in_pB[VECTOR_Z];
     io_pC[VECTOR_Z] = in_pA[MATRIX_20]*in_pB[VECTOR_X] + in_pA[MATRIX_21]*in_pB[VECTOR_Y] + in_pA[MATRIX_22]*in_pB[VECTOR_Z];
 #endif
+
 }
 void        tmMatMulMat(tmMat4i* in_pA, tmMat4i* in_pB, tmMat4i* io_pC){
 #if ENABLE_SIMD
@@ -175,21 +202,28 @@ void        tmMatMulMat(tmMat4i* in_pA, tmMat4i* in_pB, tmMat4i* io_pC){
 #else
     io_pC[MATRIX_00] = in_pA[MATRIX_00]*in_pB[MATRIX_00] + in_pA[MATRIX_01]*in_pB[MATRIX_10] + in_pA[MATRIX_02]*in_pB[MATRIX_20];
     io_pC[MATRIX_01] = in_pA[MATRIX_00]*in_pB[MATRIX_01] + in_pA[MATRIX_01]*in_pB[MATRIX_11] + in_pA[MATRIX_02]*in_pB[MATRIX_21];
-    io_pC[MATRIX_02] = in_pA[MATRIX_00]*in_pB[MATRIX_02] + in_pA[MATRIX_01]*in_pB[MATRIX_11] + in_pA[MATRIX_02]*in_pB[MATRIX_22];
+    io_pC[MATRIX_02] = in_pA[MATRIX_00]*in_pB[MATRIX_02] + in_pA[MATRIX_01]*in_pB[MATRIX_12] + in_pA[MATRIX_02]*in_pB[MATRIX_22];
     io_pC[MATRIX_10] = in_pA[MATRIX_10]*in_pB[MATRIX_00] + in_pA[MATRIX_11]*in_pB[MATRIX_10] + in_pA[MATRIX_12]*in_pB[MATRIX_20];
     io_pC[MATRIX_11] = in_pA[MATRIX_10]*in_pB[MATRIX_01] + in_pA[MATRIX_11]*in_pB[MATRIX_11] + in_pA[MATRIX_12]*in_pB[MATRIX_21];
-    io_pC[MATRIX_12] = in_pA[MATRIX_10]*in_pB[MATRIX_02] + in_pA[MATRIX_11]*in_pB[MATRIX_11] + in_pA[MATRIX_12]*in_pB[MATRIX_22];
+    io_pC[MATRIX_12] = in_pA[MATRIX_10]*in_pB[MATRIX_02] + in_pA[MATRIX_11]*in_pB[MATRIX_12] + in_pA[MATRIX_12]*in_pB[MATRIX_22];
     io_pC[MATRIX_20] = in_pA[MATRIX_20]*in_pB[MATRIX_00] + in_pA[MATRIX_21]*in_pB[MATRIX_10] + in_pA[MATRIX_22]*in_pB[MATRIX_20];
     io_pC[MATRIX_21] = in_pA[MATRIX_20]*in_pB[MATRIX_01] + in_pA[MATRIX_21]*in_pB[MATRIX_11] + in_pA[MATRIX_22]*in_pB[MATRIX_21];
-    io_pC[MATRIX_22] = in_pA[MATRIX_20]*in_pB[MATRIX_02] + in_pA[MATRIX_21]*in_pB[MATRIX_11] + in_pA[MATRIX_22]*in_pB[MATRIX_22];
+    io_pC[MATRIX_22] = in_pA[MATRIX_20]*in_pB[MATRIX_02] + in_pA[MATRIX_21]*in_pB[MATRIX_12] + in_pA[MATRIX_22]*in_pB[MATRIX_22];
 #endif
 }
 void        tmMatMulVecInplace(tmMat4i* in_pA, tmVec4i* io_pB){
     tmMatMulVec(in_pA, io_pB, gTempVec1);
     tmCopyVec(gTempVec1, io_pB);
 }
-
+void        tmMatMulMatInplace(tmMat4i* in_pA, tmMat4i* io_pB){
+    tmMatMulMat(in_pA,io_pB,gTempMul);
+    tmCopyMat(gTempMul,io_pB);
+}
 void        tmLoadMat(tmMat4i* in_pA, tmMatFlag in_eFlag){
+    in_pA[MATRIX_INDEX_TRANSFORM_X] = 0;
+    in_pA[MATRIX_INDEX_TRANSFORM_Y] = 0;
+    in_pA[MATRIX_20] = 0;
+    in_pA[MATRIX_21] = 0;
     switch(in_eFlag){
         case eMatrixType_CCW90:{
             in_pA[MATRIX_00] = 0;
@@ -252,79 +286,113 @@ void        tmFreeMat(tmMat4i* in_pA){
 }
 tmVec4i*    tmAllocVec(){
     tmVec4i* ret = tmAlloc(int, 4);
+    ret[VECTOR_X] = 0;
+    ret[VECTOR_Y] = 0;
     ret[VECTOR_Z] = 1;
     return ret;
 }
 void        tmFreeVec(tmVec4i* in_pA){
     free(in_pA);
 }
-void        tmMatrixIndexToVec(int in_iIndex,int in_iStrideSize, tmVec4i* io_pVec){
-    io_pVec[VECTOR_X] = (in_iIndex % in_iStrideSize - in_iStrideSize) * 2;
-    io_pVec[VECTOR_Y] = (in_iIndex / in_iStrideSize - in_iStrideSize) * 2;
-    io_pVec[VECTOR_Z] = 1;
-}
-int         tmVecToMatrixIndex(tmVec4i* in_pVec,int in_iStrideSize){
-    return (in_pVec[VECTOR_X]/2+in_iStrideSize)+ (in_pVec[VECTOR_Y]/2+in_iStrideSize)*in_iStrideSize;
-}
-void        tmExtractTransform(tmMat4i* in_pA, tmMat4i* io_pB){
-    io_pB[MATRIX_INDEX_TRANSFORM_X] = in_pA[MATRIX_INDEX_TRANSFORM_X];
-    io_pB[MATRIX_INDEX_TRANSFORM_Y] = in_pA[MATRIX_INDEX_TRANSFORM_Y];
-}
+
 
 
 typedef enum _tmOrientation {
     e_X_Y = 0,
-    e_X_NY,
-    e_NX_Y,
-    e_NX_NY,
-    e_F_X_Y,
-    e_F_X_NY,
-    e_F_NX_Y,
-    e_F_NX_NY
+    e_X_NY = 1,
+    e_NX_Y = 2,
+    e_NX_NY = 3,
+    e_F_X_Y = 4,
+    e_F_X_NY = 5,
+    e_F_NX_Y = 6,
+    e_F_NX_NY = 7,
+    eOrientationCount = 8
 } tmOrientation;
 
 void tmUpdateVertex (tmMat4i* in_pMat, int length) {
+
 
     tmMatMulVecInplace(in_pMat, gTL);
     tmMatMulVecInplace(in_pMat, gTR);
     tmMatMulVecInplace(in_pMat, gBL);
     tmMatMulVecInplace(in_pMat, gBR);
 
-    int x_min= gTL[VECTOR_X];
-    if (gTR[VECTOR_X] < x_min)
-        x_min = gTR[VECTOR_X];
-    if (gBL[VECTOR_X] < x_min)
-        x_min = gBL[VECTOR_X];
-    if (gBR[VECTOR_X] < x_min)
-        x_min = gBR[VECTOR_X];
+//    tmPrintVec(gTL);
+//    tmPrintVec(gTR);
+//    tmPrintVec(gBL);
+//    tmPrintVec(gBR);
+    if (gTL[VECTOR_X] < 0 || gTR[VECTOR_X] < 0 || gBL[VECTOR_X] < 0 || gBR[VECTOR_X] <0){
+        gTL[VECTOR_X]+=length-1;
+        gTR[VECTOR_X]+=length-1;
+        gBR[VECTOR_X]+=length-1;
+        gBL[VECTOR_X]+=length-1;
+    }
+    if (gTL[VECTOR_Y] < 0 || gTR[VECTOR_Y] < 0 || gBL[VECTOR_Y] < 0 || gBR[VECTOR_Y] <0){
+        gTL[VECTOR_Y]+=length-1;
+        gTR[VECTOR_Y]+=length-1;
+        gBR[VECTOR_Y]+=length-1;
+        gBL[VECTOR_Y]+=length-1;
+    }
+    int xmin,xmax,ymin,ymax;
+    xmin = tmMin4(gTL[VECTOR_X],gTR[VECTOR_X],gBL[VECTOR_X],gBR[VECTOR_X]);
+    xmax = tmMax4(gTL[VECTOR_X],gTR[VECTOR_X],gBL[VECTOR_X],gBR[VECTOR_X]);
+    ymin = tmMin4(gTL[VECTOR_Y],gTR[VECTOR_Y],gBL[VECTOR_Y],gBR[VECTOR_Y]);
+    ymax = tmMax4(gTL[VECTOR_Y],gTR[VECTOR_Y],gBL[VECTOR_Y],gBR[VECTOR_Y]);
+    //printf("%d,%d,%d,%d\n",xmin,xmax,ymin,ymax);
+    gVertex[VECTOR_X] = xmin;
+    gVertex[VECTOR_Y] = ymin;
+    gTL[VECTOR_X] = xmin;
+    gTL[VECTOR_Y] = ymin;
+    gTR[VECTOR_X] = xmax;
+    gTR[VECTOR_Y] = ymin;
+    gBL[VECTOR_X] = xmin;
+    gBL[VECTOR_Y] = ymax;
+    gBR[VECTOR_X] = xmax;
+    gBR[VECTOR_Y] = ymax;
 
-    int y_min= gTL[VECTOR_Y];
-    if (gTR[VECTOR_Y] < y_min)
-        y_min = gTR[VECTOR_Y];
-    if (gBL[VECTOR_Y] < y_min)
-        y_min = gBL[VECTOR_Y];
-    if (gBR[VECTOR_Y] < y_min)
-        y_min = gBR[VECTOR_Y];
-    if (x_min < 0) {
-        gVertex [VECTOR_X] = x_min + length -1;
-        gTL[VECTOR_X] =  gTL[VECTOR_X] + length -1;
-        gTR[VECTOR_X] =  gTR[VECTOR_X] + length -1;
-        gBL[VECTOR_X] =  gBL[VECTOR_X] + length -1;
-        gBR[VECTOR_X] =  gBR[VECTOR_X] + length -1;
-    } else {
-        gVertex [VECTOR_X] = x_min;
-    }
-    if (y_min < 0) {
-        gVertex [VECTOR_Y] = y_min + length -1;
-        gTL[VECTOR_Y] =  gTL[VECTOR_Y] + length -1;
-        gTR[VECTOR_Y] =  gTR[VECTOR_Y] + length -1;
-        gBL[VECTOR_Y] =  gBL[VECTOR_Y] + length -1;
-        gBR[VECTOR_Y] =  gBR[VECTOR_Y] + length -1;
-    } else {
-        gVertex [VECTOR_Y] = y_min;
-    }
+//    int x_min= gTL[VECTOR_X];
+//    if (gTR[VECTOR_X] < x_min)
+//        x_min = gTR[VECTOR_X];
+//    if (gBL[VECTOR_X] < x_min)
+//        x_min = gBL[VECTOR_X];
+//    if (gBR[VECTOR_X] < x_min)
+//        x_min = gBR[VECTOR_X];
+//
+//    int y_min= gTL[VECTOR_Y];
+//    if (gTR[VECTOR_Y] < y_min)
+//        y_min = gTR[VECTOR_Y];
+//    if (gBL[VECTOR_Y] < y_min)
+//        y_min = gBL[VECTOR_Y];
+//    if (gBR[VECTOR_Y] < y_min)
+//        y_min = gBR[VECTOR_Y];
+//
+//    if (x_min < 0) {
+//        gVertex [VECTOR_X] = x_min + length -1;
+//        gTL[VECTOR_X] =  gTL[VECTOR_X] + length -1;
+//        gTR[VECTOR_X] =  gTR[VECTOR_X] + length -1;
+//        gBL[VECTOR_X] =  gBL[VECTOR_X] + length -1;
+//        gBR[VECTOR_X] =  gBR[VECTOR_X] + length -1;
+//    } else {
+//        gVertex [VECTOR_X] = x_min;
+//    }
+//    if (y_min < 0) {
+//        gVertex [VECTOR_Y] = y_min + length -1;
+//        gTL[VECTOR_Y] =  gTL[VECTOR_Y] + length -1;
+//        gTR[VECTOR_Y] =  gTR[VECTOR_Y] + length -1;
+//        gBL[VECTOR_Y] =  gBL[VECTOR_Y] + length -1;
+//        gBR[VECTOR_Y] =  gBR[VECTOR_Y] + length -1;
+//    } else {
+//        gVertex [VECTOR_Y] = y_min;
+//    }
+
+
+
+//    tmPrintVec(gTL);
+//    tmPrintVec(gTR);
+//    tmPrintVec(gBL);
+//    tmPrintVec(gBR);
+
 }
-
 tmOrientation tmGetOrientationFromMat(tmMat4i* in_pMat){
     if(in_pMat[MATRIX_00] == 1){
         if(in_pMat[MATRIX_11] == 1) {
@@ -360,124 +428,193 @@ tmOrientation tmGetOrientationFromMat(tmMat4i* in_pMat){
     }
 }
 
-tmBuffer* gOrientationBuffer = NULL;
 
-void        tmWhitePic (unsigned char* in_iBuffer, int length) {
+tmFrameCache* gFrameCache = NULL;
+
+void tmPrintFrame(tmBuffer in_pBuffer, int in_iWidth, int in_iLength){
+    printf("++++=====================================\n");
+    int i,j;
+    for(i = 0; i < in_iLength; i++){
+        for(j = 0; j < in_iWidth*PIXEL_SIZE; j++){
+            printf("%d ",in_pBuffer[(i*in_iWidth)*PIXEL_SIZE+j]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
+
+void        tmClearFrame(unsigned char *in_iBuffer,int in_iFrameDimension, tmVec4i *in_pPoint, int in_iWidth, int in_iLength) {
     int row_count;
-    int start_row = gVertex[VECTOR_Y];
-    int start_col = gVertex[VECTOR_X];
-    for (row_count = 0; row_count < gbb_size; row_count++) {
-        memset(in_iBuffer + ( (start_row + row_count) * length + start_col)*PIXEL_SIZE,0,gbb_size);
+    // tmPrintVec(in_pPoint);
+    for (row_count = 0; row_count < in_iLength; row_count++) {
+        memset(in_iBuffer + ( (in_pPoint[VECTOR_Y] + row_count) * in_iFrameDimension + in_pPoint[VECTOR_X])*PIXEL_SIZE,COLOR_WHITE,in_iWidth*PIXEL_SIZE);
     }
 }
 
-void tmWriteOrientationToBuffer(tmBuffer in_pBuffer,
-                                int in_iDimension,
-                                tmVec4i* in_pTopLeft,
-                                int in_iBoundingBoxDimension,
-                                tmOrientation in_eOrientation){
+void tmWriteBufferToFrame(tmBuffer io_dstBuffer,
+                          int in_iDimension,
+                          int in_idstX,int in_idstY,
+                          tmBuffer in_srcBuffer,int in_iSrcWidth, int in_iSrcLength){
     int line_size_in_bytes = in_iDimension * PIXEL_SIZE;
-    int total_offset = in_pTopLeft[VECTOR_Y]*line_size_in_bytes;
-    int toal_x_offset = in_pTopLeft[VECTOR_X] * PIXEL_SIZE;
-    int row = 0;
-    for (row = 0; row < in_iBoundingBoxDimension; row++){
-        memcpy(in_pBuffer+total_offset+row*line_size_in_bytes+toal_x_offset,
-               gOrientationBuffer[in_eOrientation]+in_iBoundingBoxDimension*PIXEL_SIZE*row,
-               in_iBoundingBoxDimension*PIXEL_SIZE);
+    int total_offset = in_idstY*line_size_in_bytes;
+    int toal_x_offset = in_idstX* PIXEL_SIZE;
+    int row;
+    for (row = 0; row < in_iSrcLength; row++){
+        memcpy(io_dstBuffer+total_offset+row*line_size_in_bytes+toal_x_offset,
+               in_srcBuffer+in_iSrcWidth*PIXEL_SIZE*row,
+               in_iSrcWidth*PIXEL_SIZE);
     }
 }
 
-void tmBufferMirrorX(tmBuffer in_iInputBuffer, tmBuffer in_iOutputBuffer, int in_iSize){
+void tmWriteFrameFromCache(tmBuffer in_pBuffer,
+                           int in_iDimension,
+                           tmVec4i *in_pTopLeft,
+                           tmOrientation in_eOrientation){
+    tmWriteBufferToFrame(
+            in_pBuffer,
+            in_iDimension,
+            in_pTopLeft[VECTOR_X],in_pTopLeft[VECTOR_Y],
+            gFrameCache[in_eOrientation].m_pBuffer,
+            gFrameCache[in_eOrientation].m_iWidth,
+            gFrameCache[in_eOrientation].m_iLength);
+
+}
+
+void tmBufferMirrorY(tmBuffer in_iInputBuffer, tmBuffer in_iOutputBuffer, int in_iWidth, int in_iLength){
     int row, col;
     int offset = 0;
-    for (row = 0; row < in_iSize; row++){
-        offset = row * in_iSize*PIXEL_SIZE;
-        for (col = 0 ; col < in_iSize; col++){
-            memcpy(in_iOutputBuffer+offset+(in_iSize-1-col)*PIXEL_SIZE,in_iInputBuffer+offset+col*PIXEL_SIZE, PIXEL_SIZE);
+    for (row = 0; row < in_iLength; row++){
+        offset = row * in_iWidth*PIXEL_SIZE;
+        for (col = 0 ; col < in_iWidth; col++){
+            memcpy(in_iOutputBuffer+offset+(in_iWidth-1-col)*PIXEL_SIZE,in_iInputBuffer+offset+col*PIXEL_SIZE, PIXEL_SIZE);
         }
     }
+    //tmPrintFrame(in_iOutputBuffer,in_iWidth,in_iLength);
 }
 
-void tmBufferMirrorY(tmBuffer in_iInputBuffer, tmBuffer in_iOutputBuffer, int in_iSize){
+void tmBufferMirrorX(tmBuffer in_iInputBuffer, tmBuffer in_iOutputBuffer, int in_iWidth, int in_iLength){
     int start,end,line_size_in_Bytes;
-    line_size_in_Bytes = in_iSize * PIXEL_SIZE;
+    line_size_in_Bytes = in_iWidth * PIXEL_SIZE;
     start = 0;
-    end = (in_iSize-1)*in_iSize*PIXEL_SIZE;
-    while(end == 0){
-        memcpy(in_iOutputBuffer+end,in_iInputBuffer+start, line_size_in_Bytes);
+    end = (in_iLength)*in_iWidth*PIXEL_SIZE;
+    while(end != 0){
         end -= line_size_in_Bytes;
+        memcpy(in_iOutputBuffer+end,in_iInputBuffer+start, line_size_in_Bytes);
         start += line_size_in_Bytes;
     }
 }
 
-void tmGenerateOrientationBuffer(tmBuffer in_pFrameBuffer,int in_iFrameDimension, int in_iBBDimension, tmOrientation in_eOrientation){
 
-    if(gOrientationBuffer[in_eOrientation] == NULL){
-        gOrientationBuffer[in_eOrientation] = tmAlloc(unsigned char, in_iBBDimension*in_iBBDimension*PIXEL_SIZE);
+int tmGetCurrentBoundingBoxWidth(){
+    return gBR[VECTOR_X] - gTL[VECTOR_X]+1;
+}
+
+int tmGetCurrentBoundingBoxLength(){
+    return gBR[VECTOR_Y] - gTL[VECTOR_Y]+1;
+}
+
+void tmGenerateBaseBuffer(tmBuffer in_pFrameBuffer, int in_iFrameDimension){
+    if(gFrameCache[e_X_Y].m_pBuffer == NULL) {
+        int base_Width = tmGetCurrentBoundingBoxWidth();
+        int base_length = tmGetCurrentBoundingBoxLength();
+        gFrameCache[e_X_Y].m_pBuffer = tmAlloc(unsigned char, base_length * base_Width * PIXEL_SIZE);
+
+        //tmPrintFrame(in_pFrameBuffer,in_iFrameDimension,in_iFrameDimension);
+        gFrameCache[e_X_Y].m_iWidth = base_Width;
+        gFrameCache[e_X_Y].m_iLength = base_length;
+        int line_size_in_bytes = in_iFrameDimension*PIXEL_SIZE;
+        int row, total_y_offset,total_x_offset;
+        total_y_offset = gTL[VECTOR_Y] * line_size_in_bytes;
+        total_x_offset = gTL[VECTOR_X] * PIXEL_SIZE;
+        for(row = 0; row < base_length;row++){
+            memcpy(gFrameCache[e_X_Y].m_pBuffer+row*base_Width*PIXEL_SIZE,
+                   in_pFrameBuffer+total_x_offset+total_y_offset+row*line_size_in_bytes,
+                   base_Width*PIXEL_SIZE);
+        }
+        //tmPrintFrame(gFrameCache[e_X_Y].m_pBuffer,base_Width,base_length);
+    }
+}
+
+void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
+    if(gFrameCache[in_eOrientation].m_pBuffer == NULL){
+        printf("Generate Buffer Orientation %d\n",in_eOrientation);
+        int size = gFrameCache[e_X_Y].m_iWidth * gFrameCache[e_X_Y].m_iLength;
+        gFrameCache[in_eOrientation].m_pBuffer = tmAlloc(unsigned char, size*PIXEL_SIZE);
     }
     else {
         return;
     }
-    int line_size_in_bytes = in_iBBDimension * PIXEL_SIZE;
-    tmBuffer src_buffer = gOrientationBuffer[e_X_Y];
-    tmBuffer dst_buffer = gOrientationBuffer[in_eOrientation];
+    tmBuffer src_buffer,dst_buffer;
+    int width,length;
     switch(in_eOrientation){
         case e_X_Y: {
-            int total_offset = gVertex[VECTOR_Y]*line_size_in_bytes;
-            int toal_x_offset = gVertex[VECTOR_X] * PIXEL_SIZE;
-            int row = 0;
-            for (row = 0; row < in_iBBDimension; row++){
-                memcpy(gOrientationBuffer[in_eOrientation]+in_iBBDimension*PIXEL_SIZE*row,
-                       in_pFrameBuffer+total_offset+row*line_size_in_bytes+toal_x_offset,
-                       in_iBBDimension*PIXEL_SIZE);
-            }
             break;
         }
         case e_X_NY: {
-            if(gOrientationBuffer[e_NX_NY]!=NULL){
-                tmBufferMirrorX(gOrientationBuffer[e_NX_NY],gOrientationBuffer[e_X_NY],in_iBBDimension);
+            dst_buffer = gFrameCache[e_X_NY].m_pBuffer;
+            gFrameCache[in_eOrientation].m_iWidth = gFrameCache[e_X_Y].m_iWidth;
+            gFrameCache[in_eOrientation].m_iLength = gFrameCache[e_X_Y].m_iLength;
+            if(gFrameCache[e_NX_NY].m_pBuffer!=NULL){
+                tmBufferMirrorX(gFrameCache[e_NX_NY].m_pBuffer,dst_buffer,gFrameCache[e_X_NY].m_iWidth,gFrameCache[e_X_NY].m_iLength);
             }
             else{
-                tmBufferMirrorY(gOrientationBuffer[e_X_Y],gOrientationBuffer[e_X_NY],in_iBBDimension);
+                tmBufferMirrorY(gFrameCache[e_X_Y].m_pBuffer,dst_buffer,gFrameCache[e_X_NY].m_iWidth,gFrameCache[e_X_NY].m_iLength);
             }
+
             break;
         }
         case e_NX_Y: {
-            tmBufferMirrorX(gOrientationBuffer[e_X_Y],gOrientationBuffer[e_NX_Y],in_iBBDimension);
+            dst_buffer = gFrameCache[e_NX_Y].m_pBuffer;
+            gFrameCache[in_eOrientation].m_iWidth = gFrameCache[e_X_Y].m_iWidth;
+            gFrameCache[in_eOrientation].m_iLength = gFrameCache[e_X_Y].m_iLength;
+            tmBufferMirrorX(gFrameCache[e_X_Y].m_pBuffer,dst_buffer,gFrameCache[e_NX_Y].m_iWidth,gFrameCache[e_NX_Y].m_iLength);
+            break;
         }
         case e_NX_NY: {
-            if (gOrientationBuffer[e_X_NY] != NULL) {
-                tmBufferMirrorX(gOrientationBuffer[e_X_NY],gOrientationBuffer[e_NX_NY],in_iBBDimension);
+            dst_buffer = gFrameCache[e_NX_NY].m_pBuffer;
+            gFrameCache[in_eOrientation].m_iWidth = gFrameCache[e_X_Y].m_iWidth;
+            gFrameCache[in_eOrientation].m_iLength = gFrameCache[e_X_Y].m_iLength;
+            if (gFrameCache[e_X_NY].m_pBuffer != NULL) {
+                tmBufferMirrorX(gFrameCache[e_X_NY].m_pBuffer,dst_buffer,gFrameCache[e_NX_NY].m_iWidth,gFrameCache[e_NX_NY].m_iLength);
             } else {
-                int buffer_size = in_iBBDimension * in_iBBDimension*PIXEL_SIZE;
+                int buffer_size = gFrameCache[e_X_Y].m_iLength*gFrameCache[e_X_Y].m_iWidth*PIXEL_SIZE;
                 int pixel_index;
                 for (pixel_index = 0; pixel_index < buffer_size; pixel_index += 3) {
-                    memcpy(gOrientationBuffer[in_eOrientation] + pixel_index, gOrientationBuffer[e_X_Y] + buffer_size -1 - pixel_index, PIXEL_SIZE);
+                    memcpy(gFrameCache[in_eOrientation].m_pBuffer + pixel_index, gFrameCache[e_X_Y].m_pBuffer + (buffer_size -PIXEL_SIZE) - pixel_index, PIXEL_SIZE);
                 }
             }
+
             break;
         }
         case e_F_X_Y: {
-            if(gOrientationBuffer[e_NX_Y]!=NULL){
-                tmBufferMirrorX(gOrientationBuffer[e_NX_Y],gOrientationBuffer[e_X_Y],in_iBBDimension);
+            gFrameCache[in_eOrientation].m_iWidth = gFrameCache[e_X_Y].m_iLength;
+            gFrameCache[in_eOrientation].m_iLength = gFrameCache[e_X_Y].m_iWidth;
+            width = gFrameCache[in_eOrientation].m_iWidth;
+            length = gFrameCache[in_eOrientation].m_iLength;
+            src_buffer = gFrameCache[e_NX_Y].m_pBuffer;
+            dst_buffer = gFrameCache[e_F_X_Y].m_pBuffer;
+            if(src_buffer!=NULL){
+                tmBufferMirrorX(src_buffer,dst_buffer,width,length);
             }
             else{
-
+                src_buffer = gFrameCache[e_X_Y].m_pBuffer;
                 int f_row,f_col,t_row,t_col;
                 int blk_col_size, blk_row_size;
                 int src_x,src_y,src_index,dst_index;
                 f_row = 0;
                 f_col = 0;
-                while(f_row < in_iBBDimension){
-                    blk_row_size = tmMin(TILE_SIZE, in_iBBDimension-f_row);
-                    while(f_col < in_iBBDimension){
-                        blk_col_size = tmMin(TILE_SIZE, in_iBBDimension-f_col);
+                width = gFrameCache[e_X_Y].m_iWidth;
+                length = gFrameCache[e_X_Y].m_iLength;
+                while(f_row < width){
+                    blk_row_size = tmMin(TILE_SIZE, length-f_row);
+                    while(f_col < length){
+                        blk_col_size = tmMin(TILE_SIZE, width-f_col);
                         for(t_row = 0; t_row < blk_row_size; t_row++){
                             src_y = f_row+t_row;
                             for(t_col = 0 ; t_col < blk_col_size; t_col++){
                                 src_x = f_col+t_col;
-                                src_index = src_y*in_iBBDimension + src_x*PIXEL_SIZE;
-                                dst_index = src_x*in_iBBDimension + src_y*PIXEL_SIZE;
+                                src_index = (src_y*width + src_x)*PIXEL_SIZE;
+                                dst_index = (src_x*length+ src_y)*PIXEL_SIZE;
                                 dst_buffer[dst_index+R_OFFSET] = src_buffer[src_index+R_OFFSET];
                                 dst_buffer[dst_index+G_OFFSET] = src_buffer[src_index+G_OFFSET];
                                 dst_buffer[dst_index+B_OFFSET] = src_buffer[src_index+B_OFFSET];
@@ -491,27 +628,36 @@ void tmGenerateOrientationBuffer(tmBuffer in_pFrameBuffer,int in_iFrameDimension
             break;
         }
         case e_F_X_NY: {
-            if(gOrientationBuffer[e_F_X_Y]!=NULL){
-                tmBufferMirrorY(gOrientationBuffer[e_F_X_Y],gOrientationBuffer[e_F_X_NY], in_iBBDimension);
+            gFrameCache[in_eOrientation].m_iWidth = gFrameCache[e_X_Y].m_iLength;
+            gFrameCache[in_eOrientation].m_iLength = gFrameCache[e_X_Y].m_iWidth;
+            width = gFrameCache[in_eOrientation].m_iWidth;
+            length = gFrameCache[in_eOrientation].m_iLength;
+            src_buffer = gFrameCache[e_NX_NY].m_pBuffer;
+            dst_buffer = gFrameCache[in_eOrientation].m_pBuffer;
+            if(src_buffer!=NULL){
+                tmBufferMirrorY(src_buffer,dst_buffer, width,length);
             }
             else {
+                src_buffer = gFrameCache[e_X_Y].m_pBuffer;
                 int f_row, f_col, t_row, t_col;
                 int blk_col_size, blk_row_size;
                 int src_x, src_y, src_index, dst_index, dst_x, dst_y;
                 f_row = 0;
                 f_col = 0;
-                while (f_row < in_iBBDimension) {
-                    blk_row_size = tmMin(TILE_SIZE, in_iBBDimension - f_row);
-                    while (f_col < in_iBBDimension) {
-                        blk_col_size = tmMin(TILE_SIZE, in_iBBDimension - f_col);
+                width = gFrameCache[e_X_Y].m_iWidth;
+                length = gFrameCache[e_X_Y].m_iLength;
+                while (f_row < length) {
+                    blk_row_size = tmMin(TILE_SIZE, length- f_row);
+                    while (f_col < width) {
+                        blk_col_size = tmMin(TILE_SIZE, length- f_col);
                         for (t_row = 0; t_row < blk_row_size; t_row++) {
                             src_y = f_row + t_row;
                             for (t_col = 0; t_col < blk_col_size; t_col++) {
                                 src_x = f_col + t_col;
                                 dst_x = src_y;
-                                dst_y = (in_iBBDimension - 1) - src_x;
-                                src_index = src_y * in_iBBDimension + src_x * PIXEL_SIZE;
-                                dst_index = dst_y * in_iBBDimension + dst_x * PIXEL_SIZE;
+                                dst_y = (width - 1) - src_x;
+                                src_index = (src_y * width+ src_x) * PIXEL_SIZE;
+                                dst_index = (dst_y * length+ dst_x) * PIXEL_SIZE;
                                 dst_buffer[dst_index + R_OFFSET] = src_buffer[src_index + R_OFFSET];
                                 dst_buffer[dst_index + G_OFFSET] = src_buffer[src_index + G_OFFSET];
                                 dst_buffer[dst_index + B_OFFSET] = src_buffer[src_index + B_OFFSET];
@@ -525,27 +671,36 @@ void tmGenerateOrientationBuffer(tmBuffer in_pFrameBuffer,int in_iFrameDimension
             break;
         }
         case e_F_NX_Y: {
-            if(gOrientationBuffer[e_F_X_Y]!=NULL){
-                tmBufferMirrorX(gOrientationBuffer[e_F_X_Y],gOrientationBuffer[e_F_NX_Y], in_iBBDimension);
+            gFrameCache[in_eOrientation].m_iWidth = gFrameCache[e_X_Y].m_iLength;
+            gFrameCache[in_eOrientation].m_iLength = gFrameCache[e_X_Y].m_iWidth;
+            width = gFrameCache[in_eOrientation].m_iWidth;
+            length = gFrameCache[in_eOrientation].m_iLength;
+            src_buffer = gFrameCache[e_F_X_Y].m_pBuffer;
+            dst_buffer = gFrameCache[e_NX_Y].m_pBuffer;
+            if(src_buffer!=NULL){
+                tmBufferMirrorX(src_buffer,dst_buffer, width,length);
             }
             else {
+                src_buffer = gFrameCache[e_X_Y].m_pBuffer;
                 int f_row, f_col, t_row, t_col;
                 int blk_col_size, blk_row_size;
                 int src_x, src_y, src_index, dst_index, dst_x, dst_y;
                 f_row = 0;
                 f_col = 0;
-                while (f_row < in_iBBDimension) {
-                    blk_row_size = tmMin(TILE_SIZE, in_iBBDimension - f_row);
-                    while (f_col < in_iBBDimension) {
-                        blk_col_size = tmMin(TILE_SIZE, in_iBBDimension - f_col);
+                width = gFrameCache[e_X_Y].m_iWidth;
+                length = gFrameCache[e_X_Y].m_iLength;
+                while (f_row < length) {
+                    blk_row_size = tmMin(TILE_SIZE, length - f_row);
+                    while (f_col < width) {
+                        blk_col_size = tmMin(TILE_SIZE, width - f_col);
                         for (t_row = 0; t_row < blk_row_size; t_row++) {
                             src_y = f_row + t_row;
                             for (t_col = 0; t_col < blk_col_size; t_col++) {
                                 src_x = f_col + t_col;
-                                dst_x = (in_iBBDimension - 1) - src_y;
+                                dst_x = (width - 1) - src_y;
                                 dst_y = src_x;
-                                src_index = src_y * in_iBBDimension + src_x * PIXEL_SIZE;
-                                dst_index = dst_y * in_iBBDimension + dst_x * PIXEL_SIZE;
+                                src_index = (src_y * width + src_x) * PIXEL_SIZE;
+                                dst_index = (dst_y * width + dst_x) * PIXEL_SIZE;
                                 dst_buffer[dst_index + R_OFFSET] = src_buffer[src_index + R_OFFSET];
                                 dst_buffer[dst_index + G_OFFSET] = src_buffer[src_index + G_OFFSET];
                                 dst_buffer[dst_index + B_OFFSET] = src_buffer[src_index + B_OFFSET];
@@ -559,27 +714,36 @@ void tmGenerateOrientationBuffer(tmBuffer in_pFrameBuffer,int in_iFrameDimension
             break;
         }
         case e_F_NX_NY: {
-            if(gOrientationBuffer[e_F_X_NY]!=NULL){
-                tmBufferMirrorX(gOrientationBuffer[e_F_X_NY],gOrientationBuffer[e_F_NX_NY], in_iBBDimension);
+            gFrameCache[in_eOrientation].m_iWidth = gFrameCache[e_X_Y].m_iLength;
+            gFrameCache[in_eOrientation].m_iLength = gFrameCache[e_X_Y].m_iWidth;
+            width = gFrameCache[in_eOrientation].m_iWidth;
+            length = gFrameCache[in_eOrientation].m_iLength;
+            src_buffer = gFrameCache[e_F_X_Y].m_pBuffer;
+            dst_buffer = gFrameCache[e_F_NX_NY].m_pBuffer;
+            if(src_buffer!=NULL){
+                tmBufferMirrorX(src_buffer,dst_buffer, width,length);
             }
             else {
+                src_buffer = gFrameCache[e_X_Y].m_pBuffer;
                 int f_row, f_col, t_row, t_col;
                 int blk_col_size, blk_row_size;
                 int src_x, src_y, src_index, dst_index, dst_x, dst_y;
                 f_row = 0;
                 f_col = 0;
-                while (f_row < in_iBBDimension) {
-                    blk_row_size = tmMin(TILE_SIZE, in_iBBDimension - f_row);
-                    while (f_col < in_iBBDimension) {
-                        blk_col_size = tmMin(TILE_SIZE, in_iBBDimension - f_col);
+                width = gFrameCache[e_X_Y].m_iWidth;
+                length = gFrameCache[e_X_Y].m_iLength;
+                while (f_row < length) {
+                    blk_row_size = tmMin(TILE_SIZE, length- f_row);
+                    while (f_col < width) {
+                        blk_col_size = tmMin(TILE_SIZE, width- f_col);
                         for (t_row = 0; t_row < blk_row_size; t_row++) {
                             src_y = f_row + t_row;
                             for (t_col = 0; t_col < blk_col_size; t_col++) {
                                 src_x = f_col + t_col;
-                                dst_x = (in_iBBDimension - 1) - src_y;
-                                dst_y = (in_iBBDimension - 1) - src_x;
-                                src_index = src_y * in_iBBDimension + src_x * PIXEL_SIZE;
-                                dst_index = dst_y * in_iBBDimension + dst_x * PIXEL_SIZE;
+                                dst_x = (length - 1) - src_y;
+                                dst_y = (width- 1) - src_x;
+                                src_index = (src_y * width+ src_x) * PIXEL_SIZE;
+                                dst_index = (dst_y * length+ dst_x) * PIXEL_SIZE;
                                 dst_buffer[dst_index + R_OFFSET] = src_buffer[src_index + R_OFFSET];
                                 dst_buffer[dst_index + G_OFFSET] = src_buffer[src_index + G_OFFSET];
                                 dst_buffer[dst_index + B_OFFSET] = src_buffer[src_index + B_OFFSET];
@@ -599,287 +763,40 @@ void tmGenerateOrientationBuffer(tmBuffer in_pFrameBuffer,int in_iFrameDimension
 }
 
 
-
-//tmIndexMap* tmAllocIndexMap(int in_iWidth, int in_iLength){
-//    tmIndexMap* retMap = tmAlloc(tmIndexMap, 1);
-//    retMap->m_iWidth = in_iWidth;
-//    retMap->m_iLength = in_iLength;
-//    retMap->m_pArray = tmAlloc(int,in_iWidth*in_iLength);
-//}
-//void        tmFreeIndexMap(tmIndexMap* in_pIndexMap){
-//    free(in_pIndexMap->m_pArray);
-//    free(in_pIndexMap);
-//}
-//void        tmLoadIndexMapFromTransFormMatrix(tmMat4i* in_pMat, tmIndexMap* io_pInputMap){
-//    int i,j;
-//    int total_indexes = io_pInputMap->m_iWidth * io_pInputMap->m_iLength;
-//    for (i = 0; i < total_indexes; i++){
-//        tmMatrixIndexToVec(i,io_pInputMap->m_iWidth, gTempVec1);
-//        tmMatMulVec(in_pMat,gTempVec1,gTempVec2);
-//        io_pInputMap->m_pArray[i] = tmVecToMatrixIndex(gTempVec2,io_pInputMap->m_iWidth);
-//    }
-//}
-//
-//void       tmUpdateVertex (tmMat4i* io_pMat){
-//    if (io_pMat[MATRIX_01] == 0 )
-//        gAxisFlip == 0;
-//    else
-//        gAxisFlip == 1;
-//    if ((io_pMat[MATRIX_00] == 1 && io_pMat[MATRIX_11] == 1)||(io_pMat[MATRIX_01] == -1 && io_pMat[MATRIX_10] == -1))
-//        gVertex = etop_left;
-//    else if ((io_pMat[MATRIX_00] == -1 && io_pMat[MATRIX_11] == 1)||(io_pMat[MATRIX_01] == 1 && io_pMat[MATRIX_10] == -1))
-//        gVertex = etop_right;
-//    else if ((io_pMat[MATRIX_00] == 1 && io_pMat[MATRIX_11] == -1)||(io_pMat[MATRIX_01] == -1 && io_pMat[MATRIX_10] == 1))
-//        gVertex = ebot_right;
-//    else if ((io_pMat[MATRIX_00] == -1 && io_pMat[MATRIX_11] == -1)||(io_pMat[MATRIX_01] == 1 && io_pMat[MATRIX_10] == 1))
-//        gVertex = ebot_left;
-//    else
-//        printf("Error: Update Vertex Fail");
-//
-//
-//
-//}
-///////// Tiling /////////////
-//typedef struct _tmTile{
-//    unsigned char* m_pBuffer;
-//    unsigned char** m_pRows;
-//} tmTile;
-//typedef struct _tmTiledBuffer{
-//    unsigned char* m_pBuffer;
-//    tmTile* m_pTiles;
-//    tmTile** m_pTilesMap;
-//    int m_iValidX;
-//    int m_iValidY;
-//    size_t m_iTiledDimension;
-//    size_t m_iTileOffset;
-//    size_t m_iTilesPerRow;
-//    size_t m_iTilesPerCol;
-//} tmTiledMemory;
-//typedef enum _tmRotionDirectionFlag{
-//    tmRotionDirectionFlagCCW,
-//    tmRotionDirectionFlagCW
-//} tmRotionDirectionFlag;
-//typedef enum _tmMoveDirectionFlag{
-//    tmMoveDirectionFlagUP,
-//    tmMoveDirectionFlagDown,
-//    tmMoveDirectionFlagLeft,
-//    tmMoveDirectionFlagRight,
-//} tmMoveDirectionFlag;
-//typedef enum _tmMirrorDirectionFlag{
-//    tmMirrorDirectionX,
-//    tmMirrorDirectionY,
-//} tmMirrorDirectionFlag;
-//// This tile is used for intra-tile remapping
-//tmTile* gAuxTiles = NULL;
-//// This tile arrays is used for inter-tile remapping
-//tmTile** gAuxTiledMemory = NULL;
-//tmIndexMap* gInterTileIndexMap = NULL;
-//tmIndexMap* gIntraTileIndexMap = NULL;
-//tmTiledMemory* gGlobalTiledMemory = NULL;
-//void tmSwapTile(tmTile* io_pA, tmTile* io_pB){
-//    unsigned char* temp = io_pA->m_pBuffer;
-//    io_pA->m_pBuffer = io_pB->m_pBuffer;
-//    io_pB->m_pBuffer = temp;
-//
-//    unsigned char** temp_row = io_pA->m_pRows;
-//    io_pA->m_pRows = io_pB->m_pRows;
-//    io_pB->m_pRows = temp_row;
-//}
-//void tmMapTile(tmTile* io_Tile, tmIndexMap* in_pIndexMap){
-//    int row,col;
-//    int target_index;
-//    for(row = 0; row < TILE_SIZE; row++){
-//        for(col = 0; col < TILE_SIZE; col++){
-//            target_index = in_pIndexMap->m_pArray[row*TILE_SIZE+col];
-//            memcpy(gAuxTiles->m_pBuffer+target_index*PIXEL_SIZE,io_Tile->m_pRows[row]+col*PIXEL_SIZE, PIXEL_SIZE);
-//        }
-//    }
-//    tmSwapTile(io_Tile,gAuxTiles);
-//}
-//void tmMakeTile(tmTile* io_pTile, unsigned char* in_pBuffer){
-//    io_pTile->m_pBuffer = in_pBuffer;
-//    io_pTile->m_pRows = tmAlloc(unsigned char*, TILE_SIZE);
-//    int i;
-//    for (int i = 0 ; i < TILE_SIZE; i++){
-//        io_pTile->m_pRows[i] = io_pTile->m_pBuffer + i*TILE_SIZE;
-//    }
-//}
-//tmTile* tmAllocTile(int in_iSize){
-//    tmTile* ret = tmAlloc(tmTile, 1);
-//    ret->m_pBuffer = tmAlloc(PIXEL_DATA_TYPE, PIXEL_SIZE * in_iSize * in_iSize);
-//    ret->m_pRows = tmAlloc(PIXEL_DATA_TYPE*, in_iSize);
-//    int i;
-//    for (i = 0; i < in_iSize; i++){
-//        ret->m_pRows[i] = ret->m_pBuffer+i*in_iSize*PIXEL_SIZE;
-//    }
-//    return ret;
-//}
-//void tmMapTiledMemory(tmTiledMemory* io_Tile, tmIndexMap* in_pIndexMap){
-//    int total_tiles = io_Tile->m_iTilesPerCol * io_Tile->m_iTilesPerRow;
-//    int i;
-//    for (i = 0; i < total_tiles; i++){
-//        gAuxTiledMemory[in_pIndexMap->m_pArray[i]] = io_Tile->m_pTilesMap[i];
-//    }
-//    tmTile** temp = gAuxTiledMemory;
-//    temp = io_Tile->m_pTilesMap;
-//    io_Tile->m_pTilesMap = temp;
-//}
-//tmTiledMemory* tmAllocTiledMemory(size_t in_iTilesPerRow, size_t in_iTilesPerCol){
-//    size_t in_iNumOfTile = in_iTilesPerCol * in_iTilesPerRow;
-//    unsigned char* fullBuffer = tmAlloc(PIXEL_DATA_TYPE,TILE_SIZE*TILE_SIZE*in_iNumOfTile);
-//    tmTiledMemory* returnMemory = tmAlloc(tmTiledMemory,1);
-//    returnMemory->m_iTileOffset = PIXEL_SIZE * TILE_SIZE * TILE_SIZE;
-//    returnMemory->m_iTiledDimension = TILE_SIZE;
-//    returnMemory->m_pBuffer = fullBuffer;
-//
-//    returnMemory->m_pTiles = tmAlloc(tmTile, in_iNumOfTile);
-//    returnMemory->m_pTilesMap = tmAlloc(tmTile*, in_iNumOfTile);
-//    returnMemory->m_iTilesPerCol = in_iTilesPerCol;
-//    returnMemory->m_iTilesPerRow = in_iTilesPerRow;
-//    // Allocate all the tiles
-//    int i,j;
-//    for (i = 0; i < in_iNumOfTile; i++){
-//        tmMakeTile(returnMemory->m_pTiles+i,fullBuffer+i*returnMemory->m_iTileOffset);
-//        returnMemory->m_pTilesMap[i] = returnMemory->m_pTiles+i;
-//    }
-//    return returnMemory;
-//}
-//void tmFreeTiledMemory(tmTiledMemory* in_pTiledMemory){
-//    free(in_pTiledMemory->m_pBuffer);
-//    free(in_pTiledMemory->m_pTiles);
-//    free(in_pTiledMemory->m_pTilesMap);
-//    free(in_pTiledMemory);
-//}
-//tmTiledMemory* tmAllocTiledMemoryFromFrame(unsigned char* in_pBuffer, int in_iSize){
-//    int num_of_tiles = in_iSize/TILE_SIZE + 1;
-//    tmTiledMemory* retMemory = tmAllocTiledMemory(num_of_tiles,num_of_tiles);
-//    int row,tiled_memory_size;
-//    tiled_memory_size = retMemory->m_iTileOffset;
-//    for (row = 0; row < in_iSize; row++){
-//        memcpy(retMemory->m_pBuffer+row*tiled_memory_size, in_pBuffer+row*in_iSize, in_iSize);
-//    }
-//}
-//void tmTiledMemoryToFrame(unsigned char* io_pBuffer, int in_iSize, tmTiledMemory* in_pTiled){
-//    int size_x;
-//    int size_y;
-//    if (gAxisFlip == 0) {
-//        size_x = in_pTiled->m_iValidX;
-//        size_y = in_pTiled->m_iValidY;
-//    } else {
-//        size_x = in_pTiled->m_iValidY;
-//        size_y = in_pTiled->m_iValidX;
-//    }
-//
-//    int x_offset;
-//    int y_offset;
-//    if (gVertex == etop_left || gVertex == etop_right)
-//        x_offset == 0;
-//    else
-//        x_offset == TILE_SIZE - size_x % TILE_SIZE;
-//
-//    if (gVertex == etop_left || gVertex == etop_left)
-//        y_offset == 0;
-//    else
-//        y_offset == TILE_SIZE - size_y % TILE_SIZE;
-//
-//    int tile_per_row;
-//    tile_per_row = in_pTiled->m_iTilesPerRow;
-//
-//    int row_count;
-//    int col_count;
-//    int remain_row;
-//    int remain_col;
-//    int copied_row;
-//    int copied_col;
-//    int row_to_copy;
-//    int col_to_copy;
-//    int tile_y_offset;
-//    int tile_x_offset;
-//    int in_tile_row_count;
-//    int tile_index;
-//
-//    while (remain_row > 0){
-//            remain_col = size_x;
-//            if ( y_offset != 0 && row_count ==0) {
-//                    row_to_copy = TILE_SIZE - y_offset;
-//                    tile_y_offset = y_offset;
-//            } else if (remain_row < TILE_SIZE) {
-//                    row_to_copy = remain_row;
-//                    tile_y_offset = 0;
-//            } else {
-//                    row_to_copy = TILE_SIZE;
-//                    tile_y_offset = 0;
-//            }
-//            while (remain_col > 0){
-//                    copied_row = size_y - remain_row;
-//                    copied_col = size_x - remain_col;
-//                    tile_index = tile_per_row*row_count+col_count;
-//                    for (in_tile_row_count = 0; in_tile_row_count < row_to_copy ; in_tile_row_count ++){
-//                            if (x_offset != 0 && col_count == 0) {
-//                                    col_to_copy = TILE_SIZE - x_offset;
-//                                    tile_x_offset = x_offset;
-//                            } else if (remain_col <TILE_SIZE){
-//                                    col_to_copy = remain_col;
-//                                    tile_x_offset = 0;
-//                            } else {
-//                                    col_to_copy = TILE_SIZE;
-//                                    tile_x_offset = 0;
-//                            }
-//                            memcpy (io_pBuffer+(copied_row*size_x+copied_col)*PIXEL_SIZE,in_pTiled->m_pTilesMap[tile_index]->m_pRows[tile_y_offset+in_tile_row_count]+tile_x_offset,col_to_copy);
-//                            copied_row ++;
-//                    }
-//                    remain_col -=col_to_copy;
-//                    col_count ++;
-//            }
-//            remain_row -= row_to_copy;
-//            row_count++;
-//    }
-//
-//}
-//void tmCleanTile(tmTile* io_pTile, int in_iOffset, tmMoveDirectionFlag in_eFlag) {
-//
-//    int tile_row;
-//
-//    if (in_eFlag == tmMoveDirectionFlagUP) {
-//        for (tile_row = TILE_SIZE - in_iOffset; tile_row < TILE_SIZE; tile_row++) {
-//          memset (io_pTile->m_pRows[tile_row],0, TILE_SIZE * PIXEL_SIZE);
-//        }
-//    } else if (in_eFlag == tmMoveDirectionFlagDown) {
-//        for (tile_row = 0; tile_row < in_iOffset; tile_row++) {
-//          memset (io_pTile->m_pRows[tile_row],0, TILE_SIZE * PIXEL_SIZE);
-//        }
-//    } else if (in_eFlag == tmMoveDirectionFlagLeft) {
-//        int white_size = in_iOffset * PIXEL_SIZE;
-//        for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
-//            memset (io_pTile->m_pRows[tile_row] + TILE_SIZE - in_iOffset, 0, white_size);
-//        }
-//    //} else if (in_eFlag == tmMoveDirectionFlagRight) {
-//    } else {
-//        int white_size = in_iOffset * PIXEL_SIZE;
-//        for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
-//            memset (io_pTile->m_pRows[tile_row], 0, white_size);
-//        }
-//    }
-//
-//}
-///**
-// * Global tiled memory initialization function, any type of global variable should be
-// * initialized here
-// */
 void tmInit(){
-    // Initial global variable
-    gGlobalCCW = tmAllocMat(eMatrixType_CCW90);
-    gGlobalCW = tmAllocMat(eMatrixType_CW90);
-    gGlobalMirrorXMatrix = tmAllocMat(eMatrixType_MirroX);
-    gGlobalMirrorYMatrix = tmAllocMat(eMatrixType_MirroY);
-    gGlobalR180 = tmAllocMat(eMatrixType_R180);
-    gGlobalTransform = tmAllocMat(eMatrixType_Identity);
-    gTempMul  =tmAllocMat(eMatrixType_Identity);
-    gTL = tmAlloc(tmVec4i, 1);
-    gTR = tmAlloc(tmVec4i, 1);
-    gBL = tmAlloc(tmVec4i, 1);
-    gBR = tmAlloc(tmVec4i, 1);
-    gVertex = tmAlloc(tmVec4i, 1);
+    if(gInited == 0) {
+        // Initial global variable
+        gGlobalCCW = tmAllocMat(eMatrixType_CCW90);
+        gGlobalCW = tmAllocMat(eMatrixType_CW90);
+        gGlobalMirrorXMatrix = tmAllocMat(eMatrixType_MirroX);
+        gGlobalMirrorYMatrix = tmAllocMat(eMatrixType_MirroY);
+        gGlobalR180 = tmAllocMat(eMatrixType_R180);
+        gGlobalTransform = tmAllocMat(eMatrixType_Identity);
+        gTempMul = tmAllocMat(eMatrixType_Identity);
+        gGlobalTranslate = tmAllocMat(eMatrixType_Identity);
+        gTempVec1 = tmAllocVec();
+        gTL = tmAllocVec();
+        gTR = tmAllocVec();
+        gBL = tmAllocVec();
+        gBR = tmAllocVec();
+        gVertex = tmAllocVec();
+        gFrameCache = tmAlloc(tmFrameCache,eOrientationCount);
+        int i =0;
+        for(i = 0; i < eOrientationCount; i++){
+            gFrameCache[i].m_pBuffer = NULL;
+            gFrameCache[i].m_iWidth = 0;
+            gFrameCache[i].m_iLength = 0;
+        }
+        gInited = 1;
+    }
+    else{
+        tmLoadMat(gGlobalTransform,eMatrixType_Identity);
+        tmCleanVec(gTL);
+        tmCleanVec(gTR);
+        tmCleanVec(gBL);
+        tmCleanVec(gBR);
+        tmCleanVec(gVertex);
+    }
 }
 void tmCleanUp(){
     tmFreeMat(gTempMul);
@@ -895,236 +812,18 @@ void tmCleanUp(){
     tmFreeVec(gTR);
     tmFreeVec(gBR);
     tmFreeVec(gVertex);
+    tmFreeVec(gTempVec1);
+//    for(int i = 0; i < 8; i++){
+//        if(gOrientationBuffer[i]!=NULL){
+//            free(gOrientationBuffer[i]);
+//            gOrientationBuffer[i] = NULL;
+//        }
+//
+//    }
+
 
 }
-//void tmMoveTile(tmTile* io_pFrom, tmTile* io_pTo, int in_iOffset, tmMoveDirectionFlag in_eFlag){
-//    if (in_iOffset == 0)
-//        return;
-//
-//    int tile_row;
-//
-//    if (in_eFlag == tmMoveDirectionFlagUP) {
-//        for (tile_row = 0; tile_row < in_iOffset; tile_row++) {
-//            io_pTo->m_pRows[TILE_SIZE - in_iOffset + tile_row] = io_pFrom->m_pRows[tile_row];
-//        }
-//        for (tile_row = 0; tile_row < TILE_SIZE - in_iOffset; tile_row++) {
-//            io_pFrom->m_pRows[tile_row] = io_pFrom->m_pRows[tile_row + in_iOffset];
-//        }
-//    } else if (in_eFlag == tmMoveDirectionFlagDown) {
-//        for (tile_row = 0; tile_row < in_iOffset; tile_row++) {
-//            io_pTo->m_pRows[tile_row] = io_pFrom->m_pRows[tile_row + TILE_SIZE - in_iOffset];
-//        }
-//        for (tile_row = 0; tile_row < TILE_SIZE - in_iOffset; tile_row++) {
-//            io_pFrom->m_pRows[tile_row + in_iOffset] = io_pFrom->m_pRows[tile_row];
-//        }
-//    } else if (in_eFlag == tmMoveDirectionFlagLeft) {
-//        int shift_len = in_iOffset * PIXEL_SIZE;
-//        int shift_n_len = (TILE_SIZE - in_iOffset)* PIXEL_SIZE;
-//        char* row_start;
-//        for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
-//            row_start = io_pFrom->m_pRows[tile_row];
-//            memmove (io_pTo->m_pRows[tile_row] + shift_n_len, row_start, shift_len);
-//            memmove (row_start, row_start + shift_len, shift_n_len);
-//        }
-//    //} else if (in_eFlag == tmMoveDirectionFlagRight) {
-//        } else {
-//        int shift_len = in_iOffset * PIXEL_SIZE;
-//        int shift_n_len = (TILE_SIZE - in_iOffset)* PIXEL_SIZE;
-//        char* row_start;
-//        for (tile_row = 0; tile_row < TILE_SIZE; tile_row++) {
-//            row_start = io_pFrom->m_pRows[tile_row];
-//            memmove (io_pTo->m_pRows[tile_row], row_start + shift_n_len, shift_len);
-//            memmove (row_start + shift_len, row_start, shift_n_len);
-//        }
-//    }
-//}
-//void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirrorDirectionFlag in_eFlag){
-//    if(io_pTiledMemory == NULL){
-//        return;
-//    }
-//    else{
-//        int tile_to_move = in_iOffset / TILE_SIZE;
-//        int tile_umove_offset = io_pTiledMemory->m_iTilesPerRow-tile_to_move;
-//        int total_tiles = io_pTiledMemory->m_iTilesPerCol * io_pTiledMemory->m_iTilesPerRow;
-//        int row,col;
-//        switch(in_eFlag){
-//            case tmMoveDirectionFlagLeft:{
-//                // Check if the offset is greater than the tile size, if it is greater then move tile first
-//                if (tile_to_move!=0){
-//                    for(row = 0; row < io_pTiledMemory->m_iTilesPerRow; row++){
-//                        tmTile** start = io_pTiledMemory->m_pTilesMap+row*io_pTiledMemory->m_iTilesPerRow;
-//                        memcpy(start,gAuxTiledMemory, tile_to_move*sizeof(tmTile*));
-//                        memmove(start,start+tile_to_move, sizeof(tmTile*)*tile_umove_offset);
-//                        memcpy(start+tile_umove_offset, gAuxTiledMemory, tile_to_move*sizeof(tmTile*));
-//                    }
-//                }
-//                // Individual tile movement
-//                in_iOffset %= TILE_SIZE;
-//                col = 0;
-//                row = 0;
-//                for (row = 0; row < io_pTiledMemory->m_iTilesPerRow; row++){
-//                    tmTile** start_tile = io_pTiledMemory->m_pTilesMap + row*io_pTiledMemory->m_iTilesPerRow;
-//                    for (col = 1; col < io_pTiledMemory->m_iTilesPerCol; col++){
-//                        tmMoveTile(start_tile[col],start_tile[col-1],in_iOffset,in_eFlag);
-//                    }
-//                    tmMoveTile(start_tile[0],start_tile[io_pTiledMemory->m_iTilesPerCol-1],in_iOffset,in_eFlag);
-//                }
-//                // White the tile
-//                row = io_pTiledMemory->m_iTilesPerCol-1;
-//                while(row < total_tiles){
-//                    tmCleanTile(io_pTiledMemory->m_pTilesMap[row],in_iOffset,in_eFlag);
-//                    row += io_pTiledMemory->m_iTilesPerRow;
-//                }
-//            }
-//            case tmMoveDirectionFlagRight:{
-//                if (tile_to_move!=0){
-//                    for(row = 0; row < io_pTiledMemory->m_iTilesPerRow; row++){
-//                        tmTile** start = io_pTiledMemory->m_pTilesMap+row*io_pTiledMemory->m_iTilesPerRow;
-//                        memcpy(start+tile_umove_offset,gAuxTiledMemory, tile_to_move*sizeof(tmTile*));
-//                        memmove(start+tile_to_move,start, sizeof(tmTile*)*tile_umove_offset);
-//                        memcpy(start, gAuxTiledMemory, tile_to_move*sizeof(tmTile*));
-//                    }
-//                }
-//                in_iOffset %= TILE_SIZE;
-//                col = 0;
-//                row = 0;
-//                for (row = 0; row < io_pTiledMemory->m_iTilesPerRow; row++){
-//                    tmTile** start_tile = io_pTiledMemory->m_pTilesMap + row*io_pTiledMemory->m_iTilesPerRow;
-//                    for (col = 0; col < io_pTiledMemory->m_iTilesPerCol-1; col++){
-//                        tmMoveTile(start_tile[col+1],start_tile[col],in_iOffset,in_eFlag);
-//                    }
-//                    tmMoveTile(start_tile[io_pTiledMemory->m_iTilesPerCol-1],start_tile[0],in_iOffset,in_eFlag);
-//                }
-//                row = 0;
-//                while(row < total_tiles){
-//                    tmCleanTile(io_pTiledMemory->m_pTilesMap[row],in_iOffset,in_eFlag);
-//                    row += io_pTiledMemory->m_iTilesPerRow;
-//                }
-//            }
-//            case tmMoveDirectionFlagUP:{
-//                if (tile_to_move!=0){
-//                    int element_to_move = tile_to_move*io_pTiledMemory->m_iTilesPerRow;
-//                    int element_n_to_move = io_pTiledMemory->m_iTilesPerCol * io_pTiledMemory->m_iTilesPerRow-element_to_move;
-//                    memcpy(gAuxTiledMemory,io_pTiledMemory->m_pTilesMap, element_to_move);
-//                    memmove(io_pTiledMemory->m_pTilesMap, io_pTiledMemory->m_pTilesMap+element_to_move, element_n_to_move);
-//                    memcpy(io_pTiledMemory->m_pTilesMap+element_to_move, gAuxTiledMemory, element_to_move);
-//                }
-//                int i = 0;
-//                in_iOffset %= TILE_SIZE;
-//                int to_index = 0;
-//                for (i = 0; i < total_tiles; i++){
-//                    to_index = (i + total_tiles-io_pTiledMemory->m_iTilesPerRow)%total_tiles;
-//                    tmMoveTile(io_pTiledMemory->m_pTilesMap[i], io_pTiledMemory->m_pTilesMap[i+to_index],in_iOffset,in_eFlag);
-//                }
-//                row = total_tiles-io_pTiledMemory->m_iTilesPerRow;
-//                while(row < total_tiles){
-//                    tmCleanTile(io_pTiledMemory->m_pTilesMap[row],in_iOffset,in_eFlag);
-//                    row += 1;
-//                }
-//            }
-//            case tmMoveDirectionFlagDown:{
-//                if (tile_to_move!=0){
-//                    int element_to_move = tile_to_move*io_pTiledMemory->m_iTilesPerRow;
-//                    int element_n_to_move = io_pTiledMemory->m_iTilesPerCol * io_pTiledMemory->m_iTilesPerRow-element_to_move;
-//                    memcpy(gAuxTiledMemory,io_pTiledMemory+element_n_to_move, element_to_move);
-//                    memmove(io_pTiledMemory->m_pTilesMap+element_to_move, io_pTiledMemory->m_pTilesMap, element_n_to_move);
-//                    memcpy(io_pTiledMemory->m_pTilesMap, gAuxTiledMemory, element_to_move);
-//                }
-//                int i = 0;
-//                in_iOffset %= TILE_SIZE;
-//                int to_index = 0;
-//                for (i = 0; i < total_tiles; i++){
-//                    to_index = (i + total_tiles-io_pTiledMemory->m_iTilesPerRow)%total_tiles;
-//                    tmMoveTile(io_pTiledMemory->m_pTilesMap[i+to_index],io_pTiledMemory->m_pTilesMap[i],in_iOffset,in_eFlag);
-//                }
-//                row = 0;
-//                while(row < io_pTiledMemory->m_iTilesPerRow){
-//                    tmCleanTile(io_pTiledMemory->m_pTilesMap[row],in_iOffset,in_eFlag);
-//                    row += 1;
-//                }
-//
-//            }
-//        }
-//    }
-//}
-//void tmTransformTiledMemory(tmTiledMemory* io_pTile, tmMat4i* in_pMat){
-//    int x_movement,y_movement;
-//    x_movement = in_pMat[MATRIX_INDEX_TRANSFORM_X];
-//    y_movement = in_pMat[MATRIX_INDEX_TRANSFORM_Y];
-//    in_pMat[MATRIX_INDEX_TRANSFORM_Y] = 0;
-//    in_pMat[MATRIX_INDEX_TRANSFORM_X] = 0;
-//    tmLoadIndexMapFromTransFormMatrix(in_pMat,gInterTileIndexMap);
-//    tmLoadIndexMapFromTransFormMatrix(in_pMat,gIntraTileIndexMap);
-//    int tile_dimenson = io_pTile->m_iTiledDimension;
-//    if(x_movement!=0 || y_movement!=0){
-//        // Inter-tile movement
-//        if(x_movement!=0){
-//            tmMoveTiledMemory(io_pTile, x_movement, tmMirrorDirectionX);
-//        }
-//        if(y_movement!=0){
-//            tmMoveTiledMemory(io_pTile, y_movement, tmMirrorDirectionX);
-//        }
-//    }
-//
-//    int i,total_tiles;
-//    total_tiles = io_pTile->m_iTilesPerRow * io_pTile->m_iTilesPerCol;
-//    for (i = 0 ; total_tiles; i++){
-//        tmMapTile(io_pTile->m_pTilesMap[i],gInterTileIndexMap);
-//    }
-//    tmMapTiledMemory(io_pTile,gIntraTileIndexMap);
-//}
 
-
-//void tmRotateTiledMemory(tmTiledMemory* io_pTiledMemory, tmRotionDirectionFlag in_eFlag);
-//void tmMoveTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset,tmMirrorDirectionFlag in_eFlag);
-//void tmMirrorTiledMemory(tmTiledMemory* io_pTiledMemory,int in_iOffset, tmMirrorDirectionFlag in_eFlag);
-//void tmMirrorTile(tmTile* io_pTile, tmMirrorDirectionFlag in_eFlag){
-//    if (in_eFlag == tmMirrorDirectionX) {
-//        char *temp_ptr;
-//        int tile_row;
-//        int half_tile = TILE_SIZE >> 1;
-//        for (tile_row=0; tile_row<half_tile; tile_row++) {
-//            temp_ptr = io_pTile->m_pRows[tile_row];
-//            io_pTile->m_pRows[tile_row] = io_pTile->m_pRows[TILE_SIZE - tile_row];
-//            io_pTile->m_pRows[tile_row - tile_row] = temp_ptr;
-//        }      
-//    } else {
-//        int tile_row;
-//        int tile_col;
-//        int half_tile = TILE_SIZE >> 1;
-//        char temp_r;
-//        char temp_g;
-//        char temp_b;
-//        for (tile_row=0; tile_row<TILE_SIZE; tile_row++){
-//            for (tile_col=0; tile_col< half_tile; tile_col++){ 
-//                temp_r = io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE];
-//                temp_g = io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE + 1];
-//                temp_b = io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE + 2];
-//                io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE] = io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE];
-//                io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE + 1] = io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE + 1];
-//                io_pTile->m_pRows[tile_row][tile_col*PIXEL_SIZE + 2] = io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE + 2];
-//                io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE] = temp_r;
-//                io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE + 1] = temp_g;
-//                io_pTile->m_pRows[tile_row][TILE_SIZE - (tile_col + 1)*PIXEL_SIZE + 2] = temp_b;
-//            }       
-//        }       
-//    }
-//}
-//void tmFreeTiledMemory(tmTiledMemory* in_pTiledMemory){
-//    // Free total buffer
-//    free(in_pTiledMemory->m_pBuffer);
-//    int i;
-//    // Free tile's row-mapping buffer
-//    for (i = 0; i < TILE_SIZE; i++){
-//        free(in_pTiledMemory->m_pTiles[i].m_pRows);
-//    }
-//    // Free tile-mapping buffer
-//    free(in_pTiledMemory->m_pTiles);
-//}
-
-//void tmRotateTiledMemory(tmTiledMemory* io_pTiledMemory, tmRotionDirectionFlag in_eFlag){
-//    
-//}
 
 /***********************************************************************************************************************
  * @param buffer_frame - pointer pointing to a buffer storing the imported 24-bit bitmap image
@@ -1139,7 +838,9 @@ unsigned char *processMoveUp(unsigned char *buffer_frame, unsigned width, unsign
 #ifndef SPEED_UP
     return processMoveUpReference(buffer_frame, width, height, offset);
 #else
-    gGlobalTransform[MATRIX_INDEX_TRANSFORM_Y] += offset;
+    gGlobalTranslate[MATRIX_INDEX_TRANSFORM_X] = 0;
+    gGlobalTranslate[MATRIX_INDEX_TRANSFORM_Y] = -offset;
+    tmMatMulMatInplace(gGlobalTranslate,gGlobalTransform);
     return NULL;
 #endif
 }
@@ -1154,11 +855,12 @@ unsigned char *processMoveUp(unsigned char *buffer_frame, unsigned width, unsign
  * Note2: You can assume the object will never be moved off the screen
  **********************************************************************************************************************/
 unsigned char *processMoveRight(unsigned char *buffer_frame, unsigned width, unsigned height, int offset) {
-    return processMoveRightReference(buffer_frame, width, height, offset);
 #ifndef SPEED_UP
     return processMoveRightReference()Reference(buffer_frame, width, height, offset);
 #else
-    gGlobalTransform[MATRIX_INDEX_TRANSFORM_X] += offset;
+    gGlobalTranslate[MATRIX_INDEX_TRANSFORM_X] = offset;
+    gGlobalTranslate[MATRIX_INDEX_TRANSFORM_Y] = 0;
+    tmMatMulMatInplace(gGlobalTranslate,gGlobalTransform);
     return NULL;
 #endif
 }
@@ -1176,7 +878,9 @@ unsigned char *processMoveDown(unsigned char *buffer_frame, unsigned width, unsi
 #ifndef SPEED_UP
     return processMoveDownReference(buffer_frame, width, height, offset);
 #else
-    gGlobalTransform[MATRIX_INDEX_TRANSFORM_Y] -= offset;
+    gGlobalTranslate[MATRIX_INDEX_TRANSFORM_X] = 0;
+    gGlobalTranslate[MATRIX_INDEX_TRANSFORM_Y] = offset;
+    tmMatMulMatInplace(gGlobalTranslate,gGlobalTransform);
     return NULL;
 #endif
 }
@@ -1194,7 +898,9 @@ unsigned char *processMoveLeft(unsigned char *buffer_frame, unsigned width, unsi
 #ifndef SPEED_UP
     return processMoveLeftReference()Reference(buffer_frame, width, height, offset);
 #else
-    gGlobalTransform[MATRIX_INDEX_TRANSFORM_X] -= offset;
+    gGlobalTranslate[MATRIX_INDEX_TRANSFORM_X] = -offset;
+    gGlobalTranslate[MATRIX_INDEX_TRANSFORM_Y] = 0;
+    tmMatMulMatInplace(gGlobalTranslate,gGlobalTransform);
     return NULL;
 #endif
 }
@@ -1217,15 +923,15 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
             break;
         }
         case(1):{
-            tmMatMulVecInplace(gGlobalCW, gGlobalTransform);
+            tmMatMulMatInplace(gGlobalCW, gGlobalTransform);
             break;
         }
         case(2):{
-            tmMatMulVecInplace(gGlobalR180, gGlobalTransform);
+            tmMatMulMatInplace(gGlobalR180, gGlobalTransform);
             break;
         }
         case(3):{
-            tmMatMulVecInplace(gGlobalCCW, gGlobalTransform);
+            tmMatMulMatInplace(gGlobalCCW, gGlobalTransform);
             break;
         }
         default:{
@@ -1255,15 +961,15 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
             break;
         }
         case(1):{
-            tmMatMulVecInplace(gGlobalCCW, gGlobalTransform);
+            tmMatMulMatInplace(gGlobalCCW, gGlobalTransform);
             break;
         }
         case(2):{
-            tmMatMulVecInplace(gGlobalR180, gGlobalTransform);
+            tmMatMulMatInplace(gGlobalR180, gGlobalTransform);
             break;
         }
         case(3):{
-            tmMatMulVecInplace(gGlobalCW, gGlobalTransform);
+            tmMatMulMatInplace(gGlobalCW, gGlobalTransform);
             break;
         }
         default:{
@@ -1285,7 +991,7 @@ unsigned char *processMirrorX(unsigned char *buffer_frame, unsigned int width, u
 #ifndef SPEED_UP
     return processMirrorXReference(buffer_frame, width, height, _unused);
 #else
-    tmMatMulVecInplace(gGlobalMirrorXMatrix, gGlobalTransform);
+    tmMatMulMatInplace(gGlobalMirrorXMatrix, gGlobalTransform);
     return NULL;
 #endif
 }
@@ -1301,7 +1007,7 @@ unsigned char *processMirrorY(unsigned char *buffer_frame, unsigned width, unsig
 #ifndef SPEED_UP
     return processMirrorYReference(buffer_frame, width, height, _unused);
 #else
-    tmMatMulVecInplace(gGlobalMirrorYMatrix, gGlobalTransform);
+    tmMatMulMatInplace(gGlobalMirrorYMatrix, gGlobalTransform);
     return NULL;
 #endif
 }
@@ -1353,13 +1059,42 @@ void print_team_info(){
 void implementation_driver(struct kv *sensor_values, int sensor_values_count, unsigned char *frame_buffer,
                            unsigned int width, unsigned int height, bool grading_mode) {
     int processed_frames = 0;
+    int bb_width,bb_length;
     tmInit(frame_buffer, width*height);
-
     // Allocate global frame
-    tmUpdateBoundingBox(frame_buffer, height*height, height);
-    tmGenerateOrientationBuffer(frame_buffer,width, gbb_size,e_X_Y);
+    tmUpdateBoundingBox(frame_buffer, height);
+    tmGenerateBaseBuffer(frame_buffer,width);
     for (int sensorValueIdx = 0; sensorValueIdx < sensor_values_count; sensorValueIdx++) {
-//        printf("Processing sensor value #%d: %s, %d\n", sensorValueIdx, sensor_values[sensorValueIdx].key,
+#ifdef SPEED_UP
+//               printf("Processing sensor value #%d: %s, %d\n", sensorValueIdx, sensor_values[sensorValueIdx].key,
+//              sensor_values[sensorValueIdx].value);
+        if (!strcmp(sensor_values[sensorValueIdx].key, "W")) {
+            processMoveUp(frame_buffer, width, height, sensor_values[sensorValueIdx].value);
+//            printBMP(width, height, frame_buffer);
+        } else if (!strcmp(sensor_values[sensorValueIdx].key, "A")) {
+            processMoveLeft(frame_buffer, width, height, sensor_values[sensorValueIdx].value);
+//            printBMP(width, height, frame_buffer);
+        } else if (!strcmp(sensor_values[sensorValueIdx].key, "S")) {
+            processMoveDown(frame_buffer, width, height, sensor_values[sensorValueIdx].value);
+//            printBMP(width, height, frame_buffer);
+        } else if (!strcmp(sensor_values[sensorValueIdx].key, "D")) {
+            processMoveRight(frame_buffer, width, height, sensor_values[sensorValueIdx].value);
+//            printBMP(width, height, frame_buffer);
+        } else if (!strcmp(sensor_values[sensorValueIdx].key, "CW")) {
+            processRotateCW(frame_buffer, width, height, sensor_values[sensorValueIdx].value);
+//            printBMP(width, height, frame_buffer);
+        } else if (!strcmp(sensor_values[sensorValueIdx].key, "CCW")) {
+            processRotateCCW(frame_buffer, width, height, sensor_values[sensorValueIdx].value);
+//            printBMP(width, height, frame_buffer);
+        } else if (!strcmp(sensor_values[sensorValueIdx].key, "MX")) {
+            processMirrorX(frame_buffer, width, height, sensor_values[sensorValueIdx].value);
+//            printBMP(width, height, frame_buffer);
+        } else if (!strcmp(sensor_values[sensorValueIdx].key, "MY")) {
+            processMirrorY(frame_buffer, width, height, sensor_values[sensorValueIdx].value);
+//            printBMP(width, height, frame_buffer);
+        }
+#else
+        //        printf("Processing sensor value #%d: %s, %d\n", sensorValueIdx, sensor_values[sensorValueIdx].key,
 //               sensor_values[sensorValueIdx].value);
         if (!strcmp(sensor_values[sensorValueIdx].key, "W")) {
             frame_buffer = processMoveUp(frame_buffer, width, height, sensor_values[sensorValueIdx].value);
@@ -1386,20 +1121,31 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
             frame_buffer = processMirrorY(frame_buffer, width, height, sensor_values[sensorValueIdx].value);
 //            printBMP(width, height, frame_buffer);
         }
+#endif
+        //tmPrintMat(gGlobalTransform);
         processed_frames += 1;
         if (processed_frames % 25 == 0) {
+
             tmOrientation orientation  = tmGetOrientationFromMat(gGlobalTransform);
-            if(gOrientationBuffer[orientation] == NULL){
-                tmGenerateOrientationBuffer(NULL,width,gbb_size,orientation);
+            if(gFrameCache[orientation].m_pBuffer == NULL){
+                tmGenerateOrientationBuffer(orientation);
             }
-            tmWhitePic(frame_buffer,width);
+            bb_width = tmGetCurrentBoundingBoxWidth();
+            bb_length = tmGetCurrentBoundingBoxLength();
+            //tmPrintVec(gVertex);
+            tmClearFrame(frame_buffer,width,gVertex,bb_width,bb_length);
+            //tmPrintFrame(frame_buffer,width,height);
             tmUpdateVertex(gGlobalTransform,width);
-            tmWriteOrientationToBuffer(frame_buffer,width,gVertex,gbb_size,orientation);
-            //tmTransformTiledMemory(gGlobalTiledMemory, gGlobalTransform);
-            //tmTiledMemoryToFrame(frame_buffer,width*height,gGlobalTiledMemory);
+            printf("T_M\n");
+            tmPrintMat(gGlobalTransform);
+            printf("T_V\n");
+            tmPrintVec(gVertex);
+            printf("Orientation: %d\n",orientation);
+            tmWriteFrameFromCache(frame_buffer, width, gVertex,orientation);
+
+            //tmPrintFrame(frame_buffer,width,height);
             verifyFrame(frame_buffer, width, height, grading_mode);
         }
     }
-    tmCleanUp();
     return;
 }
