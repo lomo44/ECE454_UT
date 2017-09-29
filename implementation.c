@@ -647,15 +647,15 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
                 f_col = 0;
                 width = gFrameCache[e_X_Y].m_iWidth;
                 length = gFrameCache[e_X_Y].m_iLength;
-                while (f_row < width) {
+                while (f_row < length) {
                     blk_row_size = tmMin(TILE_SIZE, length- f_row);
-                    while (f_col < length) {
+                    while (f_col < width) {
                         blk_col_size = tmMin(TILE_SIZE, width- f_col);
                         for (t_row = 0; t_row < blk_row_size; t_row++) {
                             src_y = f_row + t_row;
+                            dst_x = src_y;
                             for (t_col = 0; t_col < blk_col_size; t_col++) {
                                 src_x = f_col + t_col;
-                                dst_x = src_y;
                                 dst_y = (width - 1) - src_x;
                                 src_index = (src_y * width+ src_x) * PIXEL_SIZE;
                                 dst_index = (dst_y * length+ dst_x) * PIXEL_SIZE;
