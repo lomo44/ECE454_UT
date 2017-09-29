@@ -95,7 +95,7 @@ int tmMax4(int w, int x, int y, int z){
 }
 tmVec4i* gTempVec1 = NULL;
 
-//int      gVertex   = etop_left;
+//int      gOriginalVertex   = etop_left;
 
 tmMat4i* gTempMul = NULL;
 tmMat4i* gGlobalCW = NULL;
@@ -106,11 +106,15 @@ tmMat4i* gGlobalR180 = NULL;
 tmMat4i* gGlobalTranslate = NULL;
 tmMat4i* gGlobalTransform = NULL;
 
-tmVec4i* gVertex = NULL;
+tmVec4i* gOriginalVertex = NULL;
 tmVec4i* gTL= NULL;
 tmVec4i* gTR= NULL;
 tmVec4i* gBL = NULL;
 tmVec4i* gBR = NULL;
+tmVec4i* gTL_clean= NULL;
+tmVec4i* gTR_clean= NULL;
+tmVec4i* gBL_clean = NULL;
+tmVec4i* gBR_clean = NULL;
 
 void        tmPrintVec(tmVec4i* in_pVec){
     printf("%d,%d,%d\n",in_pVec[VECTOR_X],in_pVec[VECTOR_Y],in_pVec[VECTOR_Z]);
@@ -151,8 +155,8 @@ void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int in_iFrameDimensi
         }
     }
 
-    gVertex[VECTOR_X]= x_min;
-    gVertex[VECTOR_Y]= y_min;
+    gOriginalVertex[VECTOR_X]= x_min;
+    gOriginalVertex[VECTOR_Y]= y_min;
     gTL[VECTOR_X]= x_min;
     gTL[VECTOR_Y]= y_min;
     gTR[VECTOR_X]= x_max;
@@ -161,6 +165,14 @@ void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int in_iFrameDimensi
     gBL[VECTOR_Y]= y_max;
     gBR[VECTOR_X]= x_max;
     gBR[VECTOR_Y]= y_max;
+    gTL_clean[VECTOR_X]= x_min;
+    gTL_clean[VECTOR_Y]= y_min;
+    gTR_clean[VECTOR_X]= x_max;
+    gTR_clean[VECTOR_Y]= y_min;
+    gBL_clean[VECTOR_X]= x_min;
+    gBL_clean[VECTOR_Y]= y_max;
+    gBR_clean[VECTOR_X]= x_max;
+    gBR_clean[VECTOR_Y]= y_max;
     
 }
 void        tmCopyMat(tmMat4i* in_pFrom, tmMat4i* in_pTo){
@@ -311,44 +323,41 @@ typedef enum _tmOrientation {
 
 void tmUpdateVertex (tmMat4i* in_pMat, int length) {
 
-
-    tmMatMulVecInplace(in_pMat, gTL);
-    tmMatMulVecInplace(in_pMat, gTR);
-    tmMatMulVecInplace(in_pMat, gBL);
-    tmMatMulVecInplace(in_pMat, gBR);
+    tmMatMulVec(in_pMat, gTL, gTL_clean);
+    tmMatMulVec(in_pMat, gTR, gTR_clean);
+    tmMatMulVec(in_pMat, gBL, gBL_clean);
+    tmMatMulVec(in_pMat, gBR, gBR_clean);
 
 //    tmPrintVec(gTL);
 //    tmPrintVec(gTR);
 //    tmPrintVec(gBL);
 //    tmPrintVec(gBR);
-    if (gTL[VECTOR_X] < 0 || gTR[VECTOR_X] < 0 || gBL[VECTOR_X] < 0 || gBR[VECTOR_X] <0){
-        gTL[VECTOR_X]+=length-1;
-        gTR[VECTOR_X]+=length-1;
-        gBR[VECTOR_X]+=length-1;
-        gBL[VECTOR_X]+=length-1;
+    if (gTL_clean[VECTOR_X] < 0 || gTR_clean[VECTOR_X] < 0 || gBL_clean[VECTOR_X] < 0 || gBR_clean[VECTOR_X] <0){
+        gTL_clean[VECTOR_X]+=length-1;
+        gTR_clean[VECTOR_X]+=length-1;
+        gBR_clean[VECTOR_X]+=length-1;
+        gBL_clean[VECTOR_X]+=length-1;
     }
-    if (gTL[VECTOR_Y] < 0 || gTR[VECTOR_Y] < 0 || gBL[VECTOR_Y] < 0 || gBR[VECTOR_Y] <0){
-        gTL[VECTOR_Y]+=length-1;
-        gTR[VECTOR_Y]+=length-1;
-        gBR[VECTOR_Y]+=length-1;
-        gBL[VECTOR_Y]+=length-1;
+    if (gTL_clean[VECTOR_Y] < 0 || gTR_clean[VECTOR_Y] < 0 || gBL_clean[VECTOR_Y] < 0 || gBR_clean[VECTOR_Y] <0){
+        gTL_clean[VECTOR_Y]+=length-1;
+        gTR_clean[VECTOR_Y]+=length-1;
+        gBR_clean[VECTOR_Y]+=length-1;
+        gBL_clean[VECTOR_Y]+=length-1;
     }
     int xmin,xmax,ymin,ymax;
-    xmin = tmMin4(gTL[VECTOR_X],gTR[VECTOR_X],gBL[VECTOR_X],gBR[VECTOR_X]);
-    xmax = tmMax4(gTL[VECTOR_X],gTR[VECTOR_X],gBL[VECTOR_X],gBR[VECTOR_X]);
-    ymin = tmMin4(gTL[VECTOR_Y],gTR[VECTOR_Y],gBL[VECTOR_Y],gBR[VECTOR_Y]);
-    ymax = tmMax4(gTL[VECTOR_Y],gTR[VECTOR_Y],gBL[VECTOR_Y],gBR[VECTOR_Y]);
+    xmin = tmMin4(gTL_clean[VECTOR_X],gTR_clean[VECTOR_X],gBL_clean[VECTOR_X],gBR_clean[VECTOR_X]);
+    xmax = tmMax4(gTL_clean[VECTOR_X],gTR_clean[VECTOR_X],gBL_clean[VECTOR_X],gBR_clean[VECTOR_X]);
+    ymin = tmMin4(gTL_clean[VECTOR_Y],gTR_clean[VECTOR_Y],gBL_clean[VECTOR_Y],gBR_clean[VECTOR_Y]);
+    ymax = tmMax4(gTL_clean[VECTOR_Y],gTR_clean[VECTOR_Y],gBL_clean[VECTOR_Y],gBR_clean[VECTOR_Y]);
     //printf("%d,%d,%d,%d\n",xmin,xmax,ymin,ymax);
-    gVertex[VECTOR_X] = xmin;
-    gVertex[VECTOR_Y] = ymin;
-    gTL[VECTOR_X] = xmin;
-    gTL[VECTOR_Y] = ymin;
-    gTR[VECTOR_X] = xmax;
-    gTR[VECTOR_Y] = ymin;
-    gBL[VECTOR_X] = xmin;
-    gBL[VECTOR_Y] = ymax;
-    gBR[VECTOR_X] = xmax;
-    gBR[VECTOR_Y] = ymax;
+    gTL_clean[VECTOR_X] = xmin;
+    gTL_clean[VECTOR_Y] = ymin;
+    gTR_clean[VECTOR_X] = xmax;
+    gTR_clean[VECTOR_Y] = ymin;
+    gBL_clean[VECTOR_X] = xmin;
+    gBL_clean[VECTOR_Y] = ymax;
+    gBR_clean[VECTOR_X] = xmax;
+    gBR_clean[VECTOR_Y] = ymax;
 
 //    int x_min= gTL[VECTOR_X];
 //    if (gTR[VECTOR_X] < x_min)
@@ -367,22 +376,22 @@ void tmUpdateVertex (tmMat4i* in_pMat, int length) {
 //        y_min = gBR[VECTOR_Y];
 //
 //    if (x_min < 0) {
-//        gVertex [VECTOR_X] = x_min + length -1;
+//        gOriginalVertex [VECTOR_X] = x_min + length -1;
 //        gTL[VECTOR_X] =  gTL[VECTOR_X] + length -1;
 //        gTR[VECTOR_X] =  gTR[VECTOR_X] + length -1;
 //        gBL[VECTOR_X] =  gBL[VECTOR_X] + length -1;
 //        gBR[VECTOR_X] =  gBR[VECTOR_X] + length -1;
 //    } else {
-//        gVertex [VECTOR_X] = x_min;
+//        gOriginalVertex [VECTOR_X] = x_min;
 //    }
 //    if (y_min < 0) {
-//        gVertex [VECTOR_Y] = y_min + length -1;
+//        gOriginalVertex [VECTOR_Y] = y_min + length -1;
 //        gTL[VECTOR_Y] =  gTL[VECTOR_Y] + length -1;
 //        gTR[VECTOR_Y] =  gTR[VECTOR_Y] + length -1;
 //        gBL[VECTOR_Y] =  gBL[VECTOR_Y] + length -1;
 //        gBR[VECTOR_Y] =  gBR[VECTOR_Y] + length -1;
 //    } else {
-//        gVertex [VECTOR_Y] = y_min;
+//        gOriginalVertex [VECTOR_Y] = y_min;
 //    }
 
 
@@ -506,11 +515,11 @@ void tmBufferMirrorX(tmBuffer in_iInputBuffer, tmBuffer in_iOutputBuffer, int in
 
 
 int tmGetCurrentBoundingBoxWidth(){
-    return gBR[VECTOR_X] - gTL[VECTOR_X]+1;
+    return gBR_clean[VECTOR_X] - gTL_clean[VECTOR_X]+1;
 }
 
 int tmGetCurrentBoundingBoxLength(){
-    return gBR[VECTOR_Y] - gTL[VECTOR_Y]+1;
+    return gBR_clean[VECTOR_Y] - gTL_clean[VECTOR_Y]+1;
 }
 
 void tmGenerateBaseBuffer(tmBuffer in_pFrameBuffer, int in_iFrameDimension){
@@ -787,7 +796,11 @@ void tmInit(){
         gTR = tmAllocVec();
         gBL = tmAllocVec();
         gBR = tmAllocVec();
-        gVertex = tmAllocVec();
+        gTL_clean = tmAllocVec();
+        gTR_clean = tmAllocVec();
+        gBL_clean = tmAllocVec();
+        gBR_clean = tmAllocVec();
+        gOriginalVertex = tmAllocVec();
         gFrameCache = tmAlloc(tmFrameCache,eOrientationCount);
         int i =0;
         for(i = 0; i < eOrientationCount; i++){
@@ -803,7 +816,11 @@ void tmInit(){
         tmCleanVec(gTR);
         tmCleanVec(gBL);
         tmCleanVec(gBR);
-        tmCleanVec(gVertex);
+        tmCleanVec(gTL_clean);
+        tmCleanVec(gTR_clean);
+        tmCleanVec(gBL_clean);
+        tmCleanVec(gBR_clean);
+        tmCleanVec(gOriginalVertex);
     }
 }
 void tmCleanUp(){
@@ -819,7 +836,7 @@ void tmCleanUp(){
     tmFreeVec(gBL);
     tmFreeVec(gTR);
     tmFreeVec(gBR);
-    tmFreeVec(gVertex);
+    tmFreeVec(gOriginalVertex);
     tmFreeVec(gTempVec1);
 //    for(int i = 0; i < 8; i++){
 //        if(gOrientationBuffer[i]!=NULL){
@@ -1140,16 +1157,16 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
             }
             bb_width = tmGetCurrentBoundingBoxWidth();
             bb_length = tmGetCurrentBoundingBoxLength();
-            //tmPrintVec(gVertex);
-            tmClearFrame(frame_buffer,width,gVertex,bb_width,bb_length);
+            //tmPrintVec(gOriginalVertex);
+            tmClearFrame(frame_buffer,width,gTL_clean,bb_width,bb_length);
             //tmPrintFrame(frame_buffer,width,height);
             tmUpdateVertex(gGlobalTransform,width);
             printf("T_M\n");
             tmPrintMat(gGlobalTransform);
             printf("T_V\n");
-            tmPrintVec(gVertex);
+            tmPrintVec(gOriginalVertex);
             printf("Orientation: %d\n",orientation);
-            tmWriteFrameFromCache(frame_buffer, width, gVertex,orientation);
+            tmWriteFrameFromCache(frame_buffer, width, gTL_clean,orientation);
 
             //tmPrintFrame(frame_buffer,width,height);
             verifyFrame(frame_buffer, width, height, grading_mode);
