@@ -8,7 +8,7 @@
 #define ENABLE_SIMD 0
 #define SPEED_UP 1
 
-#define TILE_SIZE 60
+#define TILE_SIZE 80
 #define PIXEL_SIZE 3
 #define PIXEL_DATA_TYPE unsigned char
 #define tmAlloc(type,size) (type*)malloc(sizeof(type)*size)
@@ -136,9 +136,11 @@ void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int in_iFrameDimensi
     int y_temp;
     int pixel_offset = 0;
     int total_pixel_count = in_iFrameDimension*in_iFrameDimension;
+    int pixel_value = 0;
     for (pixel_index = 0; pixel_index < total_pixel_count; pixel_index++) {
         pixel_offset = pixel_index*PIXEL_SIZE;
-        if (in_iBuffer[pixel_offset] != COLOR_WHITE || in_iBuffer[pixel_offset+1] != COLOR_WHITE || in_iBuffer[pixel_offset+2] != COLOR_WHITE ) {
+        pixel_value = (*((unsigned int*)(in_iBuffer+pixel_offset))) >> 8;
+        if (pixel_value != 0xffffff) {
             y_temp = pixel_index/in_iFrameDimension;
             x_temp = pixel_index%in_iFrameDimension;
             if (x_temp > x_max){
