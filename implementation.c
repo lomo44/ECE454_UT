@@ -32,7 +32,8 @@
 #define B_OFFSET 2
 #define COLOR_WHITE 255
 ///////////// Matrix Operation ////////////////////
-
+unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, unsigned height,
+                                int rotate_iteration);
 typedef int tmMat4i;
 typedef int tmVec4i;
 typedef unsigned char* tmBuffer;
@@ -582,7 +583,6 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
             } else {
                 tmBufferMirrorY(gFrameCache[e_X_Y].m_pBuffer,dst_buffer,gFrameCache[e_NX_Y].m_iWidth,gFrameCache[e_NX_Y].m_iLength);
             }
-
             break;
         }
         case e_NX_NY: {
@@ -727,7 +727,7 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
                     f_row += blk_row_size;
                 }
             }
-            tmPrintFrame(dst_buffer,gFrameCache[in_eOrientation].m_iWidth,gFrameCache[in_eOrientation].m_iLength);
+            //tmPrintFrame(dst_buffer,gFrameCache[in_eOrientation].m_iWidth,gFrameCache[in_eOrientation].m_iLength);
             break;
         }
         case e_F_NX_NY: {
@@ -943,29 +943,34 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
 #ifndef SPEED_UP
     return processRotateCWReference(buffer_frame, width, height, rotate_iteration);
 #else
-    switch(rotate_iteration%4){
-        case(0):{
-            break;
-        }
-        case(1):{
-            tmMatMulMatInplace(gGlobalCW, gGlobalTransform);
-            break;
-        }
-        case(2):{
-            tmMatMulMatInplace(gGlobalR180, gGlobalTransform);
-            break;
-        }
-        case(3):{
-            tmMatMulMatInplace(gGlobalCCW, gGlobalTransform);
-            break;
-        }
-        default:{
-            break;
+    if(rotate_iteration<0){
+        processRotateCCW(buffer_frame,width,height,-rotate_iteration);
+    }
+    else{
+        switch(rotate_iteration%4){
+            case(0):{
+                break;
+            }
+            case(1):{
+                tmMatMulMatInplace(gGlobalCW, gGlobalTransform);
+                break;
+            }
+            case(2):{
+                tmMatMulMatInplace(gGlobalR180, gGlobalTransform);
+                break;
+            }
+            case(3):{
+                tmMatMulMatInplace(gGlobalCCW, gGlobalTransform);
+                break;
+            }
+            default:{
+                break;
+            }
         }
     }
     return NULL;
 #endif
-    
+
 }
 
 /***********************************************************************************************************************
@@ -981,24 +986,29 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
 #ifndef SPEED_UP
     return processRotateCCWReference(buffer_frame, width, height, rotate_iteration);
 #else
-    switch(rotate_iteration%4){
-        case(0):{
-            break;
-        }
-        case(1):{
-            tmMatMulMatInplace(gGlobalCCW, gGlobalTransform);
-            break;
-        }
-        case(2):{
-            tmMatMulMatInplace(gGlobalR180, gGlobalTransform);
-            break;
-        }
-        case(3):{
-            tmMatMulMatInplace(gGlobalCW, gGlobalTransform);
-            break;
-        }
-        default:{
-            break;
+    if(rotate_iteration < 0 ){
+        processRotateCW(buffer_frame,width,height,-rotate_iteration);
+    }
+    else {
+        switch (rotate_iteration % 4) {
+            case (0): {
+                break;
+            }
+            case (1): {
+                tmMatMulMatInplace(gGlobalCCW, gGlobalTransform);
+                break;
+            }
+            case (2): {
+                tmMatMulMatInplace(gGlobalR180, gGlobalTransform);
+                break;
+            }
+            case (3): {
+                tmMatMulMatInplace(gGlobalCW, gGlobalTransform);
+                break;
+            }
+            default: {
+                break;
+            }
         }
     }
     return NULL;
@@ -1043,7 +1053,7 @@ unsigned char *processMirrorY(unsigned char *buffer_frame, unsigned width, unsig
  **********************************************************************************************************************/
 void print_team_info(){
     // Please modify this field with something interesting
-    char team_name[] = "XXX";
+    char team_name[] = "ECE_Beauty";
 
     // Please fill in your information
     char student1_first_name[] = "Zhuang";
@@ -1157,18 +1167,9 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
             }
             bb_width = tmGetCurrentBoundingBoxWidth();
             bb_length = tmGetCurrentBoundingBoxLength();
-            //tmPrintVec(gOriginalVertex);
             tmClearFrame(frame_buffer,width,gTL_clean,bb_width,bb_length);
-            //tmPrintFrame(frame_buffer,width,height);
             tmUpdateVertex(gGlobalTransform,width);
-            printf("T_M\n");
-            tmPrintMat(gGlobalTransform);
-            printf("T_V\n");
-            tmPrintVec(gOriginalVertex);
-            printf("Orientation: %d\n",orientation);
             tmWriteFrameFromCache(frame_buffer, width, gTL_clean,orientation);
-
-            //tmPrintFrame(frame_buffer,width,height);
             verifyFrame(frame_buffer, width, height, grading_mode);
         }
     }
