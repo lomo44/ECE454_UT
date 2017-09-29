@@ -142,7 +142,7 @@ void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int in_iFrameDimensi
         pixel_value = (*((unsigned int*)(in_iBuffer+pixel_offset))) >> 8;
         if (pixel_value != 0xffffff) {
             y_temp = pixel_index/in_iFrameDimension;
-            x_temp = pixel_index - y_temp*in_iFrameDimension;
+            x_temp = pixel_index%in_iFrameDimension;
             if (x_temp > x_max){
                 x_max = x_temp;
             }
@@ -176,7 +176,7 @@ void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int in_iFrameDimensi
     gBL_clean[VECTOR_Y]= y_max;
     gBR_clean[VECTOR_X]= x_max;
     gBR_clean[VECTOR_Y]= y_max;
-    
+
 }
 void        tmCopyMat(tmMat4i* in_pFrom, tmMat4i* in_pTo){
     in_pTo[MATRIX_00] = in_pFrom[MATRIX_00];
@@ -203,7 +203,7 @@ void        tmCleanVec(tmVec4i* in_pA){
 
 void        tmMatMulVec(tmMat4i* in_pA, tmVec4i* in_pB, tmVec4i* io_pC){
 #if ENABLE_SIMD
-    
+
 #else
     io_pC[VECTOR_X] = in_pA[MATRIX_00]*in_pB[VECTOR_X] + in_pA[MATRIX_01]*in_pB[VECTOR_Y] + in_pA[MATRIX_02]*in_pB[VECTOR_Z];
     io_pC[VECTOR_Y] = in_pA[MATRIX_10]*in_pB[VECTOR_X] + in_pA[MATRIX_11]*in_pB[VECTOR_Y] + in_pA[MATRIX_12]*in_pB[VECTOR_Z];
@@ -213,7 +213,7 @@ void        tmMatMulVec(tmMat4i* in_pA, tmVec4i* in_pB, tmVec4i* io_pC){
 }
 void        tmMatMulMat(tmMat4i* in_pA, tmMat4i* in_pB, tmMat4i* io_pC){
 #if ENABLE_SIMD
-    
+
 #else
     io_pC[MATRIX_00] = in_pA[MATRIX_00]*in_pB[MATRIX_00] + in_pA[MATRIX_01]*in_pB[MATRIX_10] + in_pA[MATRIX_02]*in_pB[MATRIX_20];
     io_pC[MATRIX_01] = in_pA[MATRIX_00]*in_pB[MATRIX_01] + in_pA[MATRIX_01]*in_pB[MATRIX_11] + in_pA[MATRIX_02]*in_pB[MATRIX_21];
@@ -549,7 +549,7 @@ void tmGenerateBaseBuffer(tmBuffer in_pFrameBuffer, int in_iFrameDimension){
 
 void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
     if(gFrameCache[in_eOrientation].m_pBuffer == NULL){
-        printf("Generate Buffer Orientation %d\n",in_eOrientation);
+        //printf("Generate Buffer Orientation %d\n",in_eOrientation);
         int size = gFrameCache[e_X_Y].m_iWidth * gFrameCache[e_X_Y].m_iLength;
         gFrameCache[in_eOrientation].m_pBuffer = tmAlloc(unsigned char, size*PIXEL_SIZE);
         memset(gFrameCache[in_eOrientation].m_pBuffer,0,size*PIXEL_SIZE);
@@ -953,7 +953,7 @@ unsigned char *processRotateCW(unsigned char *buffer_frame, unsigned width, unsi
         processRotateCCW(buffer_frame,width,height,-rotate_iteration);
     }
     else{
-        switch(rotate_iteration - (rotate_iteration>>2)<<2){
+        switch(rotate_iteration % 4){
             case(0):{
                 break;
             }
@@ -996,7 +996,7 @@ unsigned char *processRotateCCW(unsigned char *buffer_frame, unsigned width, uns
         processRotateCW(buffer_frame,width,height,-rotate_iteration);
     }
     else {
-        switch (rotate_iteration - (rotate_iteration>>2)<<2) {
+        switch (rotate_iteration % 4) {
             case (0): {
                 break;
             }
