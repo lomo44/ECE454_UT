@@ -579,7 +579,7 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
             gFrameCache[in_eOrientation].m_iWidth = gFrameCache[e_X_Y].m_iWidth;
             gFrameCache[in_eOrientation].m_iLength = gFrameCache[e_X_Y].m_iLength;
             if (gFrameCache[e_NX_NY].m_pBuffer!=NULL){
-                tmBufferMirrorX(gFrameCache[e_NX_NY].m_pBuffer,dst_buffer,gFrameCache[e_X_NY].m_iWidth,gFrameCache[e_X_NY].m_iLength);
+                tmBufferMirrorX(gFrameCache[e_NX_NY].m_pBuffer,dst_buffer,gFrameCache[e_NX_Y].m_iWidth,gFrameCache[e_NX_Y].m_iLength);
             } else {
                 tmBufferMirrorY(gFrameCache[e_X_Y].m_pBuffer,dst_buffer,gFrameCache[e_NX_Y].m_iWidth,gFrameCache[e_NX_Y].m_iLength);
             }
@@ -589,8 +589,8 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
             dst_buffer = gFrameCache[e_NX_NY].m_pBuffer;
             gFrameCache[in_eOrientation].m_iWidth = gFrameCache[e_X_Y].m_iWidth;
             gFrameCache[in_eOrientation].m_iLength = gFrameCache[e_X_Y].m_iLength;
-            if (gFrameCache[e_X_NY].m_pBuffer != NULL) {
-                tmBufferMirrorX(gFrameCache[e_X_NY].m_pBuffer,dst_buffer,gFrameCache[e_NX_NY].m_iWidth,gFrameCache[e_NX_NY].m_iLength);
+            if (gFrameCache[e_NX_Y].m_pBuffer != NULL) {
+                tmBufferMirrorX(gFrameCache[e_NX_Y].m_pBuffer,dst_buffer,gFrameCache[e_NX_NY].m_iWidth,gFrameCache[e_NX_NY].m_iLength);
             } else {
                 int buffer_size = gFrameCache[e_X_Y].m_iLength*gFrameCache[e_X_Y].m_iWidth*PIXEL_SIZE;
                 int pixel_index;
@@ -602,12 +602,11 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
             break;
         }
         case e_F_X_Y: {
-            printf("Mike is doing this\n");
             gFrameCache[in_eOrientation].m_iWidth = gFrameCache[e_X_Y].m_iLength;
             gFrameCache[in_eOrientation].m_iLength = gFrameCache[e_X_Y].m_iWidth;
             width = gFrameCache[in_eOrientation].m_iWidth;
             length = gFrameCache[in_eOrientation].m_iLength;
-            src_buffer = gFrameCache[e_NX_Y].m_pBuffer;
+            src_buffer = gFrameCache[e_F_X_NY].m_pBuffer;
             dst_buffer = gFrameCache[e_F_X_Y].m_pBuffer;
             if(src_buffer!=NULL){
                 tmBufferMirrorX(src_buffer,dst_buffer,width,length);
@@ -649,10 +648,10 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
             gFrameCache[in_eOrientation].m_iLength = gFrameCache[e_X_Y].m_iWidth;
             width = gFrameCache[in_eOrientation].m_iWidth;
             length = gFrameCache[in_eOrientation].m_iLength;
-            src_buffer = gFrameCache[e_NX_NY].m_pBuffer;
+            src_buffer = gFrameCache[e_F_X_Y].m_pBuffer;
             dst_buffer = gFrameCache[in_eOrientation].m_pBuffer;
             if(src_buffer!=NULL){
-                tmBufferMirrorY(src_buffer,dst_buffer, width,length);
+                tmBufferMirrorX(src_buffer,dst_buffer, width,length);
             }
             else {
                 src_buffer = gFrameCache[e_X_Y].m_pBuffer;
@@ -694,7 +693,7 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
             gFrameCache[in_eOrientation].m_iLength = gFrameCache[e_X_Y].m_iWidth;
             width = gFrameCache[in_eOrientation].m_iWidth;
             length = gFrameCache[in_eOrientation].m_iLength;
-            src_buffer = gFrameCache[e_F_X_Y].m_pBuffer;
+            src_buffer = gFrameCache[e_F_NX_NY].m_pBuffer;
             dst_buffer = gFrameCache[e_F_NX_Y].m_pBuffer;
             if(src_buffer!=NULL){
                 tmBufferMirrorX(src_buffer,dst_buffer, width,length);
@@ -739,7 +738,7 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
             gFrameCache[in_eOrientation].m_iLength = gFrameCache[e_X_Y].m_iWidth;
             width = gFrameCache[in_eOrientation].m_iWidth;
             length = gFrameCache[in_eOrientation].m_iLength;
-            src_buffer = gFrameCache[e_F_X_Y].m_pBuffer;
+            src_buffer = gFrameCache[e_F_NX_Y].m_pBuffer;
             dst_buffer = gFrameCache[e_F_NX_NY].m_pBuffer;
             if(src_buffer!=NULL){
                 tmBufferMirrorX(src_buffer,dst_buffer, width,length);
