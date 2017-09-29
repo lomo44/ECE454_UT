@@ -540,6 +540,7 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
         printf("Generate Buffer Orientation %d\n",in_eOrientation);
         int size = gFrameCache[e_X_Y].m_iWidth * gFrameCache[e_X_Y].m_iLength;
         gFrameCache[in_eOrientation].m_pBuffer = tmAlloc(unsigned char, size*PIXEL_SIZE);
+        memset(gFrameCache[in_eOrientation].m_pBuffer,0,size*PIXEL_SIZE);
     }
     else {
         return;
@@ -646,10 +647,10 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
                 f_col = 0;
                 width = gFrameCache[e_X_Y].m_iWidth;
                 length = gFrameCache[e_X_Y].m_iLength;
-                while (f_row < length) {
+                while (f_row < width) {
                     blk_row_size = tmMin(TILE_SIZE, length- f_row);
-                    while (f_col < width) {
-                        blk_col_size = tmMin(TILE_SIZE, length- f_col);
+                    while (f_col < length) {
+                        blk_col_size = tmMin(TILE_SIZE, width- f_col);
                         for (t_row = 0; t_row < blk_row_size; t_row++) {
                             src_y = f_row + t_row;
                             for (t_col = 0; t_col < blk_col_size; t_col++) {
@@ -676,7 +677,7 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
             width = gFrameCache[in_eOrientation].m_iWidth;
             length = gFrameCache[in_eOrientation].m_iLength;
             src_buffer = gFrameCache[e_F_X_Y].m_pBuffer;
-            dst_buffer = gFrameCache[e_NX_Y].m_pBuffer;
+            dst_buffer = gFrameCache[e_F_NX_Y].m_pBuffer;
             if(src_buffer!=NULL){
                 tmBufferMirrorX(src_buffer,dst_buffer, width,length);
             }
@@ -695,12 +696,12 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
                         blk_col_size = tmMin(TILE_SIZE, width - f_col);
                         for (t_row = 0; t_row < blk_row_size; t_row++) {
                             src_y = f_row + t_row;
+                            dst_x = (length - 1) - src_y;
                             for (t_col = 0; t_col < blk_col_size; t_col++) {
                                 src_x = f_col + t_col;
-                                dst_x = (width - 1) - src_y;
                                 dst_y = src_x;
                                 src_index = (src_y * width + src_x) * PIXEL_SIZE;
-                                dst_index = (dst_y * width + dst_x) * PIXEL_SIZE;
+                                dst_index = (dst_y * length + dst_x) * PIXEL_SIZE;
                                 dst_buffer[dst_index + R_OFFSET] = src_buffer[src_index + R_OFFSET];
                                 dst_buffer[dst_index + G_OFFSET] = src_buffer[src_index + G_OFFSET];
                                 dst_buffer[dst_index + B_OFFSET] = src_buffer[src_index + B_OFFSET];
@@ -711,6 +712,7 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
                     f_row += blk_row_size;
                 }
             }
+            tmPrintFrame(dst_buffer,gFrameCache[in_eOrientation].m_iWidth,gFrameCache[in_eOrientation].m_iLength);
             break;
         }
         case e_F_NX_NY: {
