@@ -8,7 +8,7 @@
 #define ENABLE_SIMD 0
 #define SPEED_UP 1
 
-#define TILE_SIZE 1000
+#define TILE_SIZE 60
 #define PIXEL_SIZE 3
 #define PIXEL_DATA_TYPE unsigned char
 #define tmAlloc(type,size) (type*)malloc(sizeof(type)*size)
@@ -638,6 +638,7 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
                         }
                         f_col += blk_col_size;
                     }
+                    f_col = 0;
                     f_row+=blk_row_size;
                 }
             }
@@ -674,6 +675,7 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
                                 dst_y = (width - 1) - src_x;
                                 src_index = (src_y * width+ src_x) * PIXEL_SIZE;
                                 dst_index = (dst_y * length+ dst_x) * PIXEL_SIZE;
+                                //printf("%d,%d,%d,%d\n",src_x,src_y,dst_x,dst_y);
                                 dst_buffer[dst_index + R_OFFSET] = src_buffer[src_index + R_OFFSET];
                                 dst_buffer[dst_index + G_OFFSET] = src_buffer[src_index + G_OFFSET];
                                 dst_buffer[dst_index + B_OFFSET] = src_buffer[src_index + B_OFFSET];
@@ -681,6 +683,7 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
                         }
                         f_col += blk_col_size;
                     }
+                    f_col = 0;
                     f_row += blk_row_size;
                 }
             }
@@ -724,6 +727,7 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
                         }
                         f_col += blk_col_size;
                     }
+                    f_col = 0;
                     f_row += blk_row_size;
                 }
             }
@@ -768,6 +772,7 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
                         }
                         f_col += blk_col_size;
                     }
+                    f_col = 0;
                     f_row += blk_row_size;
                 }
             }
