@@ -8,7 +8,7 @@
 #define ENABLE_SIMD 0
 #define SPEED_UP 1
 
-#define TILE_SIZE 80
+#define TILE_SIZE 160
 #define PIXEL_SIZE 3
 #define PIXEL_DATA_TYPE unsigned char
 #define tmAlloc(type,size) (type*)malloc(sizeof(type)*size)
@@ -66,34 +66,32 @@ typedef struct _tmBoundingCache{
 
 bool gInited = 0;
 
-int tmMin(int x, int y){
-    if(x>y){
-        return y;
-    }
-    else
-        return x;
-}
-int tmMin4(int w, int x, int y, int z){
-    int min = w;
-    if(x < min)
-        min = x;
-    if(y < min)
-        min = y;
-    if(z < min)
-        min = z;
-    return min;
-}
+#define tmMin(a,b) (((a)>(b))?(b):(a))
+#define tmMax(a,b) (((a)>(b))?(a):(b))
+#define tmMin4(a,b,c,d) tmMin(tmMin(tmMin(a,b),c),d)
+#define tmMax4(a,b,c,d) tmMax(tmMax(tmMax(a,b),c),d)
 
-int tmMax4(int w, int x, int y, int z){
-    int max = w;
-    if(x > max)
-        max = x;
-    if(y > max)
-        max = y;
-    if(z > max)
-        max = z;
-    return max;
-}
+#define tmCopyPixel(src,dst,src_i,dst_i) (*(unsigned int*)(src+src_i)) |= (*((unsigned int*)(dst+dst_i)) & 0xffffff00)
+
+//int tmMin(int x, int y){
+//    if(x>y){
+//        return y;
+//    }
+//    else
+//        return x;
+//}
+
+
+//int tmMax4(int w, int x, int y, int z){
+//    int max = w;
+//    if(x > max)
+//        max = x;
+//    if(y > max)
+//        max = y;
+//    if(z > max)
+//        max = z;
+//    return max;
+//}
 tmVec4i* gTempVec1 = NULL;
 
 //int      gOriginalVertex   = etop_left;
@@ -176,18 +174,18 @@ void        tmUpdateBoundingBox (unsigned char* in_iBuffer, int in_iFrameDimensi
     gBL_clean[VECTOR_Y]= y_max;
     gBR_clean[VECTOR_X]= x_max;
     gBR_clean[VECTOR_Y]= y_max;
-
 }
 void        tmCopyMat(tmMat4i* in_pFrom, tmMat4i* in_pTo){
-    in_pTo[MATRIX_00] = in_pFrom[MATRIX_00];
-    in_pTo[MATRIX_01] = in_pFrom[MATRIX_01];
-    in_pTo[MATRIX_02] = in_pFrom[MATRIX_02];
-    in_pTo[MATRIX_10] = in_pFrom[MATRIX_10];
-    in_pTo[MATRIX_11] = in_pFrom[MATRIX_11];
-    in_pTo[MATRIX_12] = in_pFrom[MATRIX_12];
-    in_pTo[MATRIX_20] = in_pFrom[MATRIX_20];
-    in_pTo[MATRIX_21] = in_pFrom[MATRIX_21];
-    in_pTo[MATRIX_22] = in_pFrom[MATRIX_22];
+    memcpy(in_pTo,in_pFrom,sizeof(int)*16);
+//    in_pTo[MATRIX_00] = in_pFrom[MATRIX_00];
+//    in_pTo[MATRIX_01] = in_pFrom[MATRIX_01];
+//    in_pTo[MATRIX_02] = in_pFrom[MATRIX_02];
+//    in_pTo[MATRIX_10] = in_pFrom[MATRIX_10];
+//    in_pTo[MATRIX_11] = in_pFrom[MATRIX_11];
+//    in_pTo[MATRIX_12] = in_pFrom[MATRIX_12];
+////    in_pTo[MATRIX_20] = in_pFrom[MATRIX_20];
+////    in_pTo[MATRIX_21] = in_pFrom[MATRIX_21];
+////    in_pTo[MATRIX_22] = in_pFrom[MATRIX_22];
 }
 void        tmCopyVec(tmVec4i* in_pFrom, tmVec4i* in_pTo){
     in_pTo[VECTOR_X] = in_pFrom[VECTOR_X];
@@ -207,7 +205,7 @@ void        tmMatMulVec(tmMat4i* in_pA, tmVec4i* in_pB, tmVec4i* io_pC){
 #else
     io_pC[VECTOR_X] = in_pA[MATRIX_00]*in_pB[VECTOR_X] + in_pA[MATRIX_01]*in_pB[VECTOR_Y] + in_pA[MATRIX_02]*in_pB[VECTOR_Z];
     io_pC[VECTOR_Y] = in_pA[MATRIX_10]*in_pB[VECTOR_X] + in_pA[MATRIX_11]*in_pB[VECTOR_Y] + in_pA[MATRIX_12]*in_pB[VECTOR_Z];
-    io_pC[VECTOR_Z] = in_pA[MATRIX_20]*in_pB[VECTOR_X] + in_pA[MATRIX_21]*in_pB[VECTOR_Y] + in_pA[MATRIX_22]*in_pB[VECTOR_Z];
+    io_pC[VECTOR_Z] = 1;
 #endif
 
 }
@@ -215,15 +213,15 @@ void        tmMatMulMat(tmMat4i* in_pA, tmMat4i* in_pB, tmMat4i* io_pC){
 #if ENABLE_SIMD
 
 #else
-    io_pC[MATRIX_00] = in_pA[MATRIX_00]*in_pB[MATRIX_00] + in_pA[MATRIX_01]*in_pB[MATRIX_10] + in_pA[MATRIX_02]*in_pB[MATRIX_20];
-    io_pC[MATRIX_01] = in_pA[MATRIX_00]*in_pB[MATRIX_01] + in_pA[MATRIX_01]*in_pB[MATRIX_11] + in_pA[MATRIX_02]*in_pB[MATRIX_21];
-    io_pC[MATRIX_02] = in_pA[MATRIX_00]*in_pB[MATRIX_02] + in_pA[MATRIX_01]*in_pB[MATRIX_12] + in_pA[MATRIX_02]*in_pB[MATRIX_22];
-    io_pC[MATRIX_10] = in_pA[MATRIX_10]*in_pB[MATRIX_00] + in_pA[MATRIX_11]*in_pB[MATRIX_10] + in_pA[MATRIX_12]*in_pB[MATRIX_20];
-    io_pC[MATRIX_11] = in_pA[MATRIX_10]*in_pB[MATRIX_01] + in_pA[MATRIX_11]*in_pB[MATRIX_11] + in_pA[MATRIX_12]*in_pB[MATRIX_21];
-    io_pC[MATRIX_12] = in_pA[MATRIX_10]*in_pB[MATRIX_02] + in_pA[MATRIX_11]*in_pB[MATRIX_12] + in_pA[MATRIX_12]*in_pB[MATRIX_22];
-    io_pC[MATRIX_20] = in_pA[MATRIX_20]*in_pB[MATRIX_00] + in_pA[MATRIX_21]*in_pB[MATRIX_10] + in_pA[MATRIX_22]*in_pB[MATRIX_20];
-    io_pC[MATRIX_21] = in_pA[MATRIX_20]*in_pB[MATRIX_01] + in_pA[MATRIX_21]*in_pB[MATRIX_11] + in_pA[MATRIX_22]*in_pB[MATRIX_21];
-    io_pC[MATRIX_22] = in_pA[MATRIX_20]*in_pB[MATRIX_02] + in_pA[MATRIX_21]*in_pB[MATRIX_12] + in_pA[MATRIX_22]*in_pB[MATRIX_22];
+    io_pC[MATRIX_00] = in_pA[MATRIX_00]*in_pB[MATRIX_00] + in_pA[MATRIX_01]*in_pB[MATRIX_10];
+    io_pC[MATRIX_01] = in_pA[MATRIX_00]*in_pB[MATRIX_01] + in_pA[MATRIX_01]*in_pB[MATRIX_11];
+    io_pC[MATRIX_02] = in_pA[MATRIX_00]*in_pB[MATRIX_02] + in_pA[MATRIX_01]*in_pB[MATRIX_12] + in_pA[MATRIX_02];
+    io_pC[MATRIX_10] = in_pA[MATRIX_10]*in_pB[MATRIX_00] + in_pA[MATRIX_11]*in_pB[MATRIX_10];
+    io_pC[MATRIX_11] = in_pA[MATRIX_10]*in_pB[MATRIX_01] + in_pA[MATRIX_11]*in_pB[MATRIX_11];
+    io_pC[MATRIX_12] = in_pA[MATRIX_10]*in_pB[MATRIX_02] + in_pA[MATRIX_11]*in_pB[MATRIX_12] + in_pA[MATRIX_12];
+//    io_pC[MATRIX_20] = in_pA[MATRIX_20]*in_pB[MATRIX_00] + in_pA[MATRIX_21]*in_pB[MATRIX_10] + in_pA[MATRIX_22]*in_pB[MATRIX_20];
+//    io_pC[MATRIX_21] = in_pA[MATRIX_20]*in_pB[MATRIX_01] + in_pA[MATRIX_21]*in_pB[MATRIX_11] + in_pA[MATRIX_22]*in_pB[MATRIX_21];
+//    io_pC[MATRIX_22] = in_pA[MATRIX_20]*in_pB[MATRIX_02] + in_pA[MATRIX_21]*in_pB[MATRIX_12] + in_pA[MATRIX_22]*in_pB[MATRIX_22];
 #endif
 }
 void        tmMatMulVecInplace(tmMat4i* in_pA, tmVec4i* io_pB){
@@ -234,6 +232,15 @@ void        tmMatMulMatInplace(tmMat4i* in_pA, tmMat4i* io_pB){
     tmMatMulMat(in_pA,io_pB,gTempMul);
     tmCopyMat(gTempMul,io_pB);
 }
+
+void        tmMatMulMatInplace2(tmMat4i* in_pA, tmMat4i** io_pB){
+    tmMatMulMat(in_pA,*io_pB,gTempMul);
+    // swap the matrix
+    tmMat4i* currentGlobal = gTempMul;
+    gTempMul = *io_pB;
+    *io_pB = currentGlobal;
+}
+
 void        tmLoadMat(tmMat4i* in_pA, tmMatFlag in_eFlag){
     in_pA[MATRIX_INDEX_TRANSFORM_X] = 0;
     in_pA[MATRIX_INDEX_TRANSFORM_Y] = 0;
@@ -331,10 +338,6 @@ void tmUpdateVertex (tmMat4i* in_pMat, int length) {
     tmMatMulVec(in_pMat, gBL, gBL_clean);
     tmMatMulVec(in_pMat, gBR, gBR_clean);
 
-//    tmPrintVec(gTL);
-//    tmPrintVec(gTR);
-//    tmPrintVec(gBL);
-//    tmPrintVec(gBR);
     if (gTL_clean[VECTOR_X] < 0 || gTR_clean[VECTOR_X] < 0 || gBL_clean[VECTOR_X] < 0 || gBR_clean[VECTOR_X] <0){
         gTL_clean[VECTOR_X]+=length-1;
         gTR_clean[VECTOR_X]+=length-1;
@@ -352,7 +355,6 @@ void tmUpdateVertex (tmMat4i* in_pMat, int length) {
     xmax = tmMax4(gTL_clean[VECTOR_X],gTR_clean[VECTOR_X],gBL_clean[VECTOR_X],gBR_clean[VECTOR_X]);
     ymin = tmMin4(gTL_clean[VECTOR_Y],gTR_clean[VECTOR_Y],gBL_clean[VECTOR_Y],gBR_clean[VECTOR_Y]);
     ymax = tmMax4(gTL_clean[VECTOR_Y],gTR_clean[VECTOR_Y],gBL_clean[VECTOR_Y],gBR_clean[VECTOR_Y]);
-    //printf("%d,%d,%d,%d\n",xmin,xmax,ymin,ymax);
     gTL_clean[VECTOR_X] = xmin;
     gTL_clean[VECTOR_Y] = ymin;
     gTR_clean[VECTOR_X] = xmax;
@@ -362,47 +364,6 @@ void tmUpdateVertex (tmMat4i* in_pMat, int length) {
     gBR_clean[VECTOR_X] = xmax;
     gBR_clean[VECTOR_Y] = ymax;
 
-//    int x_min= gTL[VECTOR_X];
-//    if (gTR[VECTOR_X] < x_min)
-//        x_min = gTR[VECTOR_X];
-//    if (gBL[VECTOR_X] < x_min)
-//        x_min = gBL[VECTOR_X];
-//    if (gBR[VECTOR_X] < x_min)
-//        x_min = gBR[VECTOR_X];
-//
-//    int y_min= gTL[VECTOR_Y];
-//    if (gTR[VECTOR_Y] < y_min)
-//        y_min = gTR[VECTOR_Y];
-//    if (gBL[VECTOR_Y] < y_min)
-//        y_min = gBL[VECTOR_Y];
-//    if (gBR[VECTOR_Y] < y_min)
-//        y_min = gBR[VECTOR_Y];
-//
-//    if (x_min < 0) {
-//        gOriginalVertex [VECTOR_X] = x_min + length -1;
-//        gTL[VECTOR_X] =  gTL[VECTOR_X] + length -1;
-//        gTR[VECTOR_X] =  gTR[VECTOR_X] + length -1;
-//        gBL[VECTOR_X] =  gBL[VECTOR_X] + length -1;
-//        gBR[VECTOR_X] =  gBR[VECTOR_X] + length -1;
-//    } else {
-//        gOriginalVertex [VECTOR_X] = x_min;
-//    }
-//    if (y_min < 0) {
-//        gOriginalVertex [VECTOR_Y] = y_min + length -1;
-//        gTL[VECTOR_Y] =  gTL[VECTOR_Y] + length -1;
-//        gTR[VECTOR_Y] =  gTR[VECTOR_Y] + length -1;
-//        gBL[VECTOR_Y] =  gBL[VECTOR_Y] + length -1;
-//        gBR[VECTOR_Y] =  gBR[VECTOR_Y] + length -1;
-//    } else {
-//        gOriginalVertex [VECTOR_Y] = y_min;
-//    }
-
-
-
-//    tmPrintVec(gTL);
-//    tmPrintVec(gTR);
-//    tmPrintVec(gBL);
-//    tmPrintVec(gBR);
 
 }
 tmOrientation tmGetOrientationFromMat(tmMat4i* in_pMat){
@@ -535,13 +496,15 @@ void tmGenerateBaseBuffer(tmBuffer in_pFrameBuffer, int in_iFrameDimension){
         gFrameCache[e_X_Y].m_iWidth = base_Width;
         gFrameCache[e_X_Y].m_iLength = base_length;
         int line_size_in_bytes = in_iFrameDimension*PIXEL_SIZE;
-        int row, total_y_offset,total_x_offset;
+        int row, total_y_offset,total_x_offset,total_offset;
         total_y_offset = gTL[VECTOR_Y] * line_size_in_bytes;
         total_x_offset = gTL[VECTOR_X] * PIXEL_SIZE;
+        total_offset = total_x_offset+total_y_offset;
+        base_Width*=PIXEL_SIZE;
         for(row = 0; row < base_length;row++){
-            memcpy(gFrameCache[e_X_Y].m_pBuffer+row*base_Width*PIXEL_SIZE,
-                   in_pFrameBuffer+total_x_offset+total_y_offset+row*line_size_in_bytes,
-                   base_Width*PIXEL_SIZE);
+            memcpy(gFrameCache[e_X_Y].m_pBuffer+row*base_Width,
+                   in_pFrameBuffer+total_offset+row*line_size_in_bytes,
+                   base_Width);
         }
         //tmPrintFrame(gFrameCache[e_X_Y].m_pBuffer,base_Width,base_length);
     }
@@ -567,13 +530,7 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
             dst_buffer = gFrameCache[e_X_NY].m_pBuffer;
             gFrameCache[in_eOrientation].m_iWidth = gFrameCache[e_X_Y].m_iWidth;
             gFrameCache[in_eOrientation].m_iLength = gFrameCache[e_X_Y].m_iLength;
-            //if(gFrameCache[e_NX_NY].m_pBuffer!=NULL){
-            //    tmBufferMirrorX(gFrameCache[e_NX_NY].m_pBuffer,dst_buffer,gFrameCache[e_X_NY].m_iWidth,gFrameCache[e_X_NY].m_iLength);
-            //}
-            //else{
-                tmBufferMirrorX(gFrameCache[e_X_Y].m_pBuffer,dst_buffer,gFrameCache[e_X_NY].m_iWidth,gFrameCache[e_X_NY].m_iLength);
-            //}
-
+            tmBufferMirrorX(gFrameCache[e_X_Y].m_pBuffer,dst_buffer,gFrameCache[e_X_NY].m_iWidth,gFrameCache[e_X_NY].m_iLength);
             break;
         }
         case e_NX_Y: {
@@ -589,15 +546,19 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
         }
         case e_NX_NY: {
             dst_buffer = gFrameCache[e_NX_NY].m_pBuffer;
+
             gFrameCache[in_eOrientation].m_iWidth = gFrameCache[e_X_Y].m_iWidth;
             gFrameCache[in_eOrientation].m_iLength = gFrameCache[e_X_Y].m_iLength;
             if (gFrameCache[e_NX_Y].m_pBuffer != NULL) {
-                tmBufferMirrorX(gFrameCache[e_NX_Y].m_pBuffer,dst_buffer,gFrameCache[e_NX_NY].m_iWidth,gFrameCache[e_NX_NY].m_iLength);
+                src_buffer = gFrameCache[e_NX_Y].m_pBuffer;
+                tmBufferMirrorX(src_buffer,dst_buffer,gFrameCache[e_NX_NY].m_iWidth,gFrameCache[e_NX_NY].m_iLength);
             } else {
+                src_buffer = gFrameCache[e_NX_Y].m_pBuffer;
                 int buffer_size = gFrameCache[e_X_Y].m_iLength*gFrameCache[e_X_Y].m_iWidth*PIXEL_SIZE;
-                int pixel_index;
+                int pixel_index,offset;
+                offset = buffer_size-PIXEL_SIZE;
                 for (pixel_index = 0; pixel_index < buffer_size; pixel_index += 3) {
-                    memcpy(gFrameCache[in_eOrientation].m_pBuffer + pixel_index, gFrameCache[e_X_Y].m_pBuffer + (buffer_size -PIXEL_SIZE) - pixel_index, PIXEL_SIZE);
+                    memcpy(dst_buffer + pixel_index, src_buffer+ (offset) - pixel_index, PIXEL_SIZE);
                 }
             }
 
@@ -632,6 +593,8 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
                                 src_x = f_col+t_col;
                                 src_index = (src_y*width + src_x)*PIXEL_SIZE;
                                 dst_index = (src_x*length+ src_y)*PIXEL_SIZE;
+
+                                (*(unsigned int*)(src_buffer+src_index)) |= (*((unsigned int*)(dst_buffer+dst_index)) & 0xffffff00);
                                 dst_buffer[dst_index+R_OFFSET] = src_buffer[src_index+R_OFFSET];
                                 dst_buffer[dst_index+G_OFFSET] = src_buffer[src_index+G_OFFSET];
                                 dst_buffer[dst_index+B_OFFSET] = src_buffer[src_index+B_OFFSET];
@@ -676,7 +639,6 @@ void tmGenerateOrientationBuffer(tmOrientation in_eOrientation){
                                 dst_y = (width - 1) - src_x;
                                 src_index = (src_y * width+ src_x) * PIXEL_SIZE;
                                 dst_index = (dst_y * length+ dst_x) * PIXEL_SIZE;
-                                //printf("%d,%d,%d,%d\n",src_x,src_y,dst_x,dst_y);
                                 dst_buffer[dst_index + R_OFFSET] = src_buffer[src_index + R_OFFSET];
                                 dst_buffer[dst_index + G_OFFSET] = src_buffer[src_index + G_OFFSET];
                                 dst_buffer[dst_index + B_OFFSET] = src_buffer[src_index + B_OFFSET];
