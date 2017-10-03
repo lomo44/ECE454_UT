@@ -238,6 +238,7 @@ void        tmLoadMat(tmMat4i* in_pA, tmMatFlag in_eFlag){
             in_pA[MATRIX_10] = 0;
             in_pA[MATRIX_11] = 1;
             in_pA[MATRIX_22] = 1;
+
             break;
         }
     }
@@ -276,12 +277,17 @@ typedef enum _tmOrientation {
 } tmOrientation;
 
 void tmUpdateVertex (tmMat4i* in_pMat, int length) {
-
+    //tmPrintMat(in_pMat);
+    //tmPrintVec(gTL);
+    int shift_x = in_pMat[MATRIX_INDEX_TRANSFORM_X];
+    int shift_y = in_pMat[MATRIX_INDEX_TRANSFORM_Y];
+    in_pMat[MATRIX_INDEX_TRANSFORM_Y] = 0;
+    in_pMat[MATRIX_INDEX_TRANSFORM_X] = 0;
     tmMatMulVec(in_pMat, gTL, gTL_clean);
     tmMatMulVec(in_pMat, gTR, gTR_clean);
     tmMatMulVec(in_pMat, gBL, gBL_clean);
     tmMatMulVec(in_pMat, gBR, gBR_clean);
-
+    //tmPrintVec(gTL_clean);
     if (gTL_clean[VECTOR_X] < 0 || gTR_clean[VECTOR_X] < 0 || gBL_clean[VECTOR_X] < 0 || gBR_clean[VECTOR_X] <0){
         gTL_clean[VECTOR_X]+=length-1;
         gTR_clean[VECTOR_X]+=length-1;
@@ -294,6 +300,15 @@ void tmUpdateVertex (tmMat4i* in_pMat, int length) {
         gBR_clean[VECTOR_Y]+=length-1;
         gBL_clean[VECTOR_Y]+=length-1;
     }
+    gTL_clean[VECTOR_X]+=shift_x;
+    gTR_clean[VECTOR_X]+=shift_x;
+    gBL_clean[VECTOR_X]+=shift_x;
+    gBR_clean[VECTOR_X]+=shift_x;
+    gTL_clean[VECTOR_Y]+=shift_y;
+    gTR_clean[VECTOR_Y]+=shift_y;
+    gBL_clean[VECTOR_Y]+=shift_y;
+    gBR_clean[VECTOR_Y]+=shift_y;
+
     int xmin,xmax,ymin,ymax;
     xmin = tmMin4(gTL_clean[VECTOR_X],gTR_clean[VECTOR_X],gBL_clean[VECTOR_X],gBR_clean[VECTOR_X]);
     xmax = tmMax4(gTL_clean[VECTOR_X],gTR_clean[VECTOR_X],gBL_clean[VECTOR_X],gBR_clean[VECTOR_X]);
@@ -307,6 +322,8 @@ void tmUpdateVertex (tmMat4i* in_pMat, int length) {
     gBL_clean[VECTOR_Y] = ymax;
     gBR_clean[VECTOR_X] = xmax;
     gBR_clean[VECTOR_Y] = ymax;
+    in_pMat[MATRIX_INDEX_TRANSFORM_X] = shift_x;
+    in_pMat[MATRIX_INDEX_TRANSFORM_Y] = shift_y;
 }
 tmOrientation tmGetOrientationFromMat(tmMat4i* in_pMat){
     if(in_pMat[MATRIX_00] == 1){
@@ -1055,12 +1072,14 @@ void implementation_driver(struct kv *sensor_values, int sensor_values_count, un
             bb_length = tmGetCurrentBoundingBoxLength();
 
             tmClearFrame(frame_buffer,width,gTL_clean,bb_width,bb_length);
+
             tmUpdateVertex(gGlobalTransform,width);
-            printf("Update Vertex\n");
+
             tmWriteFrameFromCache(frame_buffer, width, gTL_clean,orientation);
+            tmPrintFrame(frame_buffer,width,height);
             verifyFrame(frame_buffer, width, height, grading_mode);
         }
     }
-    printf("Terminate\n");
+    //printf("Terminate\n");
     return;
 }
