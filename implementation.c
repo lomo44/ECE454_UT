@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include "utilities.h"  // DO NOT REMOVE this line
 #include "implementation_reference.h"   // DO NOT REMOVE this line
-
+#include <signal.h>
 #define ENABLE_SIMD 0
 #define SPEED_UP 1
 
@@ -334,7 +334,6 @@ void tmUpdateVertex (tmMat4i* in_pMat, int length) {
     gBR_clean[VECTOR_Y] = ymax;
 //    in_pMat[MATRIX_INDEX_TRANSFORM_X] = shift_x;
 //    in_pMat[MATRIX_INDEX_TRANSFORM_Y] = shift_y;
-
 }
 tmOrientation tmGetOrientationFromMat(tmMat4i* in_pMat){
     if(in_pMat[MATRIX_00] == 1){
