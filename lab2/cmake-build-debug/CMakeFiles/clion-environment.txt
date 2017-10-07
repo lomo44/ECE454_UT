@@ -1,0 +1,2 @@
+Options: 
+CMake: 3.8.2@/nfs/ug/homes-5/l/lizhuan1/clion-2017.2.2/bin/cmake/bin/cmake

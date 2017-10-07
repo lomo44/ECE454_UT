@@ -1,0 +1,4 @@
+/nfs/ug/homes-5/l/lizhuan1/clion-2017.2.2/bin/cmake/bin/cmake -DCMAKE_BUILD_TYPE=Debug -G "CodeBlocks - Unix Makefiles" /homes/l/lizhuan1/ECE454/hw2/ECE454-Lab2
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /homes/l/lizhuan1/ECE454/hw2/ECE454-Lab2/cmake-build-debug
