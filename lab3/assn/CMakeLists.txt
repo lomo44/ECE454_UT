@@ -9,15 +9,10 @@ set(SOURCE_FILES
         fcyc.o
         fsecs.o
         ftimer.o
-        Makefile
-        mdriver
         mdriver.o
         memlib.h
         memlib.o
         mm.c
-        mm.h
-        README
-        short1-bal.rep
-        short2-bal.rep)
+        mm.h)
 
 add_executable(mdriver ${SOURCE_FILES})
