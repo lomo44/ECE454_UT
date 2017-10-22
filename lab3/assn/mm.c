@@ -78,6 +78,7 @@ typedef void* Data_ptr;
 
 #define BIN_SIZE 1024
 #define MALLOC_ALIGNMENT 4            // 16 bytes alignments
+#define MIN(x, y) ((x) < (y)?(x) :(y))
 #define PTR_ALIGNMENT (sizeof(void*))   // 8 bytes for 64bit machine
 
 #define MAGIC_NUMBER 889999
@@ -154,9 +155,8 @@ eLLError llMarkBlockAllocationBit(Heap_ptr in_pBlockPtr, int in_bAllocated){
     PUT(in_pBlockPtr, PACK(data_size_in_dword << MALLOC_ALIGNMENT, in_bAllocated));
     PUT(in_pBlockPtr+PROLOGUE_OFFSET+data_size_in_dword+MAGIC_NUMBER_OFFSET, PACK(data_size_in_dword << MALLOC_ALIGNMENT,in_bAllocated));
 }
-eLLError llInitBlock(Heap_ptr in_pInputPtr, int in_iBlockSizeInDword){
-
-    int data_size_in_dword = in_iBlockSizeInDword-4;
+eLLError llInitBlock(Heap_ptr in_pInputPtr, int in_iBlockSizeInQword){
+    int data_size_in_dword = in_iBlockSizeInQword-META_DATA_SIZE;
     // Place the header
     PUT(in_pInputPtr, PACK(data_size_in_dword << MALLOC_ALIGNMENT,1));
     // initialize the link list pointer
@@ -236,7 +236,7 @@ int      llGetMaximumExtendableSize(Heap_ptr in_pPtr); //TODO: Implement
 eLLError llThrowInBin(Heap_ptr in_pDataPtr){
     int index = MIN(llGetDataSizeFromHeader(in_pDataPtr)>>MALLOC_ALIGNMENT,BIN_SIZE-1);
     llMarkBlockAllocationBit(in_pDataPtr,BLOCK_FREE);
-    llSetLinkedBlock(in_pDataPtr,GET(gBin+index););
+    llSetLinkedBlock(in_pDataPtr,GET(gBin+index));
     PUT(gBin+index,in_pDataPtr);
     return eLLError_None;
 }
@@ -310,7 +310,7 @@ eLLError llSplitBlock(Heap_ptr in_pInputPtr,llSplitRecipe* in_pRecipe, Heap_ptr*
     llInitBlock(io_pOutputPtrB,block_B_size);
     return eLLError_None;
 }
-eLLError llExendBlock(Heap_ptr in_pInputPtr, int in_iExtendSize); //TODO: Implement
+eLLError llExtendBlock(Heap_ptr in_pInputPtr, int in_iExtendSize); //TODO: Implement
 eLLError llCopyBlock(Heap_ptr in_pFrom, Heap_ptr in_pTo, int in_iCopySize); //TODO: Implement
 
 /*
@@ -403,7 +403,7 @@ Data_ptr llRealloc(Data_ptr in_pDataPtr, int in_iSize){
         int maximum_extendable_size = llGetMaximumExtendableSize(ptr);
         if(maximum_extendable_size>=in_pDataPtr){
             // Local resizing is possible, extend the current block
-            llExendBlock(ptr,maximum_extendable_size);
+            llExtendBlock(ptr,maximum_extendable_size);
             return in_pDataPtr;
         }
         else{
