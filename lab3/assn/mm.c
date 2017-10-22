@@ -131,7 +131,7 @@ eLLError gError;
  * Return aligned size
  */
 int llGetAllignedSizeInBytes(int in_iInput, int in_iAlignment){
-    if (in_iInput & ((1 << in_iAlignment) - 1) > 0)
+    if ((in_iInput & ((1 << in_iAlignment) - 1)) > 0)
         return ((in_iInput >> in_iAlignment) + 1) << in_iAlignment;
     else
         return  in_iInput;
@@ -167,16 +167,17 @@ eLLError llInitBin(size_t in_iBinSize){
 /*
  * Return data size in dword from header
  */
-eLLError llDeAllocBlock(Heap_ptr in_pInputPtrA){
-    llMarkBlockAllocationBit(in_pInputPtrA,0);
-    return eLLError_None;
-}
 eLLError llMarkBlockAllocationBit(Heap_ptr in_pBlockPtr, int in_bAllocated){
     int data_size_in_dword = llGetDataSizeFromHeader(in_pBlockPtr);
     PUT(in_pBlockPtr, PACK(data_size_in_dword << MALLOC_ALIGNMENT, in_bAllocated));
     PUT(in_pBlockPtr+PROLOGUE_OFFSET+data_size_in_dword+MAGIC_NUMBER_OFFSET, PACK(data_size_in_dword << MALLOC_ALIGNMENT,in_bAllocated));
     return eLLError_None;
 }
+eLLError llDeAllocBlock(Heap_ptr in_pInputPtrA){
+    llMarkBlockAllocationBit(in_pInputPtrA,0);
+    return eLLError_None;
+}
+
 
 /*
  * Function llInitBlock
@@ -304,12 +305,6 @@ eLLError llThrowInBin(Heap_ptr in_pHeapPtr){
     PUT(gBin+index,(uintptr_t)in_pHeapPtr);
     return eLLError_None;
 }
-
-eLLError llPullFromBin(Heap_ptr in_pHeapPtr){
-    int index = MIN(llGetDataSizeFromHeader(in_pHeapPtr)>>MALLOC_ALIGNMENT,BIN_SIZE-1);
-    return llPullFromList(in_pHeapPtr+index,in_pHeapPtr);
-
-}
 eLLError llPullFromList(Heap_ptr in_pBin, Heap_ptr in_pTarget){
     Heap_ptr cur_ptr= (Heap_ptr)GET(in_pBin);
     Heap_ptr next_ptr = llGetLinkedBlock(cur_ptr);
@@ -334,6 +329,12 @@ eLLError llPullFromList(Heap_ptr in_pBin, Heap_ptr in_pTarget){
         }
     }
     return eLLError_search_fail;
+}
+
+eLLError llPullFromBin(Heap_ptr in_pHeapPtr){
+    int index = MIN(llGetDataSizeFromHeader(in_pHeapPtr)>>MALLOC_ALIGNMENT,BIN_SIZE-1);
+    return llPullFromList(in_pHeapPtr+index,in_pHeapPtr);
+
 }
 
 /*
