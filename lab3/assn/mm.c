@@ -98,10 +98,13 @@ typedef void* Data_ptr;
 #define llGetDataSizeFromHeader(x) (GET(x)>>MALLOC_ALIGNMENT)
 #define llGetPrevBlockPtrFromHeapPtr(x) (x-META_DATA_SIZE-llGetDataSizeFromHeader(x))
 #define llGetNextBlockPtrFromDataPtr(x) (x+META_DATA_SIZE+llGetDataSizeFromHeader(x))
-
+#define llSetLinkedBlock(x,target) (PUT((x)+HEADER_OFFSET,target))
+#define llGetLinkedBlock(x) (GET((x)+HEADER_OFFSET))
+#define llIsBlockFree(x) (!(GET(x) & 0))
 typedef enum _eLLError{
     eLLError_heap_extend_fail,
     eLLError_allocation_fail,
+    eLLError_search_fail,
     eLLError_None = 0
 } eLLError;
 
@@ -234,8 +237,39 @@ int      llAllign16(int in_iInput); //TODO: Implement
 int      llGetMaximumExtendableSize(Heap_ptr in_pPtr); //TODO: Implement
 
 
-eLLError llThrowInBin(Heap_ptr in_pDataPtr); //TODO: Implement
-
+eLLError llThrowInBin(Heap_ptr in_pDataPtr){
+    int index = MIN(llGetDataSizeFromHeader(in_pDataPtr)>>MALLOC_ALIGNMENT,BIN_SIZE-1);
+    llMarkBlockAllocationBit(in_pDataPtr,BLOCK_FREE);
+    llSetLinkedBlock(in_pDataPtr,GET(gBin+index););
+    PUT(gBin+index,in_pDataPtr);
+    return eLLError_None;
+}
+// Search through the list, if the target ptr is found, it is pull from the list
+eLLError llPullFromList(Heap_ptr* in_pheadptr, Heap_ptr in_pTarget){
+    Heap_ptr next_ptr = llGetLinkedBlock(*in_pheadptr);
+    Heap_ptr cur_ptr= in_pheadptr;
+    if(*in_pheadptr == in_pTarget){
+        // Head is the target, need to change the head
+        llSetLinkedBlock(*in_pheadptr,NULL);
+        *in_pheadptr = next_ptr;
+        return eLLError_None;
+    }
+    else{
+        while(next_ptr != NULL){
+            if(next_ptr==in_pTarget){
+                Heap_ptr next_next = llGetLinkedBlock(next_ptr);
+                llSetLinkedBlock(cur_ptr,next_next);
+                llSetLinkedBlock(next_ptr,NULL);
+                return eLLError_None;
+            }
+            else{
+                cur_ptr = next_ptr;
+                next_ptr = llGetLinkedBlock(next_ptr);
+            }
+        }
+    }
+    return eLLError_search_fail;
+}
 
 eLLError llMergeBlock(Heap_ptr in_pInputPtrA,Heap_ptr in_pInputPtrB,Heap_ptr* io_pOutputPtr); //TODO: Implement
 /*
@@ -272,9 +306,9 @@ Data_ptr llAlloc(int in_iSize){
         // Successfully found a free block inside the list, now we need to check if the block is splittable
 
         // Get the allocated block size
-        int block_size = llGetDataSize(ret);
+        int block_size = llGetDataSizeFromHeader(ret);
         // Get the alligned data size
-        int real_data_size = llAllign16(in_iSize);
+        int real_data_size = llGetAllignedSizeInBytes(in_iSize,MALLOC_ALIGNMENT);
         // Get the remainder size after spliting the main block
         int remainder_size = llGetSplitedRemainderSize(block_size,real_data_size);
         // If the remainder size is greater than 0 (splitable)
@@ -308,8 +342,8 @@ eLLError llFree(Data_ptr in_pDataPtr){
     // Get the next block ptr
     Heap_ptr next_ptr = llGetNextBlockPtrFromDataPtr(cur_ptr);
     // Check if both block are free
-    int is_prev_free = llisBlockFree(prev_ptr);
-    int is_next_free = llisBlockFree(next_ptr);
+    int is_prev_free = llIsBlockFree(prev_ptr);
+    int is_next_free = llIsBlockFree(next_ptr);
     Heap_ptr* ret = cur_ptr;
     // Check if previous block is free
     if(is_prev_free!=0){
@@ -326,7 +360,7 @@ eLLError llFree(Data_ptr in_pDataPtr){
 }
 Data_ptr llRealloc(Data_ptr in_pDataPtr, int in_iSize){
     // Getting the current data size
-    int current_data_size = llGetDataSize(in_pDataPtr);
+    int current_data_size = llGetDataSizeFromHeader(in_pDataPtr);
     if(in_pDataPtr == NULL){
         // If input data ptr is NULL, then allocate a new block
         return llAlloc(in_iSize);
