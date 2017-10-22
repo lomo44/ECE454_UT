@@ -71,7 +71,6 @@ team_t team = {
 #define RETURN_IF_ERROR(x) {if((x)!=eLLError_None) return (x);}
 #define RET_IF_RUN_ERROR(x,y) {(gError=(x));RETURN_IF_ERROR((y))}
 #define BYTES_TO_DWORD(x) (x>>3)
-#define MIN(x, y) ((x) < (y)?(x) :(y))
 
 typedef void* Heap_ptr;
 typedef void* Data_ptr;
@@ -93,17 +92,15 @@ typedef void* Data_ptr;
 #define EPILOGUE_OFFSET (HEADER_OFFSET+MAGIC_NUMBER_OFFSET)
 #define META_DATA_SIZE (PROLOGUE_OFFSET+EPILOGUE_OFFSET)
 
-#define llGetLinkedBlock(x) (GET((x)+HEADER_OFFSET))
-#define llGetDataPtrFromHeapPtr(x) ((x)+NEXT_PTR_OFFSET+HEADER_OFFSET)
-#define llGetHeapPtrFromDataPtr(x) ((x)-PROLOGUE_OFFSET)
+#define llGetLinkedBlock(x) (GET(x+HEADER_OFFSET))
+#define llGetDataPtrFromHeapPtr(x) (x+NEXT_PTR_OFFSET+HEADER_OFFSET)
+#define llGetHeapPtrFromDataPtr(x) (x-PROLOGUE_OFFSET)
 #define llGetDataSizeFromHeader(x) (GET(x)>>MALLOC_ALIGNMENT)
-#define llGetPrevBlockPtrFromHeapPtr(x) ((x)-META_DATA_SIZE-llGetDataSizeFromHeader(x))
-#define llGetNextBlockPtrFromDataPtr(x) ((x)+META_DATA_SIZE+llGetDataSizeFromHeader(x))
-#define llIsBlockFree(x) (GET(x) & 1)
-
+#define llGetPrevBlockPtrFromHeapPtr(x) (x-META_DATA_SIZE-llGetDataSizeFromHeader(x))
+#define llGetNextBlockPtrFromDataPtr(x) (x+META_DATA_SIZE+llGetDataSizeFromHeader(x))
 #define llSetLinkedBlock(x,target) (PUT((x)+HEADER_OFFSET,target))
 #define llGetLinkedBlock(x) (GET((x)+HEADER_OFFSET))
-
+#define llIsBlockFree(x) (!(GET(x) & 0))
 typedef enum _eLLError{
     eLLError_heap_extend_fail,
     eLLError_allocation_fail,
@@ -145,6 +142,9 @@ eLLError llInitBin(size_t in_iBinSize){
         return eLLError_None;
     }
 }
+/*
+ * Return data size in dword from header
+ */
 eLLError llDeAllocBlock(Heap_ptr in_pInputPtrA){
     int size = llGetDataSizeFromHeader(in_pInputPtrA);
     PUT(in_pInputPtrA, PACK(size << MALLOC_ALIGNMENT, 0));
@@ -212,10 +212,30 @@ eLLError llAllocFromBin(size_t in_iSizeInBytes, Data_ptr* io_pOutputPtr){
     }
 }
 
-int      llGetSplitedRemainderSize(int in_iTotalDataSize, int in_iTargetSize); //TODO: Implement
-int      llGetMaximumExtendableSize(Heap_ptr in_pPtr){
+
+/*
+ * Function: llGetSplitedRemainderSize
+ * -----------------------------------
+ * calculate the remaining data size (no meta) after split
+ * in_iTotalDataSize: total block size (with meta) available
+ * in_iTargetSize: desire data (no meta)size
+ *
+ * Return: remain data size (no meta)
+ */
+int      llGetSplitedRemainderSize(int in_iTotalDataSize, int in_iTargetSize) {
+    int remian_size = in_iTotalDataSize - in_iTargetSize - META_DATA_SIZE *2;
+    if (remian_size < 2) {
+        printf("Error: Try to split size %d from size %d", in_iTargetSize, in_iTotalDataSize);
+        return 0;
+    } else
+        return remian_size;
 
 }
+int      llisBlockFree(Data_ptr in_pDataPtr); //TODO: Implement
+int      llGetDataSize(Heap_ptr in_pBlockPtr); //TODO: Implement
+int      llAllign16(int in_iInput); //TODO: Implement
+int      llGetMaximumExtendableSize(Heap_ptr in_pPtr); //TODO: Implement
+
 
 eLLError llThrowInBin(Heap_ptr in_pDataPtr){
     int index = MIN(llGetDataSizeFromHeader(in_pDataPtr)>>MALLOC_ALIGNMENT,BIN_SIZE-1);
