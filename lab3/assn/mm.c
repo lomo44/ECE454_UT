@@ -146,9 +146,7 @@ eLLError llInitBin(size_t in_iBinSize){
  * Return data size in dword from header
  */
 eLLError llDeAllocBlock(Heap_ptr in_pInputPtrA){
-    int size = llGetDataSizeFromHeader(in_pInputPtrA);
-    PUT(in_pInputPtrA, PACK(size << MALLOC_ALIGNMENT, 0));
-    PUT(in_pInputPtrA+PROLOGUE_OFFSET+MAGIC_NUMBER_OFFSET+size, PACK(size << MALLOC_ALIGNMENT, 0));
+    llMarkBlockAllocationBit(in_pInputPtrA,0);
     return eLLError_None;
 }
 eLLError llMarkBlockAllocationBit(Heap_ptr in_pBlockPtr, int in_bAllocated){
@@ -157,6 +155,7 @@ eLLError llMarkBlockAllocationBit(Heap_ptr in_pBlockPtr, int in_bAllocated){
     PUT(in_pBlockPtr+PROLOGUE_OFFSET+data_size_in_dword+MAGIC_NUMBER_OFFSET, PACK(data_size_in_dword << MALLOC_ALIGNMENT,in_bAllocated));
 }
 eLLError llInitBlock(Heap_ptr in_pInputPtr, int in_iBlockSizeInDword){
+
     int data_size_in_dword = in_iBlockSizeInDword-4;
     // Place the header
     PUT(in_pInputPtr, PACK(data_size_in_dword << MALLOC_ALIGNMENT,1));
@@ -231,9 +230,6 @@ int      llGetSplitedRemainderSize(int in_iTotalDataSize, int in_iTargetSize) {
         return remian_size;
 
 }
-int      llisBlockFree(Data_ptr in_pDataPtr); //TODO: Implement
-int      llGetDataSize(Heap_ptr in_pBlockPtr); //TODO: Implement
-int      llAllign16(int in_iInput); //TODO: Implement
 int      llGetMaximumExtendableSize(Heap_ptr in_pPtr); //TODO: Implement
 
 
