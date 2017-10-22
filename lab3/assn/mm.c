@@ -315,7 +315,20 @@ eLLError llSplitBlock(Heap_ptr in_pInputPtr,llSplitRecipe* in_pRecipe, Heap_ptr*
     llInitBlock(io_pOutputPtrB,block_B_size);
     return eLLError_None;
 }
-eLLError llExtendBlock(Heap_ptr in_pInputPtr, int in_iExtendSize); //TODO: Implement
+/*
+ * Function llExtendBlock
+ * ---------------------
+ * Extend one free block into desire size. assume extend legal
+ * in_pInputPtr: pointer to the free block
+ * in_iExtendSize: desire new size of the block
+ *
+ * Return: Error message
+ */
+eLLError llExtendBlock(Heap_ptr in_pInputPtr, int in_iExtendSize){
+    llInitBlock(in_pInputPtr,in_iExtendSize);
+    return eLLError_None;
+}
+
 eLLError llCopyBlock(Heap_ptr in_pFrom, Heap_ptr in_pTo, int in_iCopySize); //TODO: Implement
 
 /*
