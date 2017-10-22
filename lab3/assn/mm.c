@@ -69,12 +69,25 @@ team_t team = {
 #ifdef LAB3_START
 // All codes for lab3 goes inside here
 #define RETURN_IF_ERROR(x) {if((x)!=eLLError_None) return (x);}
-#define RETURN_IF_GERROR() RETURN_IF_ERROR(gError)
 #define RET_IF_RUN_ERROR(x,y) {(gError=(x));RETURN_IF_ERROR((y))}
+#define BYTES_TO_DWORD(x) (x>>3)
 
 typedef void* Heap_ptr;
 typedef void* Data_ptr;
+
+
 #define BIN_SIZE 1024
+#define MALLOC_ALIGNMENT 4            // 16 bytes alignments
+#define PTR_ALIGNMENT (sizeof(void*))   // 8 bytes for 64bit machine
+#define META_DATA_SIZE (PTR_ALIGNMENT*4)
+#define MAGIC_NUMBER 889999
+#define NEXT_PTR_OFFSET 1
+#define HEADER_OFFSET 1
+#define MAGIC_NUMBER_OFFSET 1
+#define PROLOGUE_OFFSET (HEADER_OFFSET+NEXT_PTR_OFFSET)
+#define EPILOGUE_OFFSET (HEADER_OFFSET+MAGIC_NUMBER_OFFSET)
+
+#define llGetDataPtrFromHeapPtr(x) (x+NEXT_PTR_OFFSET+HEADER_OFFSET)
 
 typedef enum _eLLError{
     eLLError_heap_extend_fail,
@@ -88,24 +101,84 @@ typedef struct _llSplitRecipe{
 } llSplitRecipe;
 
 Heap_ptr gBin;
+int gBinSize;
 Heap_ptr gHeapPtr;
 eLLError gError;
 
-eLLError llInitBin(size_t in_iBinSize);  //TODO: Implement
-eLLError llAllocFromHeap(size_t in_iSize, Heap_ptr* io_pOutputPtr); //TODO: Implement
+/*
+ * Get aligned size from in_iInput, alignment must be a power of 2
+ */
+int llGetAllignedSizeInBytes(int in_iInput, int in_iAlignment){
+    return (in_iInput >> in_iAlignment) + (in_iInput & ((1 << in_iAlignment) - 1)) > 0;
+}
+
+eLLError llInitBin(size_t in_iBinSize){
+    // Extend heap for bin pointers
+    if((gBin = mem_sbrk(BIN_SIZE*sizeof(Heap_ptr))) == -1){
+        return eLLError_heap_extend_fail;
+    }
+    else{
+        // Bin Allocation success;
+        gBinSize = BIN_SIZE;
+        return eLLError_None;
+    }
+}
+/*
+ * Return data size in dword from header
+ */
+int      llGetDataSizeFromHeader(Heap_ptr in_pHeaderPtr){
+    return *(int*)in_pHeaderPtr >> MALLOC_ALIGNMENT;
+}
+eLLError llInitBlock(Heap_ptr in_pInputPtr, int in_iBlockSizeInDword){
+    int data_size_in_dword = in_iBlockSizeInDword-4;
+    // Place the header
+    PUT(in_pInputPtr, PACK(data_size_in_dword << MALLOC_ALIGNMENT,1));
+    // initialize the link list pointer
+    PUT(in_pInputPtr+HEADER_OFFSET, -1);
+    // initialize the magic number
+    PUT(in_pInputPtr+data_size_in_dword+PROLOGUE_OFFSET,MAGIC_NUMBER);
+    // initialize the footer
+    PUT(in_pInputPtr+PROLOGUE_OFFSET+MAGIC_NUMBER_OFFSET, PACK(data_size_in_dword << MALLOC_ALIGNMENT,1));
+    return eLLError_None;
+}
+eLLError llDeAllocBlock(Heap_ptr in_pInputPtrA){
+    int size = llGetDataSizeFromHeader(in_pInputPtrA);
+    PUT(in_pInputPtrA, PACK(size << MALLOC_ALIGNMENT, 0));
+    PUT(in_pInputPtrA+PROLOGUE_OFFSET+MAGIC_NUMBER_OFFSET+size, PACK(size << MALLOC_ALIGNMENT, 0));
+    return eLLError_None;
+}
+
+eLLError llAllocFromHeap(size_t in_iSizeInBytes, Data_ptr * io_pOutputPtr){
+    // get the corresponding alignment size
+    int aligned_size = llGetAllignedSizeInBytes(in_iSizeInBytes, MALLOC_ALIGNMENT);
+    // Calculate the real block size
+    int block_size = aligned_size + META_DATA_SIZE;
+    // Allocate a new block from heap
+    Heap_ptr bp;
+    if(bp = mem_sbrk(block_size)==-1){
+        return eLLError_heap_extend_fail;
+    }
+    else{
+        // Initialize the block
+        llInitBlock(bp,BYTES_TO_DWORD(block_size));
+        // return the block address
+        *io_pOutputPtr = llGetDataPtrFromHeapPtr(bp);
+        return eLLError_None;
+    }
+}
 eLLError llAllocFromBin(size_t in_iSize, Heap_ptr* io_pOutputPtr); //TODO: Implement
 
 Heap_ptr llGetHeapPtrFromDataPtr(Data_ptr in_pDataPtr); //TODO: Implement
 Heap_ptr llGetPrevBlkFromDataPtr(Heap_ptr in_pDataPtr); //TODO: Implement
 Heap_ptr llGetNextBlkFromDataPtr(Heap_ptr in_pDataPtr); //TODO: Implement
-Data_ptr llGetDataPtrFromHeapPtr(Heap_ptr in_pHeapPtr); //TODO: Implement
+
 int      llGetSplitedRemainderSize(int in_iTotalDataSize, int in_iTargetSize); //TODO: Implement
 int      llisBlockFree(Data_ptr in_pDataPtr); //TODO: Implement
 int      llGetDataSize(Heap_ptr in_pBlockPtr); //TODO: Implement
 int      llAllign16(int in_iInput); //TODO: Implement
 int      llGetMaximumExtendableSize(Heap_ptr in_pPtr); //TODO: Implement
 
-eLLError llDeAlloc(Heap_ptr in_pInputPtrA); //TODO: Implement
+
 eLLError llThrowInBin(Heap_ptr in_pDataPtr); //TODO: Implement
 
 eLLError llMergeBlock(Heap_ptr in_pInputPtrA,Heap_ptr in_pInputPtrB,Heap_ptr* io_pOutputPtr); //TODO: Implement
@@ -157,7 +230,7 @@ eLLError llFree(Data_ptr in_pDataPtr){
     // Convert the given data ptr to heap ptr
     Heap_ptr cur_ptr = llGetHeapPtrFromDataPtr(in_pDataPtr);
     // Deallocate the current block
-    RET_IF_RUN_ERROR(llDeAlloc(cur_ptr),gError);
+    RET_IF_RUN_ERROR(llDeAllocBlock(cur_ptr),gError);
     // Get the previous block ptr
     Heap_ptr prev_ptr = llGetPrevBlkFromDataPtr(cur_ptr);
     // Get the next block ptr
