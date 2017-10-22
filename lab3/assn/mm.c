@@ -295,7 +295,30 @@ eLLError llPullFromList(Heap_ptr in_pBin, Heap_ptr in_pTarget){
     }
     return eLLError_search_fail;
 }
-eLLError llMergeBlock(Heap_ptr in_pInputPtrA,Heap_ptr in_pInputPtrB,Heap_ptr* io_pOutputPtr); //TODO: Implement
+
+/*
+ * Function llMergeBlock
+ * ---------------------
+ * Merge up to three free block into one. assume merged block is free and contain no data
+ * in_pInputPtrA: pointer to the free block A
+ * in_pInputPtrB: pointer to the free block B
+ * io_pOutputPtr: pointer to the merged new block
+ *
+ * Return: Error message
+ */
+eLLError llMergeBlock(Heap_ptr in_pInputPtrA,Heap_ptr in_pInputPtrB,Heap_ptr* io_pOutputPtr){
+    int block_A_size = llGetDataSizeFromHeader (in_pInputPtrA) + META_DATA_SIZE;
+    int block_B_size = llGetDataSizeFromHeader (in_pInputPtrB) + META_DATA_SIZE;
+    //let the merged get be the previous block
+    if ( in_pInputPtrA < in_pInputPtrB) {
+        io_pOutputPtr = in_pInputPtrA;
+    } else {
+        io_pOutputPtr = in_pInputPtrB;
+    }
+    //re-initialize the block
+    llInitBlock(io_pOutputPtr,block_A_size + block_B_size);
+    return eLLError_None;
+}
 /*
  * Function llSplitBlock
  * ---------------------
@@ -308,15 +331,43 @@ eLLError llMergeBlock(Heap_ptr in_pInputPtrA,Heap_ptr in_pInputPtrB,Heap_ptr* io
  * Return: Error message
  */
 eLLError llSplitBlock(Heap_ptr in_pInputPtr,llSplitRecipe* in_pRecipe, Heap_ptr* io_pOutputPtrA,Heap_ptr* io_pOutputPtrB){
-    int first_block_size = in_pRecipe->m_iBlockASize + META_DATA_SIZE;
+    int block_A_size = in_pRecipe->m_iBlockASize + META_DATA_SIZE;
+    int block_B_size = in_pRecipe->m_iBlockBSize + META_DATA_SIZE;
     io_pOutputPtrA = in_pInputPtr;
-    llInitBlock(io_pOutputPtrA,in_pRecipe->m_iBlockASize);
-    io_pOutputPtrB = in_pInputPtr + first_block_size;
-    llInitBlock(io_pOutputPtrB,in_pRecipe->m_iBlockBSize);
+    llInitBlock(io_pOutputPtrA,block_A_size);
+    io_pOutputPtrB = in_pInputPtr + block_A_size;
+    llInitBlock(io_pOutputPtrB,block_B_size);
     return eLLError_None;
 }
-eLLError llExtendBlock(Heap_ptr in_pInputPtr, int in_iExtendSize); //TODO: Implement
-eLLError llCopyBlock(Heap_ptr in_pFrom, Heap_ptr in_pTo, int in_iCopySize); //TODO: Implement
+/*
+ * Function llExtendBlock
+ * ---------------------
+ * Extend one free block into desire size. assume extend legal
+ * in_pInputPtr: pointer to the free block
+ * in_iExtendSize: desire new size of the block
+ *
+ * Return: Error message
+ */
+eLLError llExtendBlock(Heap_ptr in_pInputPtr, int in_iExtendSize){
+    llInitBlock(in_pInputPtr,in_iExtendSize);
+    return eLLError_None;
+}
+/*
+ * Function llCopyBlock
+ * ---------------------
+ * one block's data into another blcok. assume copy legal
+ * in_pFrom: pointer to the block hold the data
+ * in_pTo: pointer to the empty block
+ * in_iCopySize: data size need to copy in 8 bytes
+ *
+ * Return: Error message
+ */
+eLLError llCopyBlock(Heap_ptr in_pFrom, Heap_ptr in_pTo, int in_iCopySize){
+    int copy_start_from = in_pFrom + PROLOGUE_OFFSET;
+    int copy_start_to = in_pTo + PROLOGUE_OFFSET;
+    memcmp(copy_start_from,copy_start_to,in_iCopySize *8);
+    return eLLError_None;
+}
 
 /*
  * Main Allocation functions
