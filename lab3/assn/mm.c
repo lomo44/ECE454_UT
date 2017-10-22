@@ -154,9 +154,8 @@ eLLError llMarkBlockAllocationBit(Heap_ptr in_pBlockPtr, int in_bAllocated){
     PUT(in_pBlockPtr, PACK(data_size_in_dword << MALLOC_ALIGNMENT, in_bAllocated));
     PUT(in_pBlockPtr+PROLOGUE_OFFSET+data_size_in_dword+MAGIC_NUMBER_OFFSET, PACK(data_size_in_dword << MALLOC_ALIGNMENT,in_bAllocated));
 }
-eLLError llInitBlock(Heap_ptr in_pInputPtr, int in_iBlockSizeInDword){
-
-    int data_size_in_dword = in_iBlockSizeInDword-4;
+eLLError llInitBlock(Heap_ptr in_pInputPtr, int in_iBlockSizeInQword){
+    int data_size_in_dword = in_iBlockSizeInQword-META_DATA_SIZE;
     // Place the header
     PUT(in_pInputPtr, PACK(data_size_in_dword << MALLOC_ALIGNMENT,1));
     // initialize the link list pointer
@@ -266,10 +265,9 @@ eLLError llPullFromList(Heap_ptr* in_pheadptr, Heap_ptr in_pTarget){
     }
     return eLLError_search_fail;
 }
-
 eLLError llMergeBlock(Heap_ptr in_pInputPtrA,Heap_ptr in_pInputPtrB,Heap_ptr* io_pOutputPtr); //TODO: Implement
 eLLError llSplitBlock(Heap_ptr in_pInputPtr,llSplitRecipe* in_pRecipe, Heap_ptr* in_pOutputPtrA,Heap_ptr* io_pOutputPtrB); //TODO: Implement
-eLLError llExendBlock(Heap_ptr in_pInputPtr, int in_iExtendSize); //TODO: Implement
+eLLError llExtendBlock(Heap_ptr in_pInputPtr, int in_iExtendSize); //TODO: Implement
 eLLError llCopyBlock(Heap_ptr in_pFrom, Heap_ptr in_pTo, int in_iCopySize); //TODO: Implement
 
 /*
@@ -362,7 +360,7 @@ Data_ptr llRealloc(Data_ptr in_pDataPtr, int in_iSize){
         int maximum_extendable_size = llGetMaximumExtendableSize(ptr);
         if(maximum_extendable_size>=in_pDataPtr){
             // Local resizing is possible, extend the current block
-            llExendBlock(ptr,maximum_extendable_size);
+            llExtendBlock(ptr,maximum_extendable_size);
             return in_pDataPtr;
         }
         else{
