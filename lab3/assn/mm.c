@@ -64,7 +64,7 @@ team_t team = {
 #define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
-#define LAB3_START 0
+#define LAB3_START 1
 
 #ifdef LAB3_START
 // All codes for lab3 goes inside here
@@ -89,6 +89,7 @@ typedef void* Data_ptr;
 #define BLOCK_ALLOCATED 1
 #define BLOCK_FREE 0
 #define INVALID_HEAP_PTR ((Heap_ptr)-1)
+#define SPLIT_THRESH_HOLD
 
 #define PROLOGUE_OFFSET (HEADER_OFFSET+NEXT_PTR_OFFSET)
 #define EPILOGUE_OFFSET (HEADER_OFFSET+MAGIC_NUMBER_OFFSET)
@@ -275,12 +276,12 @@ eLLError llAllocFromBin(size_t in_iSizeInBytes, Data_ptr* io_pOutputPtr){
  * Return: remain data size (no meta)
  */
 int      llGetSplitedRemainderSize(int in_iTotalDataSize, int in_iTargetSize) {
-    int remian_size = in_iTotalDataSize - in_iTargetSize - META_DATA_SIZE *2;
-    if (remian_size < 2) {
+    int remain_size = in_iTotalDataSize - in_iTargetSize - META_DATA_SIZE *2;
+    if (remain_size < 2) {
         printf("Error: Try to split size %d from size %d", in_iTargetSize, in_iTotalDataSize);
         return 0;
     } else
-        return remian_size;
+        return remain_size;
 
 }
 int      llGetMaximumExtendableSize(Heap_ptr in_pPtr){
