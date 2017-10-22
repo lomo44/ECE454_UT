@@ -174,6 +174,16 @@ eLLError llMarkBlockAllocationBit(Heap_ptr in_pBlockPtr, int in_bAllocated){
     PUT(in_pBlockPtr, PACK(data_size_in_dword << MALLOC_ALIGNMENT, in_bAllocated));
     PUT(in_pBlockPtr+PROLOGUE_OFFSET+data_size_in_dword+MAGIC_NUMBER_OFFSET, PACK(data_size_in_dword << MALLOC_ALIGNMENT,in_bAllocated));
 }
+
+/*
+ * Function llInitBlock
+ * ------------------------
+ * Initialize the block (with all meta data)
+ * in_pInputPtr: pointer to data block
+ * in_iBlockSizeInQword: desire block size with meta data
+ *
+ * Return: error message
+ */
 eLLError llInitBlock(Heap_ptr in_pInputPtr, int in_iBlockSizeInQword){
     int data_size_in_dword = in_iBlockSizeInQword-META_DATA_SIZE;
     // Place the header
@@ -186,6 +196,15 @@ eLLError llInitBlock(Heap_ptr in_pInputPtr, int in_iBlockSizeInQword){
     PUT(in_pInputPtr+PROLOGUE_OFFSET+data_size_in_dword+MAGIC_NUMBER_OFFSET, PACK(data_size_in_dword << MALLOC_ALIGNMENT,1));
     return eLLError_None;
 }
+/*
+ * Function llAllocFromHeap
+ * ------------------------
+ * Initialize the block from heap(with all meta data)
+ * io_pOutputPtr: pointer to data block
+ * in_iSizeInBytes: desire block size with meta data
+ *
+ * Return: error message
+ */
 eLLError llAllocFromHeap(size_t in_iSizeInBytes, Data_ptr * io_pOutputPtr){
     // get the corresponding alignment size
     int aligned_size = llGetAllignedSizeInBytes(in_iSizeInBytes, MALLOC_ALIGNMENT);
@@ -204,6 +223,16 @@ eLLError llAllocFromHeap(size_t in_iSizeInBytes, Data_ptr * io_pOutputPtr){
         return eLLError_None;
     }
 }
+
+/*
+ * Function llAllocFromHeap
+ * ------------------------
+ * Initialize the block from bin (initialized free block)(with all meta data)
+ * io_pOutputPtr: pointer to data block
+ * in_iSizeInBytes: desire block size with meta data
+ *
+ * Return: error message
+ */
 eLLError llAllocFromBin(size_t in_iSizeInBytes, Data_ptr* io_pOutputPtr){
     // Calculate the aligned bucket size
     int aligned_size = llGetAllignedSizeInBytes(in_iSizeInBytes, MALLOC_ALIGNMENT);
