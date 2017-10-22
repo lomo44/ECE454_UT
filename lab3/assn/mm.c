@@ -121,11 +121,19 @@ Heap_ptr gHeapPtr;
 size_t gHeapSize = 0;
 eLLError gError;
 
-/*
- * Get aligned size from in_iInput, alignment must be a power of 2
+/*llGetAllignedSizeInBytes
+ * -------------------------------------------------------------
+ * Get aligned size from in_iInput
+ * in_iInput:input size
+ * in_iAlignment: alignment, must be a power of 2
+ *
+ * Return aligned size
  */
 int llGetAllignedSizeInBytes(int in_iInput, int in_iAlignment){
-    return (in_iInput >> in_iAlignment) + (in_iInput & ((1 << in_iAlignment) - 1)) > 0;
+    if (in_iInput & ((1 << in_iAlignment) - 1) > 0)
+        return ((in_iInput >> in_iAlignment) + 1) << in_iAlignment;
+    else
+        return  in_iInput;
 }
 Heap_ptr llExtendHeap(int in_iExtendSize){
     Heap_ptr ret = mem_sbrk(in_iExtendSize);
