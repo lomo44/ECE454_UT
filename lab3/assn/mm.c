@@ -238,7 +238,23 @@ eLLError llThrowInBin(Heap_ptr in_pDataPtr); //TODO: Implement
 
 
 eLLError llMergeBlock(Heap_ptr in_pInputPtrA,Heap_ptr in_pInputPtrB,Heap_ptr* io_pOutputPtr); //TODO: Implement
-eLLError llSplitBlock(Heap_ptr in_pInputPtr,llSplitRecipe* in_pRecipe, Heap_ptr* in_pOutputPtrA,Heap_ptr* io_pOutputPtrB); //TODO: Implement
+/*
+ * Function llSplitBlock
+ * ---------------------
+ * Split one free block into two. assume split legal
+ * in_pInputPtr: pointer to the free block
+ * in_pRecipe: desire division of the block
+ * io_pOutputPtrA: pointer to the free block A
+ * io_pOutputPtrB: pointer to the free block B
+ *
+ * Return: Error message
+ */
+eLLError llSplitBlock(Heap_ptr in_pInputPtr,llSplitRecipe* in_pRecipe, Heap_ptr* io_pOutputPtrA,Heap_ptr* io_pOutputPtrB){
+    int first_block_size = in_pRecipe->m_iBlockASize + META_DATA_SIZE;
+    io_pOutputPtrA = in_pInputPtr;
+    io_pOutputPtrB = in_pInputPtr + first_block_size;
+    return eLLError_None;
+}
 eLLError llExendBlock(Heap_ptr in_pInputPtr, int in_iExtendSize); //TODO: Implement
 eLLError llCopyBlock(Heap_ptr in_pFrom, Heap_ptr in_pTo, int in_iCopySize); //TODO: Implement
 
