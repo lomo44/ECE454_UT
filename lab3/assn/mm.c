@@ -233,21 +233,26 @@ int      llGetSplitedRemainderSize(int in_iTotalDataSize, int in_iTargetSize) {
 int      llGetMaximumExtendableSize(Heap_ptr in_pPtr); //TODO: Implement
 
 
-eLLError llThrowInBin(Heap_ptr in_pDataPtr){
-    int index = MIN(llGetDataSizeFromHeader(in_pDataPtr)>>MALLOC_ALIGNMENT,BIN_SIZE-1);
-    llMarkBlockAllocationBit(in_pDataPtr,BLOCK_FREE);
-    llSetLinkedBlock(in_pDataPtr,GET(gBin+index));
-    PUT(gBin+index,in_pDataPtr);
+eLLError llThrowInBin(Heap_ptr in_pHeapPtr){
+    int index = MIN(llGetDataSizeFromHeader(in_pHeapPtr)>>MALLOC_ALIGNMENT,BIN_SIZE-1);
+    llMarkBlockAllocationBit(in_pHeapPtr,BLOCK_FREE);
+    llSetLinkedBlock(in_pHeapPtr,GET(gBin+index));
+    PUT(gBin+index,in_pHeapPtr);
     return eLLError_None;
 }
-// Search through the list, if the target ptr is found, it is pull from the list
-eLLError llPullFromList(Heap_ptr* in_pheadptr, Heap_ptr in_pTarget){
-    Heap_ptr next_ptr = llGetLinkedBlock(*in_pheadptr);
-    Heap_ptr cur_ptr= in_pheadptr;
-    if(*in_pheadptr == in_pTarget){
+
+eLLError llPullFromBin(Heap_ptr in_pHeapPtr){
+    int index = MIN(llGetDataSizeFromHeader(in_pHeapPtr)>>MALLOC_ALIGNMENT,BIN_SIZE-1);
+    return llPullFromList(in_pHeapPtr+index,in_pHeapPtr);
+
+}
+eLLError llPullFromList(Heap_ptr in_pBin, Heap_ptr in_pTarget){
+    Heap_ptr cur_ptr= GET(in_pBin);
+    Heap_ptr next_ptr = llGetLinkedBlock(cur_ptr);
+    if(cur_ptr == in_pTarget){
         // Head is the target, need to change the head
-        llSetLinkedBlock(*in_pheadptr,NULL);
-        *in_pheadptr = next_ptr;
+        llSetLinkedBlock(cur_ptr,NULL);
+        PUT(cur_ptr,next_ptr);
         return eLLError_None;
     }
     else{
@@ -370,10 +375,12 @@ eLLError llFree(Data_ptr in_pDataPtr){
     if(is_prev_free!=0){
         // Previous block is free, merge current block with previous block
         RET_IF_RUN_ERROR(llMergeBlock(ret,prev_ptr,&ret),gError);
+        llPullFromBin(prev_ptr);
     }
     if(is_next_free!=0){
         // Next block is free
         RET_IF_RUN_ERROR(llMergeBlock(ret,next_ptr,&ret),gError);
+        llPullFromBin(next_ptr);
     }
     // Throw the merged block into bin
     RET_IF_RUN_ERROR(llThrowInBin(cur_ptr),gError);
