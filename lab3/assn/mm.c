@@ -253,6 +253,7 @@ eLLError llAllocFromBin(size_t in_iSizeInBytes, Data_ptr* io_pOutputPtr){
             // modified the allocation bit
             llMarkBlockAllocationBit(ret, BLOCK_ALLOCATED);
         }
+        start_index++;
     }
     if(ret!=NULL){
         *io_pOutputPtr = llGetDataPtrFromHeapPtr(ret);
