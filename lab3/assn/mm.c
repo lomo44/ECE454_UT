@@ -328,8 +328,22 @@ eLLError llExtendBlock(Heap_ptr in_pInputPtr, int in_iExtendSize){
     llInitBlock(in_pInputPtr,in_iExtendSize);
     return eLLError_None;
 }
-
-eLLError llCopyBlock(Heap_ptr in_pFrom, Heap_ptr in_pTo, int in_iCopySize); //TODO: Implement
+/*
+ * Function llCopyBlock
+ * ---------------------
+ * one block's data into another blcok. assume copy legal
+ * in_pFrom: pointer to the block hold the data
+ * in_pTo: pointer to the empty block
+ * in_iCopySize: data size need to copy in 8 bytes
+ *
+ * Return: Error message
+ */
+eLLError llCopyBlock(Heap_ptr in_pFrom, Heap_ptr in_pTo, int in_iCopySize){
+    int copy_start_from = in_pFrom + PROLOGUE_OFFSET;
+    int copy_start_to = in_pTo + PROLOGUE_OFFSET;
+    memcmp(copy_start_from,copy_start_to,in_iCopySize *8);
+    return eLLError_None;
+}
 
 /*
  * Main Allocation functions
