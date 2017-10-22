@@ -98,10 +98,11 @@ typedef void* Data_ptr;
 #define llGetHeapPtrFromDataPtr(x) (x-PROLOGUE_OFFSET)
 #define llGetDataSizeFromHeader(x) (GET(x)>>MALLOC_ALIGNMENT)
 #define llGetPrevBlockPtrFromHeapPtr(x) (x-META_DATA_SIZE-llGetDataSizeFromHeader(x))
-#define llGetNextBlockPtrFromDataPtr(x) (x+META_DATA_SIZE+llGetDataSizeFromHeader(x))
+#define llGetNextBlockPtrFromHeapPtr(x) (x+META_DATA_SIZE+llGetDataSizeFromHeader(x))
 #define llSetLinkedBlock(x,target) (PUT((x)+HEADER_OFFSET,target))
 #define llGetLinkedBlock(x) (GET((x)+HEADER_OFFSET))
 #define llIsBlockFree(x) (!(GET(x) & 0))
+
 typedef enum _eLLError{
     eLLError_heap_extend_fail,
     eLLError_allocation_fail,
@@ -117,7 +118,7 @@ typedef struct _llSplitRecipe{
 Heap_ptr gBin;
 int gBinSize;
 Heap_ptr gHeapPtr;
-
+size_t gHeapSize = 0;
 eLLError gError;
 
 /*
@@ -126,10 +127,20 @@ eLLError gError;
 int llGetAllignedSizeInBytes(int in_iInput, int in_iAlignment){
     return (in_iInput >> in_iAlignment) + (in_iInput & ((1 << in_iAlignment) - 1)) > 0;
 }
+Heap_ptr llExtendHeap(int in_iExtendSize){
+    Heap_ptr ret = mem_sbrk(in_iExtendSize);
+    if(ret!=-1){
+        gHeapSize += in_iExtendSize >> PTR_ALIGNMENT;
+        return ret;
+    }
+    else{
+        return -1;
+    }
+}
 
 eLLError llInitBin(size_t in_iBinSize){
     // Extend heap for bin pointers
-    if((gBin = mem_sbrk(BIN_SIZE*sizeof(Heap_ptr))) == -1){
+    if((gBin = llExtendHeap(BIN_SIZE*PTR_ALIGNMENT)) == -1){
         return eLLError_heap_extend_fail;
     }
     else{
@@ -174,7 +185,7 @@ eLLError llAllocFromHeap(size_t in_iSizeInBytes, Data_ptr * io_pOutputPtr){
     int block_size = aligned_size + META_DATA_SIZE;
     // Allocate a new block from heap
     Heap_ptr bp;
-    if(bp = mem_sbrk(block_size)==-1){
+    if(bp = llExtendHeap(block_size)==-1){
         return eLLError_heap_extend_fail;
     }
     else{
@@ -230,7 +241,20 @@ int      llGetSplitedRemainderSize(int in_iTotalDataSize, int in_iTargetSize) {
         return remian_size;
 
 }
-int      llGetMaximumExtendableSize(Heap_ptr in_pPtr); //TODO: Implement
+int      llGetMaximumExtendableSize(Heap_ptr in_pPtr){
+    int max_size = 0;
+    Heap_ptr heap_end = gHeapPtr + gHeapSize;
+    Heap_ptr cur_ptr = llGetNextBlockPtrFromHeapPtr(in_pPtr);
+    while(cur_ptr < heap_end){
+        if(llIsBlockFree(cur_ptr)){
+            max_size += llGetDataSizeFromHeader(cur_ptr);
+        }
+        else{
+            break;
+        }
+    }
+    return max_size;
+}
 
 
 eLLError llThrowInBin(Heap_ptr in_pHeapPtr){
@@ -298,7 +322,9 @@ eLLError llCopyBlock(Heap_ptr in_pFrom, Heap_ptr in_pTo, int in_iCopySize); //TO
  * Main Allocation functions
  */
 eLLError llInit(){
-    return llInitBin(BIN_SIZE);
+    llInitBin(BIN_SIZE);
+    gHeapPtr = gBin;
+    return eLLError_None;
 }
 Data_ptr llAlloc(int in_iSize){
     Heap_ptr* ret = NULL;
@@ -342,7 +368,7 @@ eLLError llFree(Data_ptr in_pDataPtr){
     // Get the previous block ptr
     Heap_ptr prev_ptr = llGetPrevBlockPtrFromHeapPtr(cur_ptr);
     // Get the next block ptr
-    Heap_ptr next_ptr = llGetNextBlockPtrFromDataPtr(cur_ptr);
+    Heap_ptr next_ptr = llGetNextBlockPtrFromHeapPtr(cur_ptr);
     // Check if both block are free
     int is_prev_free = llIsBlockFree(prev_ptr);
     int is_next_free = llIsBlockFree(next_ptr);
