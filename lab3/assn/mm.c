@@ -210,8 +210,24 @@ eLLError llAllocFromBin(size_t in_iSizeInBytes, Data_ptr* io_pOutputPtr){
 }
 
 
+/*
+ * Function: llGetSplitedRemainderSize
+ * -----------------------------------
+ * calculate the remaining data size (no meta) after split
+ * in_iTotalDataSize: total block size (with meta) available
+ * in_iTargetSize: desire data (no meta)size
+ *
+ * Return: remain data size (no meta)
+ */
+int      llGetSplitedRemainderSize(int in_iTotalDataSize, int in_iTargetSize) {
+    int remian_size = in_iTotalDataSize - in_iTargetSize - META_DATA_SIZE *2;
+    if (remian_size < 2) {
+        printf("Error: Try to split size %d from size %d", in_iTargetSize, in_iTotalDataSize);
+        return 0;
+    } else
+        return remian_size;
 
-int      llGetSplitedRemainderSize(int in_iTotalDataSize, int in_iTargetSize); //TODO: Implement
+}
 int      llisBlockFree(Data_ptr in_pDataPtr); //TODO: Implement
 int      llGetDataSize(Heap_ptr in_pBlockPtr); //TODO: Implement
 int      llAllign16(int in_iInput); //TODO: Implement
