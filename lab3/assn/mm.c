@@ -267,7 +267,29 @@ eLLError llPullFromList(Heap_ptr* in_pheadptr, Heap_ptr in_pTarget){
     return eLLError_search_fail;
 }
 
-eLLError llMergeBlock(Heap_ptr in_pInputPtrA,Heap_ptr in_pInputPtrB,Heap_ptr* io_pOutputPtr); //TODO: Implement
+/*
+ * Function llMergeBlock
+ * ---------------------
+ * Merge up to three free block into one. assume merged block is free and contain no data
+ * in_pInputPtrA: pointer to the free block A
+ * in_pInputPtrB: pointer to the free block B
+ * io_pOutputPtr: pointer to the merged new block
+ *
+ * Return: Error message
+ */
+eLLError llMergeBlock(Heap_ptr in_pInputPtrA,Heap_ptr in_pInputPtrB,Heap_ptr* io_pOutputPtr){
+    int block_A_size = llGetDataSizeFromHeader (in_pInputPtrA) + META_DATA_SIZE;
+    int block_B_size = llGetDataSizeFromHeader (in_pInputPtrB) + META_DATA_SIZE;
+    //let the merged get be the previous block
+    if ( in_pInputPtrA < in_pInputPtrB) {
+        io_pOutputPtr = in_pInputPtrA;
+    } else {
+        io_pOutputPtr = in_pInputPtrB;
+    }
+    //re-initialize the block
+    llInitBlock(io_pOutputPtr,block_A_size + block_B_size);
+    return eLLError_None;
+}
 /*
  * Function llSplitBlock
  * ---------------------
@@ -280,11 +302,12 @@ eLLError llMergeBlock(Heap_ptr in_pInputPtrA,Heap_ptr in_pInputPtrB,Heap_ptr* io
  * Return: Error message
  */
 eLLError llSplitBlock(Heap_ptr in_pInputPtr,llSplitRecipe* in_pRecipe, Heap_ptr* io_pOutputPtrA,Heap_ptr* io_pOutputPtrB){
-    int first_block_size = in_pRecipe->m_iBlockASize + META_DATA_SIZE;
+    int block_A_size = in_pRecipe->m_iBlockASize + META_DATA_SIZE;
+    int block_B_size = in_pRecipe->m_iBlockBSize + META_DATA_SIZE;
     io_pOutputPtrA = in_pInputPtr;
-    llInitBlock(io_pOutputPtrA,in_pRecipe->m_iBlockASize);
-    io_pOutputPtrB = in_pInputPtr + first_block_size;
-    llInitBlock(io_pOutputPtrB,in_pRecipe->m_iBlockBSize);
+    llInitBlock(io_pOutputPtrA,block_A_size);
+    io_pOutputPtrB = in_pInputPtr + block_A_size;
+    llInitBlock(io_pOutputPtrB,block_B_size);
     return eLLError_None;
 }
 eLLError llExendBlock(Heap_ptr in_pInputPtr, int in_iExtendSize); //TODO: Implement
