@@ -78,6 +78,7 @@ typedef void* Data_ptr;
 
 #define BIN_SIZE 1024
 #define MALLOC_ALIGNMENT 4            // 16 bytes alignments
+#define MIN(x, y) ((x) < (y)?(x) :(y))
 #define PTR_ALIGNMENT (sizeof(void*))   // 8 bytes for 64bit machine
 
 #define MAGIC_NUMBER 889999
@@ -235,7 +236,7 @@ int      llGetMaximumExtendableSize(Heap_ptr in_pPtr); //TODO: Implement
 eLLError llThrowInBin(Heap_ptr in_pDataPtr){
     int index = MIN(llGetDataSizeFromHeader(in_pDataPtr)>>MALLOC_ALIGNMENT,BIN_SIZE-1);
     llMarkBlockAllocationBit(in_pDataPtr,BLOCK_FREE);
-    llSetLinkedBlock(in_pDataPtr,GET(gBin+index););
+    llSetLinkedBlock(in_pDataPtr,GET(gBin+index));
     PUT(gBin+index,in_pDataPtr);
     return eLLError_None;
 }
