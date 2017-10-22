@@ -122,11 +122,19 @@ Heap_ptr gHeapPtr;
 size_t gHeapSize = 0;
 eLLError gError;
 
-/*
- * Get aligned size from in_iInput, alignment must be a power of 2
+/*llGetAllignedSizeInBytes
+ * -------------------------------------------------------------
+ * Get aligned size from in_iInput
+ * in_iInput:input size
+ * in_iAlignment: alignment, must be a power of 2
+ *
+ * Return aligned size
  */
 int llGetAllignedSizeInBytes(int in_iInput, int in_iAlignment){
-    return (in_iInput >> in_iAlignment) + (in_iInput & ((1 << in_iAlignment) - 1)) > 0;
+    if (in_iInput & ((1 << in_iAlignment) - 1) > 0)
+        return ((in_iInput >> in_iAlignment) + 1) << in_iAlignment;
+    else
+        return  in_iInput;
 }
 Heap_ptr llExtendHeap(int in_iExtendSize){
     Heap_ptr ret = mem_sbrk(in_iExtendSize);
@@ -156,12 +164,6 @@ eLLError llInitBin(size_t in_iBinSize){
         return eLLError_None;
     }
 }
-eLLError llMarkBlockAllocationBit(Heap_ptr in_pBlockPtr, int in_bAllocated){
-    int data_size_in_dword = llGetDataSizeFromHeader(in_pBlockPtr);
-    PUT(in_pBlockPtr, PACK(data_size_in_dword << MALLOC_ALIGNMENT, in_bAllocated));
-    PUT(in_pBlockPtr+PROLOGUE_OFFSET+data_size_in_dword+MAGIC_NUMBER_OFFSET, PACK(data_size_in_dword << MALLOC_ALIGNMENT,in_bAllocated));
-    return eLLError_None;
-}
 /*
  * Return data size in dword from header
  */
@@ -169,7 +171,22 @@ eLLError llDeAllocBlock(Heap_ptr in_pInputPtrA){
     llMarkBlockAllocationBit(in_pInputPtrA,0);
     return eLLError_None;
 }
+eLLError llMarkBlockAllocationBit(Heap_ptr in_pBlockPtr, int in_bAllocated){
+    int data_size_in_dword = llGetDataSizeFromHeader(in_pBlockPtr);
+    PUT(in_pBlockPtr, PACK(data_size_in_dword << MALLOC_ALIGNMENT, in_bAllocated));
+    PUT(in_pBlockPtr+PROLOGUE_OFFSET+data_size_in_dword+MAGIC_NUMBER_OFFSET, PACK(data_size_in_dword << MALLOC_ALIGNMENT,in_bAllocated));
+    return eLLError_None;
+}
 
+/*
+ * Function llInitBlock
+ * ------------------------
+ * Initialize the block (with all meta data)
+ * in_pInputPtr: pointer to data block
+ * in_iBlockSizeInQword: desire block size with meta data
+ *
+ * Return: error message
+ */
 eLLError llInitBlock(Heap_ptr in_pInputPtr, int in_iBlockSizeInQword){
     int data_size_in_dword = in_iBlockSizeInQword-META_DATA_SIZE;
     // Place the header
@@ -182,6 +199,15 @@ eLLError llInitBlock(Heap_ptr in_pInputPtr, int in_iBlockSizeInQword){
     PUT(in_pInputPtr+PROLOGUE_OFFSET+data_size_in_dword+MAGIC_NUMBER_OFFSET, PACK(data_size_in_dword << MALLOC_ALIGNMENT,1));
     return eLLError_None;
 }
+/*
+ * Function llAllocFromHeap
+ * ------------------------
+ * Initialize the block from heap(with all meta data)
+ * io_pOutputPtr: pointer to data block
+ * in_iSizeInBytes: desire block size with meta data
+ *
+ * Return: error message
+ */
 eLLError llAllocFromHeap(size_t in_iSizeInBytes, Data_ptr * io_pOutputPtr){
     // get the corresponding alignment size
     int aligned_size = llGetAllignedSizeInBytes(in_iSizeInBytes, MALLOC_ALIGNMENT);
@@ -200,6 +226,16 @@ eLLError llAllocFromHeap(size_t in_iSizeInBytes, Data_ptr * io_pOutputPtr){
         return eLLError_None;
     }
 }
+
+/*
+ * Function llAllocFromHeap
+ * ------------------------
+ * Initialize the block from bin (initialized free block)(with all meta data)
+ * io_pOutputPtr: pointer to data block
+ * in_iSizeInBytes: desire block size with meta data
+ *
+ * Return: error message
+ */
 eLLError llAllocFromBin(size_t in_iSizeInBytes, Data_ptr* io_pOutputPtr){
     // Calculate the aligned bucket size
     int aligned_size = llGetAllignedSizeInBytes(in_iSizeInBytes, MALLOC_ALIGNMENT);
@@ -268,6 +304,12 @@ eLLError llThrowInBin(Heap_ptr in_pHeapPtr){
     PUT(gBin+index,(uintptr_t)in_pHeapPtr);
     return eLLError_None;
 }
+
+eLLError llPullFromBin(Heap_ptr in_pHeapPtr){
+    int index = MIN(llGetDataSizeFromHeader(in_pHeapPtr)>>MALLOC_ALIGNMENT,BIN_SIZE-1);
+    return llPullFromList(in_pHeapPtr+index,in_pHeapPtr);
+
+}
 eLLError llPullFromList(Heap_ptr in_pBin, Heap_ptr in_pTarget){
     Heap_ptr cur_ptr= (Heap_ptr)GET(in_pBin);
     Heap_ptr next_ptr = llGetLinkedBlock(cur_ptr);
@@ -292,12 +334,6 @@ eLLError llPullFromList(Heap_ptr in_pBin, Heap_ptr in_pTarget){
         }
     }
     return eLLError_search_fail;
-}
-
-eLLError llPullFromBin(Heap_ptr in_pHeapPtr){
-    int index = MIN(llGetDataSizeFromHeader(in_pHeapPtr)>>MALLOC_ALIGNMENT,BIN_SIZE-1);
-    return llPullFromList(in_pHeapPtr+index,in_pHeapPtr);
-
 }
 
 /*
@@ -492,7 +528,7 @@ void *heap_listp = NULL;
  * prologue and epilogue
  **********************************************************/
 int mm_init(void) {
-    if ((heap_listp = mem_sbrk(4 * WSIZE)) == INVALID_HEAP_PTR)
+    if ((heap_listp = mem_sbrk(4 * WSIZE)) == (void *) -1)
         return -1;
     PUT(heap_listp, 0);                         // alignment padding
     PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));   // prologue header
