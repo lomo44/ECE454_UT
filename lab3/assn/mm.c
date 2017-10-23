@@ -75,7 +75,6 @@ team_t team = {
 typedef void* Heap_ptr;
 typedef void* Data_ptr;
 
-
 #define BIN_SIZE 1024
 #define MALLOC_ALIGNMENT 4            // 16 bytes alignments
 #define MIN(x, y) ((x) < (y)?(x) :(y))
@@ -223,8 +222,8 @@ eLLError llDeAllocBlock(Heap_ptr in_pInputPtrA){
  *
  * Return: error message
  */
-eLLError llInitBlock(Heap_ptr in_pInputPtr, int in_iBlockSizeInQword){
-    int data_size_in_dword = in_iBlockSizeInQword-META_DATA_SIZE;
+eLLError llInitBlock(Heap_ptr in_pInputPtr, int in_iBlockSizeInDword){
+    int data_size_in_dword = in_iBlockSizeInDword-META_DATA_SIZE;
     // Place the header
     PUT(in_pInputPtr, PACK(data_size_in_dword << MALLOC_ALIGNMENT,1));
     // initialize the link list pointer
