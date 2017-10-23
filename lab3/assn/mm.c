@@ -103,12 +103,16 @@ typedef void* Data_ptr;
 #define llGetNextBlockPtrFromHeapPtr(x) ((Heap_ptr)(x+META_DATA_SIZE+llGetDataSizeFromHeader(x)))
 #define llSetLinkedBlock(x,target) (PUT((Heap_ptr)(x+HEADER_OFFSET),(uintptr_t)target))
 #define llIsBlockFree(x) (!(GET(x) & 0))
-
+#define llGetBinningIndex(x) (MIN(llGetDataSizeFromHeader(x)>>MALLOC_ALIGNMENT,BIN_SIZE-1))
 
 typedef enum _eLLError{
     eLLError_heap_extend_fail,
     eLLError_allocation_fail,
     eLLError_search_fail,
+    eLLError_header_footer_size_inconsistent,
+    eLLError_header_footer_allocation_inconsistent,
+    eLLError_mismatch_magic_number,
+    eLLError_Non_Empty_Next_Ptr
     eLLError_None = 0
 } eLLError;
 
@@ -499,7 +503,7 @@ Data_ptr llAlloc(int in_iSize){
         // Cannot found a proper free block on the list, extend the heap and allocate a new block
         llAllocFromHeap(in_iSize,&ret);
     }
-    return ret;
+    return llGetDataPtrFromHeapPtr(ret);
 }
 eLLError llFree(Data_ptr in_pDataPtr){
     // Convert the given data ptr to heap ptr
@@ -569,6 +573,62 @@ Data_ptr llRealloc(Data_ptr in_pDataPtr, int in_iSize){
     }
 }
 
+eLLError llCheckBlock(Heap_ptr in_pBlockPtr){
+    // Check the consistency of the block
+    int size_in_header = llGetDataSizeFromHeader(in_pBlockPtr);
+    int size_in_footer = llGetDataSizeFromHeader(in_pBlockPtr+PROLOGUE_OFFSET+size_in_header+MAGIC_NUMBER_OFFSET);
+    // Check if the size in the header is the same as the footer
+    if(size_in_footer!=size_in_header){
+        return eLLError_header_footer_size_inconsistent;
+    }
+    // Check header's footer's allocation bit
+    if((GET(in_pBlockPtr)& 1) != (GET(in_pBlockPtr+PROLOGUE_OFFSET+size_in_header+MAGIC_NUMBER_OFFSET)& 1)){
+        return eLLError_header_footer_allocation_inconsistent;
+    }
+    // Check Magic Number
+    if(GET(in_pBlockPtr+PROLOGUE_OFFSET+size_in_header)!=MAGIC_NUMBER){
+        return eLLError_mismatch_magic_number;
+    }
+    return eLLError_None;
+}
+
+int llIsBlockInList(Heap_ptr in_pBin,Heap_ptr in_pBlockPtr){
+    Heap_ptr start_block = GET(in_pBin);
+    while(start_block!=NULL){
+        if(start_block == in_pBlockPtr){
+            return 1;
+        }
+        start_block = llGetNextBlockPtrFromHeapPtr(start_block);
+    }
+    return 0;
+}
+
+eLLError llValidBining(Heap_ptr in_pBlockPtr){
+    int index = llGetBinningIndex(in_pBlockPtr);
+    if(llIsBlockFree(index)){
+        return llIsBlockInList(gBin+index,in_pBlockPtr);
+    }
+    return llGetNextBlockPtrFromHeapPtr(in_pBlockPtr) == NULL?eLLError_None : eLLError_Non_Empty_Next_Ptr;
+}
+
+eLLError llCheckHeap(){
+    // valid every block
+    Heap_ptr cur_ptr = gHeapPtr+BIN_SIZE;
+    Heap_ptr last_ptr = cur_ptr+gHeapSize;
+    eLLError error = eLLError_None;
+    while(cur_ptr < last_ptr){
+        error = llCheckBlock(cur_ptr);
+        if(error!=eLLError_None){
+            return error;
+        }
+        error = llValidBining(cur_ptr);
+        if(error!=eLLError_None){
+            return error;
+        }
+        cur_ptr = llGetNextBlockPtrFromHeapPtr(cur_ptr);
+    }
+    return error;
+}
 
 #endif
 
