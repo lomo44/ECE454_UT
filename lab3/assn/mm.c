@@ -605,14 +605,15 @@ void *heap_listp = NULL;
  * prologue and epilogue
  **********************************************************/
 int mm_init(void) {
-    if ((heap_listp = mem_sbrk(4 * WSIZE)) == (void *) -1)
-        return -1;
-    PUT(heap_listp, 0);                         // alignment padding
-    PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));   // prologue header
-    PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));   // prologue footer
-    PUT(heap_listp + (3 * WSIZE), PACK(0, 1));    // epilogue header
-    heap_listp += DSIZE;
-    return 0;
+    return llInit();
+//    if ((heap_listp = mem_sbrk(4 * WSIZE)) == (void *) -1)
+//        return -1;
+//    PUT(heap_listp, 0);                         // alignment padding
+//    PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));   // prologue header
+//    PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));   // prologue footer
+//    PUT(heap_listp + (3 * WSIZE), PACK(0, 1));    // epilogue header
+//    heap_listp += DSIZE;
+//    return 0;
 }
 
 /**********************************************************
@@ -707,15 +708,15 @@ void place(void *bp, size_t asize) {
  * Free the block and coalesce with neighbouring blocks
  **********************************************************/
 void mm_free(void *bp) {
-
-    if (bp == NULL) {
-        return;
-    }
-    size_t size = GET_SIZE(HDRP(bp));
-
-    PUT(HDRP(bp), PACK(size, 0));
-    PUT(FTRP(bp), PACK(size, 0));
-    coalesce(bp);
+    llFree(bp);
+//    if (bp == NULL) {
+//        return;
+//    }
+//    size_t size = GET_SIZE(HDRP(bp));
+//
+//    PUT(HDRP(bp), PACK(size, 0));
+//    PUT(FTRP(bp), PACK(size, 0));
+//    coalesce(bp);
 }
 
 
@@ -728,31 +729,33 @@ void mm_free(void *bp) {
  * If no block satisfies the request, the heap is extended
  **********************************************************/
 void *mm_malloc(size_t size) {
-    size_t asize; /* adjusted block size */
-    size_t extendsize; /* amount to extend heap if no fit */
-    char *bp;
-    /* Ignore spurious requests */
-    if (size == 0)
-        return NULL;
+    return llAlloc (size);
 
-    /* Adjust block size to include overhead and alignment reqs. */
-    if (size <= DSIZE)
-        asize = 2 * DSIZE;
-    else
-        asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
-
-    /* Search the free list for a fit */
-    if ((bp = find_fit(asize)) != NULL) {
-        place(bp, asize);
-        return bp;
-    }
-
-    /* No fit found. Get more memory and place the block */
-    extendsize = MAX(asize, CHUNKSIZE);
-    if ((bp = extend_heap(extendsize / WSIZE)) == NULL)
-        return NULL;
-    place(bp, asize);
-    return bp;
+//    size_t asize; /* adjusted block size */
+//    size_t extendsize; /* amount to extend heap if no fit */
+//    char *bp;
+//    /* Ignore spurious requests */
+//    if (size == 0)
+//        return NULL;
+//
+//    /* Adjust block size to include overhead and alignment reqs. */
+//    if (size <= DSIZE)
+//        asize = 2 * DSIZE;
+//    else
+//        asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
+//
+//    /* Search the free list for a fit */
+//    if ((bp = find_fit(asize)) != NULL) {
+//        place(bp, asize);
+//        return bp;
+//    }
+//
+//    /* No fit found. Get more memory and place the block */
+//    extendsize = MAX(asize, CHUNKSIZE);
+//    if ((bp = extend_heap(extendsize / WSIZE)) == NULL)
+//        return NULL;
+//    place(bp, asize);
+//    return bp;
 
 }
 
@@ -761,30 +764,31 @@ void *mm_malloc(size_t size) {
  * Implemented simply in terms of mm_malloc and mm_free
  *********************************************************/
 void *mm_realloc(void *ptr, size_t size) {
-    /* If size == 0 then this is just free, and we return NULL. */
-    if (size == 0) {
-        mm_free(ptr);
-        return NULL;
-    }
-    /* If oldptr is NULL, then this is just malloc. */
-    if (ptr == NULL)
-        return (mm_malloc(size));
-
-    void *oldptr = ptr;
-    void *newptr;
-    size_t copySize;
-
-    newptr = mm_malloc(size);
-    if (newptr == NULL)
-        return NULL;
-
-    /* Copy the old data. */
-    copySize = GET_SIZE(HDRP(oldptr));
-    if (size < copySize)
-        copySize = size;
-    memcpy(newptr, oldptr, copySize);
-    mm_free(oldptr);
-    return newptr;
+    return llRealloc(ptr,size);
+//    /* If size == 0 then this is just free, and we return NULL. */
+//    if (size == 0) {
+//        mm_free(ptr);
+//        return NULL;
+//    }
+//    /* If oldptr is NULL, then this is just malloc. */
+//    if (ptr == NULL)
+//        return (mm_malloc(size));
+//
+//    void *oldptr = ptr;
+//    void *newptr;
+//    size_t copySize;
+//
+//    newptr = mm_malloc(size);
+//    if (newptr == NULL)
+//        return NULL;
+//
+//    /* Copy the old data. */
+//    copySize = GET_SIZE(HDRP(oldptr));
+//    if (size < copySize)
+//        copySize = size;
+//    memcpy(newptr, oldptr, copySize);
+//    mm_free(oldptr);
+//    return newptr;
 }
 
 /**********************************************************
