@@ -123,7 +123,8 @@ Heap_ptr gHeapPtr;
 size_t gHeapSize = 0;
 eLLError gError;
 
-/*llGetAllignedSizeInBytes
+/*
+ * Function: llGetAllignedSizeInBytes
  * -------------------------------------------------------------
  * Get aligned size from in_iInput
  * in_iInput:input size
@@ -137,6 +138,14 @@ int llGetAllignedSizeInBytes(int in_iInput, int in_iAlignment){
     else
         return  in_iInput;
 }
+/*
+ * Function: llExtendHeap
+ * -------------------------------------------------------------
+ * extend heap size
+ * in_iExtendSize:request extra heap size
+ *
+ * Return: Error message
+ */
 Heap_ptr llExtendHeap(int in_iExtendSize){
     Heap_ptr ret = mem_sbrk(in_iExtendSize);
     if(ret!=INVALID_HEAP_PTR){
@@ -147,7 +156,14 @@ Heap_ptr llExtendHeap(int in_iExtendSize){
         return INVALID_HEAP_PTR;
     }
 }
-
+/*
+ * Function: llInitBin
+ * -------------------------------------------------------------
+ * Initialize Bin for free blocks
+ * in_iBinSize:Size of Bin
+ *
+ * Return: Error message
+ */
 eLLError llInitBin(size_t in_iBinSize){
     // Extend heap for bin pointers
     gBin = llExtendHeap(BIN_SIZE*PTR_ALIGNMENT);
@@ -166,7 +182,13 @@ eLLError llInitBin(size_t in_iBinSize){
     }
 }
 /*
- * Return data size in dword from header
+ * Function: llMarkBlockAllocationBit
+ * -----------------------------------------
+ * change the allocation inform of a block
+ * in_pBlockPtr: pointer to a block
+ * in_bAllocated: allocation inform (0=not used,1= used)
+ *
+ * Return: Error message
  */
 eLLError llMarkBlockAllocationBit(Heap_ptr in_pBlockPtr, int in_bAllocated){
     int data_size_in_dword = llGetDataSizeFromHeader(in_pBlockPtr);
@@ -174,6 +196,13 @@ eLLError llMarkBlockAllocationBit(Heap_ptr in_pBlockPtr, int in_bAllocated){
     PUT(in_pBlockPtr+PROLOGUE_OFFSET+data_size_in_dword+MAGIC_NUMBER_OFFSET, PACK(data_size_in_dword << MALLOC_ALIGNMENT,in_bAllocated));
     return eLLError_None;
 }
+/*
+ * Function: llDeAllocBlock
+ * -----------------------------------------
+ * deallocate a block
+ * in_pBlockPtr: pointer to a block
+ * Return: Error message
+ */
 eLLError llDeAllocBlock(Heap_ptr in_pInputPtrA){
     llMarkBlockAllocationBit(in_pInputPtrA,0);
     return eLLError_None;
@@ -284,6 +313,16 @@ int      llGetSplitedRemainderSize(int in_iTotalDataSize, int in_iTargetSize) {
         return remain_size;
 
 }
+
+/*
+ * Function: llGetMaximumExtendableSize
+ * -----------------------------------
+ * calculate the maximum extendable size of heap
+ * in_pPtr: pointer to a heap
+ * in_iTargetSize: desire data (no meta)size
+ *
+ * Return: maximum size
+ */
 int      llGetMaximumExtendableSize(Heap_ptr in_pPtr){
     int max_size = 0;
     Heap_ptr heap_end = gHeapPtr + gHeapSize;
@@ -299,7 +338,14 @@ int      llGetMaximumExtendableSize(Heap_ptr in_pPtr){
     return max_size;
 }
 
-
+/*
+ * Function: llThrowInBin
+ * -----------------------------------
+ * free a used data block and put it back to Bin
+ * in_pHeapPtr: pointer to the bloack
+ *
+ * Return: Error Message
+ */
 eLLError llThrowInBin(Heap_ptr in_pHeapPtr){
     int index = MIN(llGetDataSizeFromHeader(in_pHeapPtr)>>MALLOC_ALIGNMENT,BIN_SIZE-1);
     llMarkBlockAllocationBit(in_pHeapPtr,BLOCK_FREE);
@@ -307,6 +353,8 @@ eLLError llThrowInBin(Heap_ptr in_pHeapPtr){
     PUT(gBin+index,(uintptr_t)in_pHeapPtr);
     return eLLError_None;
 }
+
+
 eLLError llPullFromList(Heap_ptr in_pBin, Heap_ptr in_pTarget){
     Heap_ptr cur_ptr= (Heap_ptr)GET(in_pBin);
     Heap_ptr next_ptr = llGetLinkedBlock(cur_ptr);
@@ -418,6 +466,7 @@ eLLError llInit(){
     gHeapPtr = gBin;
     return eLLError_None;
 }
+
 Data_ptr llAlloc(int in_iSize){
     Heap_ptr ret = NULL;
     // Try to allocate a block from bin
