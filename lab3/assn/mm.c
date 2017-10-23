@@ -112,7 +112,8 @@ typedef enum _eLLError{
     eLLError_header_footer_size_inconsistent,
     eLLError_header_footer_allocation_inconsistent,
     eLLError_mismatch_magic_number,
-    eLLError_Non_Empty_Next_Ptr
+    eLLError_Non_Empty_Next_Ptr,
+    eLLError_data_not_align,
     eLLError_None = 0
 } eLLError;
 
@@ -151,7 +152,6 @@ int llGetAllignedSizeInBytes(int in_iInput, int in_iAlignment){
  * Return: Error message
  */
 Heap_ptr llExtendHeap(int in_iExtendSize){
-
     Heap_ptr ret = mem_sbrk(in_iExtendSize);
     if(ret!=INVALID_HEAP_PTR){
         gHeapSize += in_iExtendSize >> PTR_ALIGNMENT;
@@ -279,7 +279,7 @@ eLLError llAllocFromBin(size_t in_iSizeInBytes, Data_ptr* io_pOutputPtr){
     int start_index = aligned_size >> MALLOC_ALIGNMENT;
     // Iterate through bin and get the best fit bucket
     Heap_ptr ret = NULL;
-    while(start_index != gBinSize-1){
+    while(start_index != gBinSize){
         if(GET(gBin+start_index)!=-1){
             // valid bin found, reconstruct the link list
             ret = (Heap_ptr)GET(gBin+start_index);
@@ -289,29 +289,6 @@ eLLError llAllocFromBin(size_t in_iSizeInBytes, Data_ptr* io_pOutputPtr){
             llMarkBlockAllocationBit(ret, BLOCK_ALLOCATED);
         }
         start_index++;
-    }
-    if(ret != NULL) {
-        Heap_ptr cur_ptr= (Heap_ptr)GET(gBin+gBinSize-1);
-        Heap_ptr next_ptr = llGetLinkedBlock(cur_ptr);
-        if(llGetDataSizeFromHeader(cur_ptr) == in_iSizeInBytes){
-            // Head is the target, need to change the head
-            llSetLinkedBlock(cur_ptr,NULL);
-            ret = cur_ptr;
-            PUT(gBin+gBinSize-1,(uintptr_t)next_ptr);
-        }
-        else {
-            while (next_ptr != NULL) {
-                if (llGetDataSizeFromHeader(next_ptr) == in_iSizeInBytes) {
-                    Heap_ptr next_next = llGetLinkedBlock(next_ptr);
-                    llSetLinkedBlock(cur_ptr, next_next);
-                    llSetLinkedBlock(next_ptr, NULL);
-                    ret = next_ptr;
-                } else {
-                    cur_ptr = next_ptr;
-                    next_ptr = llGetLinkedBlock(next_ptr);
-                }
-            }
-        }
     }
     if(ret!=NULL){
         *io_pOutputPtr = llGetDataPtrFromHeapPtr(ret);
@@ -608,6 +585,9 @@ eLLError llCheckBlock(Heap_ptr in_pBlockPtr){
     // Check header's footer's allocation bit
     if((GET(in_pBlockPtr)& 1) != (GET(in_pBlockPtr+PROLOGUE_OFFSET+size_in_header+MAGIC_NUMBER_OFFSET)& 1)){
         return eLLError_header_footer_allocation_inconsistent;
+    }
+    if((long long)in_pBlockPtr % 16 !=0){
+        return eLLError_data_not_align;
     }
     // Check Magic Number
     if(GET(in_pBlockPtr+PROLOGUE_OFFSET+size_in_header)!=MAGIC_NUMBER){
