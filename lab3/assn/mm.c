@@ -335,7 +335,7 @@ eLLError llPullFromList(Heap_ptr in_pBin, Heap_ptr in_pTarget){
 
 eLLError llPullFromBin(Heap_ptr in_pHeapPtr){
     int index = MIN(llGetDataSizeFromHeader(in_pHeapPtr)>>MALLOC_ALIGNMENT,BIN_SIZE-1);
-    return llPullFromList(in_pHeapPtr+index,in_pHeapPtr);
+    return llPullFromList(gBin+index,in_pHeapPtr);
 
 }
 
