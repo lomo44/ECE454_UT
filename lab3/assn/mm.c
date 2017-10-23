@@ -353,7 +353,7 @@ int      llGetMaximumExtendableSize(Heap_ptr in_pPtr){
     Heap_ptr cur_ptr = llGetNextBlockPtrFromHeapPtr(in_pPtr);
     while(cur_ptr < heap_end){
         if(llIsBlockFree(cur_ptr)){
-            max_size += llGetDataSizeFromHeader(cur_ptr);
+            max_size += (llGetDataSizeFromHeader(cur_ptr)+META_DATA_SIZE);
         }
         else{
             break;
@@ -385,7 +385,7 @@ eLLError llPullFromList(Heap_ptr in_pBin, Heap_ptr in_pTarget){
     if(cur_ptr == in_pTarget){
         // Head is the target, need to change the head
         llSetLinkedBlock(cur_ptr,NULL);
-        PUT(cur_ptr,(uintptr_t)next_ptr);
+        PUT(in_pBin,(uintptr_t)next_ptr);
         return eLLError_None;
     }
     else{
@@ -592,6 +592,7 @@ Data_ptr llRealloc(Data_ptr in_pDataPtr, int in_iSize){
         }
     }
 }
+
 
 #endif
 
