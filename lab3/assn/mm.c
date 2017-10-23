@@ -102,7 +102,7 @@ typedef uintptr_t* Data_ptr;
 #define llGetPrevHeapPtrFromHeapPtr(x) ((Heap_ptr)(x-META_DATA_SIZE-llGetDataSizeFromHeader(x)))
 #define llGetNextHeapPtrFromHeapPtr(x) ((Heap_ptr)(x+META_DATA_SIZE+llGetDataSizeFromHeader(x)))
 #define llSetLinkedBlock(x,target) (PUT((Heap_ptr)(x+HEADER_OFFSET),(uintptr_t)target))
-#define llIsBlockFree(x) (!(GET(x) & 0))
+#define llIsBlockFree(x) (!(GET(x) & 1))
 #define llGetBinningIndex(x) (MIN(llGetDataSizeFromHeader(x)>>MALLOC_ALIGNMENT,BIN_SIZE-1))
 
 typedef enum _eLLError{
@@ -467,14 +467,7 @@ eLLError llCopyBlock(Heap_ptr in_pFrom, Heap_ptr in_pTo, int in_iCopySize){
     return eLLError_None;
 }
 
-/*
- * Main Allocation functions
- */
-eLLError llInit(){
-    llInitBin(BIN_SIZE);
-    gHeapPtr = gBin;
-    return eLLError_None;
-}
+
 
 eLLError llCheckBlock(Heap_ptr in_pBlockPtr){
     // Check the consistency of the block
@@ -575,8 +568,18 @@ Data_ptr llAlloc(int in_iSize){
     }
     gError=llCheckBlock(llGetHeapPtrFromDataPtr(ret));
     if(gError!=eLLError_None)
-        printf("%d\n",gError);
+        printf("Heap Error: %d\n",gError);
     return ret;
+}
+
+/*
+ * Main Allocation functions
+ */
+eLLError llInit(){
+    llInitBin(BIN_SIZE);
+    llAlloc(0);
+    gHeapPtr = gBin;
+    return eLLError_None;
 }
 eLLError llFree(Data_ptr in_pDataPtr){
     // Convert the given data ptr to heap ptr
