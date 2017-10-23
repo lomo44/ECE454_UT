@@ -83,6 +83,7 @@ typedef uintptr_t* Data_ptr;
 
 #define MAGIC_NUMBER 889999
 
+#define GUARD_SIZE 32
 #define NEXT_PTR_OFFSET 1
 #define HEADER_OFFSET 1
 #define MAGIC_NUMBER_OFFSET 1
@@ -99,7 +100,7 @@ typedef uintptr_t* Data_ptr;
 #define llGetDataPtrFromHeapPtr(x) ((Data_ptr)(x+NEXT_PTR_OFFSET+HEADER_OFFSET))
 #define llGetHeapPtrFromDataPtr(x) ((Heap_ptr)(x-PROLOGUE_OFFSET))
 #define llGetDataSizeFromHeader(x) (GET(x)>>MALLOC_ALIGNMENT)
-#define llGetPrevHeapPtrFromHeapPtr(x) ((Heap_ptr)(x-META_DATA_SIZE-llGetDataSizeFromHeader(x)))
+#define llGetPrevHeapPtrFromHeapPtr(x) ((Heap_ptr)(x-llGetDataSizeFromHeader(x-1)-META_DATA_SIZE))
 #define llGetNextHeapPtrFromHeapPtr(x) ((Heap_ptr)(x+META_DATA_SIZE+llGetDataSizeFromHeader(x)))
 #define llSetLinkedBlock(x,target) (PUT((Heap_ptr)(x+HEADER_OFFSET),(uintptr_t)target))
 #define llIsBlockFree(x) (!(GET(x) & 1))
@@ -127,6 +128,14 @@ int gBinSize;
 Heap_ptr gHeapPtr;
 size_t gHeapSize = 0;
 eLLError gError;
+void llPrintBlock(Heap_ptr in_pBlockPtr){
+    // Place the header
+    printf("Address: %x\n",in_pBlockPtr);
+    printf("Size: %d, Allocated: %d\n",llGetDataSizeFromHeader(in_pBlockPtr),!llIsBlockFree(in_pBlockPtr));
+    printf("Next Ptr: %d\n",GET(in_pBlockPtr+1));
+    printf("Magic Number: %d\n", GET(in_pBlockPtr+PROLOGUE_OFFSET+llGetDataSizeFromHeader(in_pBlockPtr)));
+    printf("Footer: %d\n", GET(in_pBlockPtr+PROLOGUE_OFFSET+MAGIC_NUMBER_OFFSET+llGetDataSizeFromHeader(in_pBlockPtr)));
+}
 
 /*
  * Function: llGetAllignedSizeInBytes
@@ -256,11 +265,9 @@ eLLError llAllocFromHeap(size_t in_iSizeInBytes, Data_ptr * io_pOutputPtr){
     }
     else{
         // Initialize the block
-        llInitBlock(bp,BYTES_TO_DWORD(block_size));
-        llMarkBlockAllocationBit(bp, BLOCK_ALLOCATED);
-        // return the block address
-
-        *io_pOutputPtr = llGetDataPtrFromHeapPtr(bp);
+        llInitBlock(bp-4,BYTES_TO_DWORD(block_size));
+        llInitBlock((bp-4+BYTES_TO_DWORD(block_size)),4);
+        *io_pOutputPtr = llGetDataPtrFromHeapPtr(bp-4);
 
         return eLLError_None;
     }
@@ -411,12 +418,13 @@ eLLError llMergeBlock(Heap_ptr in_pInputPtrA,Heap_ptr in_pInputPtrB,Heap_ptr* io
     int block_B_size = llGetDataSizeFromHeader (in_pInputPtrB) + META_DATA_SIZE;
     //let the merged get be the previous block
     if ( in_pInputPtrA < in_pInputPtrB) {
-        io_pOutputPtr = in_pInputPtrA;
+        *io_pOutputPtr = in_pInputPtrA;
     } else {
-        io_pOutputPtr = in_pInputPtrB;
+        *io_pOutputPtr = in_pInputPtrB;
     }
     //re-initialize the block
-    llInitBlock(io_pOutputPtr,block_A_size + block_B_size);
+    llInitBlock(*io_pOutputPtr,block_A_size + block_B_size);
+    llMarkBlockAllocationBit(*io_pOutputPtr, 0);
     return eLLError_None;
 }
 /*
@@ -433,10 +441,11 @@ eLLError llMergeBlock(Heap_ptr in_pInputPtrA,Heap_ptr in_pInputPtrB,Heap_ptr* io
 eLLError llSplitBlock(Heap_ptr in_pInputPtr,llSplitRecipe* in_pRecipe, Heap_ptr* io_pOutputPtrA,Heap_ptr* io_pOutputPtrB){
     int block_A_size = in_pRecipe->m_iBlockASize + META_DATA_SIZE;
     int block_B_size = in_pRecipe->m_iBlockBSize + META_DATA_SIZE;
-    io_pOutputPtrA = in_pInputPtr;
-    llInitBlock(io_pOutputPtrA,block_A_size);
-    io_pOutputPtrB = in_pInputPtr + block_A_size;
-    llInitBlock(io_pOutputPtrB,block_B_size);
+    *io_pOutputPtrA = in_pInputPtr;
+    llInitBlock(*io_pOutputPtrA,block_A_size);
+    *io_pOutputPtrB = in_pInputPtr + block_A_size;
+    llInitBlock(*io_pOutputPtrB,block_B_size);
+    llMarkBlockAllocationBit(*io_pOutputPtrB,0);
     return eLLError_None;
 }
 /*
@@ -548,7 +557,7 @@ Data_ptr llAlloc(int in_iSize){
         // Get the remainder size after spliting the main block
         int remainder_size = llGetSplitedRemainderSize(block_size,real_data_size);
         // If the remainder size is greater than 0 (splitable)
-        if(remainder_size >= 0){
+        if(remainder_size > 0){
             // Blk is splittable, then split the block and put residual into the bin
             Heap_ptr outptrA;
             Heap_ptr outptrB;
@@ -577,10 +586,14 @@ Data_ptr llAlloc(int in_iSize){
  */
 eLLError llInit(){
     llInitBin(BIN_SIZE);
-    llAlloc(0);
+    Heap_ptr ret = llExtendHeap(GUARD_SIZE*2);
+    llInitBlock(ret,4);
+    llInitBlock(ret+4,4);
     gHeapPtr = gBin;
     return eLLError_None;
 }
+
+
 eLLError llFree(Data_ptr in_pDataPtr){
     // Convert the given data ptr to heap ptr
     Heap_ptr cur_ptr = llGetHeapPtrFromDataPtr(in_pDataPtr);
