@@ -89,7 +89,6 @@ typedef int BYTE;
 #define PTR_ALIGNMENT (sizeof(void*))   // 8 bytes for 64bit machine
 
 #define MAGIC_NUMBER 889999
-
 #define GUARD_SIZE 4
 #define NEXT_PTR_OFFSET 1
 #define HEADER_OFFSET 1
@@ -97,7 +96,8 @@ typedef int BYTE;
 #define BLOCK_ALLOCATED 1
 #define BLOCK_FREE 0
 #define INVALID_HEAP_PTR ((Heap_ptr)-1)
-#define SPLIT_THRESH_HOLD
+#define FAST_BLOCK_SIZE 14
+#define SPLIT_THRESHOLD 64
 
 #define PROLOGUE_OFFSET (HEADER_OFFSET+NEXT_PTR_OFFSET)
 #define EPILOGUE_OFFSET (HEADER_OFFSET+MAGIC_NUMBER_OFFSET)
@@ -134,11 +134,11 @@ typedef struct _llSplitRecipe {
 
 Heap_ptr gBin;
 int gBinSize;
-Heap_ptr gHeapPtr;
 Heap_ptr gHeapStart;
 Heap_ptr gHeapEnd;
+Heap_ptr gTop = NULL;
 eLLError gError;
-unsigned long long gHeapSize = 0;
+unsigned long long gHeapRemainSize = 0;
 
 void llPrintBlock(Heap_ptr in_pBlockPtr) {
     // Place the header
@@ -173,14 +173,24 @@ BYTE llGetAllignedSizeInBytes(BYTE in_iInput, int in_iAlignment) {
  *
  * Return: Error message
  */
+
 Heap_ptr llExtendHeap(BYTE in_iExtendSize) {
-    Heap_ptr ret = mem_sbrk(in_iExtendSize);
-    gHeapSize+=in_iExtendSize;
-    if (ret != INVALID_HEAP_PTR) {
-        return ret;
-    } else {
-        return INVALID_HEAP_PTR;
+    int extend_chunk = 16384;
+    if(gTop==NULL){
+        gTop = mem_sbrk(extend_chunk);
+        gHeapRemainSize+=extend_chunk;
     }
+    while(gHeapRemainSize < in_iExtendSize){
+        mem_sbrk(extend_chunk);
+        gHeapRemainSize += extend_chunk;
+    }
+    gHeapRemainSize-=in_iExtendSize;
+
+    Heap_ptr ret = gTop;
+    gTop+=(BYTES_TO_WORD(in_iExtendSize));
+    printf("Extend %d, remain: %d\n",in_iExtendSize,gHeapRemainSize);
+    return ret;
+
 }
 
 /*
@@ -301,11 +311,14 @@ eLLError llAllocFromHeap(size_t in_iSizeInBytes, Data_ptr *io_pOutputPtr) {
  * Return: error message
  */
 eLLError llAllocFromBin(BYTE in_iSizeInBytes, Data_ptr *io_pOutputPtr) {
+
+
     // Calculate the aligned bucket size
     int aligned_size = llGetAllignedSizeInBytes(in_iSizeInBytes, MALLOC_ALIGNMENT);
     // Calculate the bucket index;
     int start_index = MIN((aligned_size >> MALLOC_ALIGNMENT)-1,BIN_SIZE-1);
     // Iterate through bin and get the best fit bucket
+
     Heap_ptr ret = NULL;
     while (start_index < gBinSize-1) {
         if (GET(gBin + start_index) != NULL) {
@@ -616,27 +629,30 @@ Data_ptr llAlloc(int in_iSize) {
         Heap_ptr heap_ret = llGetHeapPtrFromDataPtr(ret);
         // Get the allocated block size
         int block_size = llGetDataSizeFromHeader(heap_ret);
-        // Get the alligned data size
-        int real_data_size = BYTES_TO_WORD(llGetAllignedSizeInBytes(in_iSize, MALLOC_ALIGNMENT));
-        // Get the remainder size after spliting the main block
+        if(block_size > FAST_BLOCK_SIZE){
+            // Get the alligned data size
+            int real_data_size = BYTES_TO_WORD(llGetAllignedSizeInBytes(in_iSize, MALLOC_ALIGNMENT));
+            // Get the remainder size after spliting the main block
 
-        if(block_size-META_DATA_WORD > real_data_size){
-            int remainder_size = llGetSplitedRemainderSize(block_size, real_data_size);
-            // If the remainder size is greater than 0 (splitable)
-            if (remainder_size > 0) {
-                // Blk is splittable, then split the block and put residual into the bin
-                Heap_ptr outptrA;
-                Heap_ptr outptrB;
-                // Creating a new split recipe
-                llSplitRecipe newRecipe;
-                newRecipe.m_iBlockASize = real_data_size;
-                newRecipe.m_iBlockBSize = remainder_size;
-                //then split the current plock
-                llSplitBlock(heap_ret, &newRecipe, &outptrA, &outptrB);
-                // Throw the remainder size into the bin
-                llThrowInBin(outptrB);
+            if(block_size-META_DATA_WORD > real_data_size){
+                int remainder_size = llGetSplitedRemainderSize(block_size, real_data_size);
+                // If the remainder size is greater than 0 (splitable)
+                if (remainder_size > SPLIT_THRESHOLD) {
+                    // Blk is splittable, then split the block and put residual into the bin
+                    Heap_ptr outptrA;
+                    Heap_ptr outptrB;
+                    // Creating a new split recipe
+                    llSplitRecipe newRecipe;
+                    newRecipe.m_iBlockASize = real_data_size;
+                    newRecipe.m_iBlockBSize = remainder_size;
+                    //then split the current plock
+                    llSplitBlock(heap_ret, &newRecipe, &outptrA, &outptrB);
+                    // Throw the remainder size into the bin
+                    llThrowInBin(outptrB);
+                }
             }
         }
+
     } else {
         // Cannot found a proper free block on the list, extend the heap and allocate a new block
         llAllocFromHeap(in_iSize, &ret);
@@ -659,7 +675,6 @@ eLLError llInit() {
     llInitBlock(ret, 4);
     gHeapStart = ret+GUARD_SIZE;
     llInitBlock(ret + 4, 4);
-    gHeapPtr = gBin;
     return eLLError_None;
 }
 
@@ -679,13 +694,13 @@ eLLError llFree(Data_ptr in_pDataPtr) {
     int is_next_free = llIsBlockFree(next_ptr);
     Heap_ptr ret = cur_ptr;
     // Check if previous block is free
-    if (is_prev_free != 0) {
+    if (is_prev_free != 0 && llGetDataSizeFromHeader(prev_ptr) > FAST_BLOCK_SIZE) {
         // Previous block is free, merge current block with previous block
         assert(llPullFromBin(prev_ptr) == eLLError_None);
         RET_IF_RUN_ERROR(llMergeBlock(ret, prev_ptr, &ret), gError);
 
     }
-    if (is_next_free != 0) {
+    if (is_next_free != 0 && llGetDataSizeFromHeader(next_ptr) > FAST_BLOCK_SIZE) {
         // Next block is free
         assert(llPullFromBin(next_ptr) == eLLError_None);
         RET_IF_RUN_ERROR(llMergeBlock(ret, next_ptr, &ret), gError);
