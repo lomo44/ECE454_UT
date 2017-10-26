@@ -440,8 +440,8 @@ eLLError llAllocFromBin(BYTE in_iSizeInBytes, Data_ptr *io_pOutputPtr) {
  */
 WORD llGetSplitedRemainderSize(WORD in_iTotalDataSize, WORD in_iTargetSize) {
     int remain_size = in_iTotalDataSize - in_iTargetSize - META_DATA_WORD;
-    if (remain_size < 2) {
-        printf("Error: Try to split size %d from size %d\n", in_iTargetSize, in_iTotalDataSize);
+    if (remain_size < 4) {
+        //printf("Error: Try to split size %d from size %d\n", in_iTargetSize, in_iTotalDataSize);
         return 0;
     } else
         return remain_size;
@@ -789,6 +789,22 @@ Data_ptr llRealloc(Data_ptr in_pDataPtr, int in_iSize) {
                 if(WORD_TO_BYTES(potential_size)>=in_iSize){
                     llPullFromBin(next_block);
                     llInitBlock(ptr,potential_size+META_DATA_WORD);
+//                    int remainder_size = llGetSplitedRemainderSize(potential_size+META_DATA_WORD, in_iSize);
+////                    // If the remainder size is greater than 0 (splitable)
+//                    if (remainder_size > SPLIT_THRESHOLD) {
+//                        // Blk is splittable, then split the block and put residual into the bin
+//                        Heap_ptr outptrA;
+//                        Heap_ptr outptrB;
+//                        // Creating a new split recipe
+//                        llSplitRecipe newRecipe;
+//                        newRecipe.m_iBlockASize = in_iSize;
+//                        newRecipe.m_iBlockBSize = remainder_size;
+//                        //then split the current plock
+//                        llSplitBlock(ptr, &newRecipe, &outptrA, &outptrB);
+//                        // Throw the remainder size into the bin
+//                        llThrowInBin(outptrB);
+//                    }
+
 #if HEAP_CHECK_ENABLE
                     gError = llCheckHeap();
     if (gError != eLLError_None)
