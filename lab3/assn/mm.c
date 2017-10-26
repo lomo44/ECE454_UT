@@ -96,8 +96,8 @@ typedef int BYTE;
 #define BLOCK_ALLOCATED 1
 #define BLOCK_FREE 0
 #define INVALID_HEAP_PTR ((Heap_ptr)-1)
-#define FAST_BLOCK_SIZE 14
-#define SPLIT_THRESHOLD 64
+#define FAST_BLOCK_SIZE 10
+#define SPLIT_THRESHOLD 128
 
 #define PROLOGUE_OFFSET (HEADER_OFFSET+NEXT_PTR_OFFSET)
 #define EPILOGUE_OFFSET (HEADER_OFFSET+PREVIOUS_PTR_OFFSET)
@@ -284,8 +284,6 @@ eLLError llInitBin(size_t in_iBinSize) {
  * Return: Error message
  */
 eLLError llMarkBlockAllocationBit(Heap_ptr in_pBlockPtr, int in_bAllocated) {
-    size_t data_size_in_dword3 = llGetDataSizeFromHeader(in_pBlockPtr);
-    long data_size_in_dword2 = llGetDataSizeFromHeader(in_pBlockPtr);
     int data_size_in_dword = llGetDataSizeFromHeader(in_pBlockPtr);
     PUT(in_pBlockPtr, PACK(data_size_in_dword << MALLOC_ALIGNMENT, in_bAllocated));
     PUT(in_pBlockPtr + PROLOGUE_OFFSET + data_size_in_dword + PREVIOUS_PTR_OFFSET,
@@ -320,8 +318,6 @@ eLLError llDeAllocBlock(Heap_ptr in_pInputPtrA) {
 eLLError llInitBlock(Heap_ptr in_pInputPtr, WORD in_iBlockSizeInWord) {
     //llPrintBlock(llGetPrevHeapPtrFromHeapPtr(in_pInputPtr));
     WORD data_size_in_dword = in_iBlockSizeInWord - META_DATA_WORD;
-    long pack =  PACK(data_size_in_dword << MALLOC_ALIGNMENT, 1);
-    int pack2 = PACK(data_size_in_dword << MALLOC_ALIGNMENT, 1);
     // Place the header
     PUT(in_pInputPtr, PACK(data_size_in_dword << MALLOC_ALIGNMENT, 1));
     // initialize the previous ptr
@@ -497,29 +493,6 @@ eLLError llPullFromList(Heap_ptr in_pBin, Heap_ptr in_pTarget) {
     if(GET(in_pBin) == in_pTarget)
         PUT(in_pBin,llGetNextBlock(in_pTarget));
     llDisconnectBlock(in_pTarget);
-//    Heap_ptr cur_ptr = (Heap_ptr) GET(in_pBin);
-//    Heap_ptr next_ptr = llGetNextBlock(cur_ptr);
-//    if (cur_ptr == in_pTarget) {
-//        // Head is the target, need to change the head
-//        llSetNextBlock(cur_ptr, NULL);
-//        PUT(in_pBin, (uintptr_t) next_ptr);
-//        return eLLError_None;
-//    } else {
-//        Heap_ptr prv_ptr = cur_ptr;
-//        cur_ptr = next_ptr;
-//        next_ptr = llGetNextBlock(cur_ptr);
-//        while (cur_ptr != NULL) {
-//            if (cur_ptr == in_pTarget) {
-//                llSetNextBlock(prv_ptr, next_ptr);
-//                llSetNextBlock(cur_ptr, NULL);
-//                return eLLError_None;
-//            } else {
-//                prv_ptr = cur_ptr;
-//                cur_ptr = next_ptr;
-//                next_ptr = llGetNextBlock(cur_ptr);
-//            }
-//        }
-//    }
     return eLLError_None;
 }
 
@@ -682,13 +655,51 @@ eLLError llCheckHeap() {
     }
     return error;
 }
+eLLError llFree(Data_ptr in_pDataPtr) {
 
+    // Convert the given data ptr to heap ptr
+    Heap_ptr cur_ptr = llGetHeapPtrFromDataPtr(in_pDataPtr);
+    // Deallocate the current block
+
+    llMarkBlockAllocationBit(cur_ptr,BLOCK_FREE);
+    // Get the previous block ptr
+    Heap_ptr prev_ptr = llGetPrevHeapPtrFromHeapPtr(cur_ptr);
+    // Get the next block ptr
+    Heap_ptr next_ptr = llGetNextHeapPtrFromHeapPtr(cur_ptr);
+    // Check if both block are free
+    int is_prev_free = llIsBlockFree(prev_ptr);
+    int is_next_free = llIsBlockFree(next_ptr);
+    Heap_ptr ret = cur_ptr;
+    // Check if previous block is free
+    if (is_prev_free != 0 && llGetDataSizeFromHeader(prev_ptr) > FAST_BLOCK_SIZE) {
+        // Previous block is free, merge current block with previous block
+        llPullFromBin(prev_ptr);
+        RET_IF_RUN_ERROR(llMergeBlock(ret, prev_ptr, &ret), gError);
+    }
+    if (is_next_free != 0 && llGetDataSizeFromHeader(next_ptr) > FAST_BLOCK_SIZE) {
+        // Next block is free
+        llPullFromBin(next_ptr);
+        RET_IF_RUN_ERROR(llMergeBlock(ret, next_ptr, &ret), gError);
+
+    }
+    // Throw the merged block into bin
+    RET_IF_RUN_ERROR(llThrowInBin(ret), gError);
+
+#if HEAP_CHECK_ENABLE
+    gError = llCheckHeap();
+    if (gError != eLLError_None)
+        printf("Heap Error: %d\n", gError);
+#endif
+    return gError;
+}
 
 Data_ptr llAlloc(int in_iSize) {
 
     Data_ptr ret = NULL;
     // Try to allocate a block from bin
     eLLError error = llAllocFromBin(in_iSize, &ret);
+    if(error!=eLLError_None)
+        error =  llAllocFromHeap(MAX(8192,in_iSize),&ret);
     if (error != eLLError_allocation_fail) {
         // Successfully found a free block inside the list, now we need to check if the block is splittable
         Heap_ptr heap_ret = llGetHeapPtrFromDataPtr(ret);
@@ -718,14 +729,14 @@ Data_ptr llAlloc(int in_iSize) {
             }
         }
 
-    } else {
-        // Cannot found a proper free block on the list, extend the heap and allocate a new block
-//        llAllocFromHeap(MAX(4096,in_iSize), &ret);
-//        llThrowInBin(llGetHeapPtrFromDataPtr(ret));
-//        llAllocFromBin(in_iSize,&ret)
-        llAllocFromHeap(in_iSize,&ret);
     }
-    //printf("Alloc: %llx\n",llGetHeapPtrFromDataPtr(ret));
+//    else {
+//        // Cannot found a proper free block on the list, extend the heap and allocate a new block
+//        llAllocFromHeap(MAX(512,in_iSize), &ret);
+//        llFree(ret);
+//        llAllocFromBin(in_iSize,&ret);
+//        //llAllocFromHeap(in_iSize,&ret);
+//    }
 #if HEAP_CHECK_ENABLE
     gError = llCheckHeap();
     if (gError != eLLError_None)
@@ -748,50 +759,7 @@ eLLError llInit() {
 }
 
 
-eLLError llFree(Data_ptr in_pDataPtr) {
 
-    // Convert the given data ptr to heap ptr
-    Heap_ptr cur_ptr = llGetHeapPtrFromDataPtr(in_pDataPtr);
-    //printf("free: %llx, size: %d\n", cur_ptr,llGetDataSizeFromHeader(cur_ptr));
-    // Deallocate the current block
-
-    llMarkBlockAllocationBit(cur_ptr,BLOCK_FREE);
-    // Get the previous block ptr
-    Heap_ptr prev_ptr = llGetPrevHeapPtrFromHeapPtr(cur_ptr);
-    // Get the next block ptr
-    Heap_ptr next_ptr = llGetNextHeapPtrFromHeapPtr(cur_ptr);
-    // Check if both block are free
-    int is_prev_free = llIsBlockFree(prev_ptr);
-    int is_next_free = llIsBlockFree(next_ptr);
-    Heap_ptr ret = cur_ptr;
-    // Check if previous block is free
-    if (is_prev_free != 0 && llGetDataSizeFromHeader(prev_ptr) > FAST_BLOCK_SIZE) {
-        // Previous block is free, merge current block with previous block
-        llPullFromBin(prev_ptr);
-        if(llGetNextBlock(prev_ptr)!=NULL || llGetPrivBlock(prev_ptr)!=NULL)
-            assert(0);
-        RET_IF_RUN_ERROR(llMergeBlock(ret, prev_ptr, &ret), gError);
-    }
-    if (is_next_free != 0 && llGetDataSizeFromHeader(next_ptr) > FAST_BLOCK_SIZE) {
-        // Next block is free
-        llPullFromBin(next_ptr);
-        if(llGetNextBlock(next_ptr)!=NULL || llGetPrivBlock(next_ptr)!=NULL)
-            assert(0);
-        RET_IF_RUN_ERROR(llMergeBlock(ret, next_ptr, &ret), gError);
-
-    }
-    // Throw the merged block into bin
-    if(llGetNextBlock(ret)!=NULL || llGetPrivBlock(ret)!=NULL)
-        assert(0);
-    RET_IF_RUN_ERROR(llThrowInBin(ret), gError);
-
-#if HEAP_CHECK_ENABLE
-    gError = llCheckHeap();
-    if (gError != eLLError_None)
-        printf("Heap Error: %d\n", gError);
-#endif
-    return gError;
-}
 
 Data_ptr llRealloc(Data_ptr in_pDataPtr, int in_iSize) {
     // Getting the current data size
