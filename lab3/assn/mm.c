@@ -83,7 +83,7 @@ typedef int DWORD;
 typedef int WORD;
 typedef int BYTE;
 
-#define BIN_SIZE 1024
+#define BIN_SIZE 160
 #define MALLOC_ALIGNMENT 4            // 16 bytes alignments
 #define MIN(x, y) ((x) < (y)?(x) :(y))
 #define PTR_ALIGNMENT (sizeof(void*))   // 8 bytes for 64bit machine
@@ -97,7 +97,7 @@ typedef int BYTE;
 #define BLOCK_FREE 0
 #define INVALID_HEAP_PTR ((Heap_ptr)-1)
 #define FAST_BLOCK_SIZE 10
-#define SPLIT_THRESHOLD 128
+#define SPLIT_THRESHOLD 768
 
 #define PROLOGUE_OFFSET (HEADER_OFFSET+NEXT_PTR_OFFSET)
 #define EPILOGUE_OFFSET (HEADER_OFFSET+PREVIOUS_PTR_OFFSET)
@@ -699,7 +699,7 @@ Data_ptr llAlloc(int in_iSize) {
     // Try to allocate a block from bin
     eLLError error = llAllocFromBin(in_iSize, &ret);
     if(error!=eLLError_None)
-        error =  llAllocFromHeap(MAX(0,in_iSize),&ret);
+        error =  llAllocFromHeap(MAX(32,in_iSize),&ret);
     if (error != eLLError_allocation_fail) {
         // Successfully found a free block inside the list, now we need to check if the block is splittable
         Heap_ptr heap_ret = llGetHeapPtrFromDataPtr(ret);
