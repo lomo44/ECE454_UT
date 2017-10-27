@@ -695,6 +695,18 @@ eLLError llFree(Data_ptr in_pDataPtr) {
     return gError;
 }
 
+/* Main Function llAlloc
+ * --------------------------------
+ * This function will allocate a heap block contain data block with size (in_iSize)
+ * This function will find if there is possible free blocks from the BIN
+ * If there is no usable blocks from the BIN, the program will extend the heap (at least 256 bytes)to alloc the block
+ * The free second-hand blocks may have different size from the design size, so the program will check kif the free
+ * second-hand block is splittable. If yes, it will split the block and put the not used on back to BIN
+ *
+ * in_iSize: desire size
+ *
+ * Return pointer to the data block
+ */
 Data_ptr llAlloc(int in_iSize) {
 
     Data_ptr ret = NULL;
@@ -732,13 +744,7 @@ Data_ptr llAlloc(int in_iSize) {
         }
 
     }
-//    else {
-//        // Cannot found a proper free block on the list, extend the heap and allocate a new block
-//        llAllocFromHeap(MAX(512,in_iSize), &ret);
-//        llFree(ret);
-//        llAllocFromBin(in_iSize,&ret);
-//        //llAllocFromHeap(in_iSize,&ret);
-//    }
+
 #if HEAP_CHECK_ENABLE
     gError = llCheckHeap();
     if (gError != eLLError_None)
@@ -747,7 +753,7 @@ Data_ptr llAlloc(int in_iSize) {
     return ret;
 }
 
-/* Function llInit
+/* Main Function llInit
  * --------------------------------
  * Initialize the Bin and the guard block
  *
@@ -765,7 +771,7 @@ eLLError llInit() {
     return eLLError_None;
 }
 
-/* Function llRealloc
+/* Main Function llRealloc
  * -------------------------------------------
  * This function will re-alloc a data block with following cases
  * 1)input pointer = NULL                                       => alloc a new block
