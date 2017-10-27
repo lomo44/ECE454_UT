@@ -747,14 +747,19 @@ Data_ptr llAlloc(int in_iSize) {
     return ret;
 }
 
-/*
- * Main Allocation functions
+/* Function llInit
+ * --------------------------------
+ * Initialize the Bin and the guard block
+ *
+ * Return Error message
  */
 eLLError llInit() {
     llInitBin();
     Heap_ptr ret = llExtendHeap(WORD_TO_BYTES(GUARD_SIZE) * 2);
+    //initialize a top guard block
     llInitBlock(ret, 4);
     gHeapStart = ret+GUARD_SIZE;
+    //initialize a bottom guard block
     llInitBlock(ret + 4, 4);
     gHeapEnd = ret+GUARD_SIZE;
     return eLLError_None;
