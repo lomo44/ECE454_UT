@@ -86,7 +86,7 @@ typedef int WORD;
 typedef int BYTE;
 
 // Size of the BIN holding a list of pointers to free blocks
-#define BIN_SIZE 160
+#define BIN_SIZE 64
 // Size of each entries of hte Bin, 8 bytes for 64bit machine
 #define PTR_ALIGNMENT (sizeof(void*))
 // the alignment of address -16 bytes alignments
@@ -404,7 +404,7 @@ eLLError llAllocFromBin(BYTE in_iSizeInBytes, Data_ptr *io_pOutputPtr) {
         Heap_ptr cur_ptr= (Heap_ptr)GET(gBin+gBinSize-1);
         if(cur_ptr!=NULL){
             Heap_ptr next_ptr = llGetNextBlock(cur_ptr);
-            if (WORD_TO_BYTES(llGetDataSizeFromHeader(cur_ptr)>= in_iSizeInBytes))
+            if (WORD_TO_BYTES(llGetDataSizeFromHeader(cur_ptr))>= in_iSizeInBytes)
             {
                 // Head is the target, need to change the head
                 ret = cur_ptr;
@@ -518,9 +518,7 @@ eLLError llPullFromList(Heap_ptr in_pBin, Heap_ptr in_pTarget) {
  * Return: Error message
  */
 eLLError llPullFromBin(Heap_ptr in_pHeapPtr) {
-    //llPrintBlock(in_pHeapPtr);
     int index = llGetBinningIndex(in_pHeapPtr);
-    //printf("Pull: %x in %d\n",in_pHeapPtr,index);
     return llPullFromList(gBin + index, in_pHeapPtr);
 
 }
@@ -712,7 +710,6 @@ eLLError llFree(Data_ptr in_pDataPtr) {
     // Convert the given data ptr to heap ptr
     Heap_ptr cur_ptr = llGetHeapPtrFromDataPtr(in_pDataPtr);
     // Deallocate the current block
-
     llMarkBlockAllocationBit(cur_ptr,BLOCK_FREE);
     // Get the previous block ptr
     Heap_ptr prev_ptr = llGetPrevHeapPtrFromHeapPtr(cur_ptr);
@@ -794,6 +791,7 @@ Data_ptr llAlloc(int in_iSize) {
     }
 
 #if HEAP_CHECK_ENABLE
+    printf("Alloc: %llx\n",llGetHeapPtrFromDataPtr(ret));
     gError = llCheckHeap();
     if (gError != eLLError_None)
         printf("Heap Error: %d\n", gError);
