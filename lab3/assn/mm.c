@@ -24,7 +24,7 @@
  ********************************************************/
 team_t team = {
         /* Team name */
-        "NSFW1",
+        "NSFW",
         /* First member's full name */
         "LI ZHUANG",
         /* First member's email address */
@@ -156,30 +156,25 @@ typedef int BYTE;
 #define llSetNextBlock(x, target) (PUT((Heap_ptr)(x+HEADER_OFFSET),target))
 // returns the next free block linked in the BIN
 #define llGetNextBlock(x) ((Heap_ptr)(GET(x+HEADER_OFFSET)))
-
-//#define llSetPrivBlock(x, target) PUT((x+PROLOGUE_OFFSET+llGetDataSizeFromHeader(x)),target)
-
 // set the previous  free block linked in the BIN
-void llSetPrivBlock(Heap_ptr in_pInput, Heap_ptr in_ptarget){
-    PUT(((in_pInput)+(PROLOGUE_OFFSET)+(llGetDataSizeFromHeader(in_pInput))),(in_ptarget));
-}
+#define llSetPrivBlock(x, target) (PUT((x+PROLOGUE_OFFSET+llGetDataSizeFromHeader(x)),target))
 // returns the previous free block linked in the BIN
 #define llGetPrivBlock(x) ((Heap_ptr)(GET(x+PROLOGUE_OFFSET+llGetDataSizeFromHeader(x))))
 
 
-
-//#define llDisconnectBlock(y) {\
-//    Heap_ptr __next = llGetNextBlock(y);\
-//    Heap_ptr __prev = llGetPrivBlock(y);\
-//    if(__next!=NULL){\
-//        llSetPrivBlock(__next, __prev);\
-//    }\
-//    if(__prev!=NULL){\
-//        llSetNextBlock(__prev, __next);\
-//    }\
-//    llSetNextBlock(y, NULL);\
-//    llSetPrivBlock(y, NULL);\
-//}
+// disconnect a block inside the link list and set its NextBloack and PrivBloack to NULL
+#define llDisconnectBlock(y) {\
+    Heap_ptr __next = llGetNextBlock(y);\
+    Heap_ptr __prev = llGetPrivBlock(y);\
+    if(__next!=NULL){\
+        llSetPrivBlock(__next, __prev);\
+    }\
+    if(__prev!=NULL){\
+        llSetNextBlock(__prev, __next);\
+    }\
+    llSetNextBlock(y, NULL);\
+    llSetPrivBlock(y, NULL);\
+}
 
 //push x into the head of the link list
 #define llPush(x, head){\
@@ -187,21 +182,6 @@ void llSetPrivBlock(Heap_ptr in_pInput, Heap_ptr in_ptarget){
     llSetPrivBlock((x), NULL);\
     if((head)!= NULL)\
         llSetPrivBlock((head), x);\
-}
-
-// disconnect a block inside the link list and set its NextBloack and PrivBloack to NULL
-void llDisconnectBlock(Heap_ptr x){
-    Heap_ptr __next = llGetNextBlock((x));
-    Heap_ptr __prev = llGetPrivBlock((x));
-    if(__next!=NULL){
-        //llPrintBlock(__next);
-        llSetPrivBlock(__next, __prev);
-    }
-    if(__prev!=NULL){
-        llSetNextBlock(__prev, __next);
-    }
-    llSetNextBlock((x), NULL);
-    llSetPrivBlock((x), NULL);
 }
 
 //check is the block is used(return 0) or free(return 1)
@@ -511,9 +491,8 @@ WORD llGetMaximumExtendableSize(Heap_ptr in_pPtr) {
 eLLError llThrowInBin(Heap_ptr in_pHeapPtr) {
 
     int index = llGetBinningIndex(in_pHeapPtr);
-    llPush(in_pHeapPtr,GET(gBin+index));
-    PUT(gBin + index, (uintptr_t)in_pHeapPtr);
-    //llPrintBlock(in_pHeapPtr);
+    llPush(in_pHeapPtr,(Heap_ptr)GET(gBin+index));
+    PUT(gBin + index, in_pHeapPtr);
     return eLLError_None;
 }
 
@@ -905,9 +884,6 @@ Data_ptr llRealloc(Data_ptr in_pDataPtr, int in_iSize) {
 
 #endif
 
-size_t max_size = 0;
-void *heap_listp = NULL;
-
 /**********************************************************
  * mm_init
  * Initialize the heap, including "allocation" of the
@@ -915,101 +891,6 @@ void *heap_listp = NULL;
  **********************************************************/
 int mm_init(void) {
     return llInit();
-//    if ((heap_listp = mem_sbrk(4 * WSIZE)) == (void *) -1)
-//        return -1;
-//    PUT(heap_listp, 0);                         // alignment padding
-//    PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));   // prologue header
-//    PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));   // prologue footer
-//    PUT(heap_listp + (3 * WSIZE), PACK(0, 1));    // epilogue header
-//    heap_listp += DSIZE;
-//    return 0;
-}
-
-/**********************************************************
- * coalesce
- * Covers the 4 cases discussed in the text:
- * - both neighbours are allocated
- * - the next block is available for coalescing
- * - the previous block is available for coalescing
- * - both neighbours are available for coalescing
- **********************************************************/
-void *coalesce(void *bp) {
-    size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
-    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
-    size_t size = GET_SIZE(HDRP(bp));
-
-    if (prev_alloc && next_alloc) {       /* Case 1 */
-        return bp;
-    } else if (prev_alloc && !next_alloc) { /* Case 2 */
-        size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
-        PUT(HDRP(bp), PACK(size, 0));
-        PUT(FTRP(bp), PACK(size, 0));
-        return (bp);
-    } else if (!prev_alloc && next_alloc) { /* Case 3 */
-        size += GET_SIZE(HDRP(PREV_BLKP(bp)));
-        PUT(FTRP(bp), PACK(size, 0));
-        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
-        return (PREV_BLKP(bp));
-    } else {            /* Case 4 */
-        size += GET_SIZE(HDRP(PREV_BLKP(bp))) +
-                GET_SIZE(FTRP(NEXT_BLKP(bp)));
-        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
-        PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
-        return (PREV_BLKP(bp));
-    }
-}
-
-/**********************************************************
- * extend_heap
- * Extend the heap by "words" words, maintaining alignment
- * requirements of course. Free the former epilogue block
- * and reallocate its new header
- **********************************************************/
-void *extend_heap(size_t words) {
-    char *bp;
-    size_t size;
-
-    /* Allocate an even number of words to maintain alignments */
-    size = (words % 2) ? (words + 1) * WSIZE : words * WSIZE;
-    if ((bp = mem_sbrk(size)) == (void *) -1)
-        return NULL;
-
-    /* Initialize free block header/footer and the epilogue header */
-    PUT(HDRP(bp), PACK(size, 0));                // free block header
-    PUT(FTRP(bp), PACK(size, 0));                // free block footer
-    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));        // new epilogue header
-
-    /* Coalesce if the previous block was free */
-    return coalesce(bp);
-}
-
-
-/**********************************************************
- * find_fit
- * Traverse the heap searching for a block to fit asize
- * Return NULL if no free blocks can handle that size
- * Assumed that asize is aligned
- **********************************************************/
-void *find_fit(size_t asize) {
-    void *bp;
-    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) {
-        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))) {
-            return bp;
-        }
-    }
-    return NULL;
-}
-
-/**********************************************************
- * place
- * Mark the block as allocated
- **********************************************************/
-void place(void *bp, size_t asize) {
-    /* Get the current block size */
-    size_t bsize = GET_SIZE(HDRP(bp));
-
-    PUT(HDRP(bp), PACK(bsize, 1));
-    PUT(FTRP(bp), PACK(bsize, 1));
 }
 
 /**********************************************************
@@ -1018,14 +899,6 @@ void place(void *bp, size_t asize) {
  **********************************************************/
 void mm_free(void *bp) {
     llFree(bp);
-//    if (bp == NULL) {
-//        return;
-//    }
-//    size_t size = GET_SIZE(HDRP(bp));
-//
-//    PUT(HDRP(bp), PACK(size, 0));
-//    PUT(FTRP(bp), PACK(size, 0));
-//    coalesce(bp);
 }
 
 
@@ -1039,33 +912,6 @@ void mm_free(void *bp) {
  **********************************************************/
 void *mm_malloc(size_t size) {
     return llAlloc(size);
-
-//    size_t asize; /* adjusted block size */
-//    size_t extendsize; /* amount to extend heap if no fit */
-//    char *bp;
-//    /* Ignore spurious requests */
-//    if (size == 0)
-//        return NULL;
-//
-//    /* Adjust block size to include overhead and alignment reqs. */
-//    if (size <= DSIZE)
-//        asize = 2 * DSIZE;
-//    else
-//        asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
-//
-//    /* Search the free list for a fit */
-//    if ((bp = find_fit(asize)) != NULL) {
-//        place(bp, asize);
-//        return bp;
-//    }
-//
-//    /* No fit found. Get more memory and place the block */
-//    extendsize = MAX(asize, CHUNKSIZE);
-//    if ((bp = extend_heap(extendsize / WSIZE)) == NULL)
-//        return NULL;
-//    place(bp, asize);
-//    return bp;
-
 }
 
 /**********************************************************
@@ -1074,30 +920,6 @@ void *mm_malloc(size_t size) {
  *********************************************************/
 void *mm_realloc(void *ptr, size_t size) {
     return llRealloc(ptr, size);
-//    /* If size == 0 then this is just free, and we return NULL. */
-//    if (size == 0) {
-//        mm_free(ptr);
-//        return NULL;
-//    }
-//    /* If oldptr is NULL, then this is just malloc. */
-//    if (ptr == NULL)
-//        return (mm_malloc(size));
-//
-//    void *oldptr = ptr;
-//    void *newptr;
-//    size_t copySize;
-//
-//    newptr = mm_malloc(size);
-//    if (newptr == NULL)
-//        return NULL;
-//
-//    /* Copy the old data. */
-//    copySize = GET_SIZE(HDRP(oldptr));
-//    if (size < copySize)
-//        copySize = size;
-//    memcpy(newptr, oldptr, copySize);
-//    mm_free(oldptr);
-//    return newptr;
 }
 
 /**********************************************************
@@ -1106,5 +928,5 @@ void *mm_realloc(void *ptr, size_t size) {
  * Return nonzero if the heap is consistant.
  *********************************************************/
 int mm_check(void) {
-    return 1;
+    return llCheckHeap();
 }
