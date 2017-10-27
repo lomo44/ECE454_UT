@@ -67,9 +67,7 @@ team_t team = {
 #define LAB3_START 1
 
 #ifdef LAB3_START
-//this enables heap check function
-//Warning: it is super slow to turn on heap check, please do not turn on 
-#define HEAP_CHECK_ENABLE 0
+
 
 /*********************************************
  *  Type define and constant define
@@ -85,8 +83,7 @@ typedef int WORD;
 // if the integer is WORD type, means it is the size in bytes
 typedef int BYTE;
 
-// Size of the BIN holding a list of pointers to free blocks
-#define BIN_SIZE 64
+
 // Size of each entries of hte Bin, 8 bytes for 64bit machine
 #define PTR_ALIGNMENT (sizeof(void*))
 // the alignment of address -16 bytes alignments
@@ -117,16 +114,28 @@ typedef int BYTE;
  * BLOCK 5: Footer block [60'b data size in word,3'b000,allocation bit]
  */
 #define META_DATA_WORD (PROLOGUE_OFFSET+EPILOGUE_OFFSET)
-
 //Define of block is used
 #define BLOCK_ALLOCATED 1
 //Define of block is free
 #define BLOCK_FREE 0
 #define INVALID_HEAP_PTR ((Heap_ptr)-1)
+
+/*********************************************
+ *  Configurations
+ *********************************************/
+//this enables heap check function
+//Warning: it is super slow to turn on heap check, please do not turn on
+#define HEAP_CHECK_ENABLE 0
+// Enable Fast block direct allocation
+#define FAST_BLOCK_DIRECT_ALLOC_ENABLE 0
+// Enable Chunk Extend when calling mem_sbrk;
+#define CHUNK_EXTEND_ENABLE 32
+// Size of the BIN holding a list of pointers to free blocks
+#define BIN_SIZE 64
 //blocks under FAST_BLOCK_SIZE will not be merged because it is too small
-#define FAST_BLOCK_SIZE 10
+#define FAST_BLOCK_SIZE 8
 //blocks with size under SPLIT_THRESHOLD after split will not be split
-#define SPLIT_THRESHOLD 768
+#define SPLIT_THRESHOLD 14
 
 /*********************************************
  *  Macro functions define
@@ -142,18 +151,18 @@ typedef int BYTE;
 #define WORD_TO_DWORD(x) ((x)>>1)
 
 // returns the pointer to data blocks in side a heap block
-#define llGetDataPtrFromHeapPtr(x) ((Data_ptr)(x+NEXT_PTR_SIZE+HEADER_OFFSET))
+#define llGetDataPtrFromHeapPtr(x) ((x+NEXT_PTR_SIZE+HEADER_OFFSET))
 // returns the pointer to heap blocks contain the data blocks
-#define llGetHeapPtrFromDataPtr(x) ((Heap_ptr)(x-PROLOGUE_OFFSET))
+#define llGetHeapPtrFromDataPtr(x) ((x-PROLOGUE_OFFSET))
 // returns the data size in the heap blocks
 #define llGetDataSizeFromHeader(x) (GET(x)>>MALLOC_ALIGNMENT)
 // return the pointer to previous heap block in memory space
-#define llGetPrevHeapPtrFromHeapPtr(x) ((Heap_ptr)(x-llGetDataSizeFromHeader(x-1)-META_DATA_WORD))
+#define llGetPrevHeapPtrFromHeapPtr(x) ((x-llGetDataSizeFromHeader(x-1)-META_DATA_WORD))
 // return the pointer to nexp heap block in memory space
-#define llGetNextHeapPtrFromHeapPtr(x) ((Heap_ptr)(x+META_DATA_WORD+llGetDataSizeFromHeader(x)))
+#define llGetNextHeapPtrFromHeapPtr(x) ((x+META_DATA_WORD+llGetDataSizeFromHeader(x)))
 
 // set the next  free block linked in the BIN
-#define llSetNextBlock(x, target) (PUT((Heap_ptr)(x+HEADER_OFFSET),target))
+#define llSetNextBlock(x, target) (PUT((x+HEADER_OFFSET),target))
 // returns the next free block linked in the BIN
 #define llGetNextBlock(x) ((Heap_ptr)(GET(x+HEADER_OFFSET)))
 // set the previous  free block linked in the BIN
@@ -383,6 +392,12 @@ eLLError llAllocFromBin(BYTE in_iSizeInBytes, Data_ptr *io_pOutputPtr) {
     // Calculate the bucket index;
     int start_index = MIN((aligned_size >> MALLOC_ALIGNMENT)-1,BIN_SIZE-1);
     // Iterate through bin and get the best fit bucket
+
+#if FAST_BLOCK_DIRECT_ALLOC_ENABLE
+    if(BYTES_TO_WORD(in_iSizeInBytes) <= FAST_BLOCK_SIZE && GET(gBin + start_index) == NULL){
+        return eLLError_search_fail;
+    }
+#endif
 
     Heap_ptr ret = NULL;
     //go though the first part of the BIN to check is there is available block
@@ -757,8 +772,13 @@ Data_ptr llAlloc(int in_iSize) {
     Data_ptr ret = NULL;
     // Try to allocate a block from bin
     eLLError error = llAllocFromBin(in_iSize, &ret);
-    if(error!=eLLError_None)
-        error =  llAllocFromHeap(MAX(32,in_iSize),&ret);
+    if(error!=eLLError_None){
+#if CHUNK_EXTEND_ENABLE
+        error =  llAllocFromHeap(MAX(CHUNK_EXTEND_ENABLE,in_iSize),&ret);
+#else
+        error =  llAllocFromHeap(in_iSize,&ret);
+#endif
+    }
     if (error != eLLError_allocation_fail) {
         // Successfully found a free block inside the list, now we need to check if the block is splittable
         Heap_ptr heap_ret = llGetHeapPtrFromDataPtr(ret);
