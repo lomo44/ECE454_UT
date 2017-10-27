@@ -658,8 +658,17 @@ eLLError llCheckHeap() {
     }
     return error;
 }
+/* Main Function llFree
+ * --------------------------------
+ * This function will free a data blocks
+ * When program frees a block, it will looks at previous block and next block in the heap to check
+ * if it is possible to merge. After merging, it will put the blocks into the bin for future re-use
+ *
+ * in_pDataPtr: pointer to the data bloack needs to be free
+ *
+ * Return: Error message
+ */
 eLLError llFree(Data_ptr in_pDataPtr) {
-
     // Convert the given data ptr to heap ptr
     Heap_ptr cur_ptr = llGetHeapPtrFromDataPtr(in_pDataPtr);
     // Deallocate the current block
@@ -674,19 +683,18 @@ eLLError llFree(Data_ptr in_pDataPtr) {
     int is_next_free = llIsBlockFree(next_ptr);
     Heap_ptr ret = cur_ptr;
     // Check if previous block is free
-    if (is_prev_free != 0 && llGetDataSizeFromHeader(prev_ptr) > FAST_BLOCK_SIZE) {
+    if (is_prev_free != BLOCK_FREE && llGetDataSizeFromHeader(prev_ptr) > FAST_BLOCK_SIZE) {
         // Previous block is free, merge current block with previous block
         llPullFromBin(prev_ptr);
         llMergeBlock(ret, prev_ptr, &ret);
     }
-    if (is_next_free != 0 && llGetDataSizeFromHeader(next_ptr) > FAST_BLOCK_SIZE) {
+    if (is_next_free != BLOCK_FREE && llGetDataSizeFromHeader(next_ptr) > FAST_BLOCK_SIZE) {
         // Next block is free
         llPullFromBin(next_ptr);
         llMergeBlock(ret, next_ptr, &ret);
     }
     // Throw the merged block into bin
     llThrowInBin(ret);
-
 #if HEAP_CHECK_ENABLE
     gError = llCheckHeap();
     if (gError != eLLError_None)
