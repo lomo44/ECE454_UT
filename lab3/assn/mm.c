@@ -70,8 +70,7 @@ team_t team = {
 
 #define HEAP_CHECK_ENABLE 0
 // All codes for lab3 goes inside here
-#define RETURN_IF_ERROR(x) {if((x)!=eLLError_None) return (x);}
-#define RET_IF_RUN_ERROR(x, y) {(gError=(x));RETURN_IF_ERROR((y))}
+
 
 #define WORD_TO_BYTES(x) ((x)<<3)
 #define BYTES_TO_WORD(x) ((x)>>3)
@@ -674,16 +673,15 @@ eLLError llFree(Data_ptr in_pDataPtr) {
     if (is_prev_free != 0 && llGetDataSizeFromHeader(prev_ptr) > FAST_BLOCK_SIZE) {
         // Previous block is free, merge current block with previous block
         llPullFromBin(prev_ptr);
-        RET_IF_RUN_ERROR(llMergeBlock(ret, prev_ptr, &ret), gError);
+        llMergeBlock(ret, prev_ptr, &ret);
     }
     if (is_next_free != 0 && llGetDataSizeFromHeader(next_ptr) > FAST_BLOCK_SIZE) {
         // Next block is free
         llPullFromBin(next_ptr);
-        RET_IF_RUN_ERROR(llMergeBlock(ret, next_ptr, &ret), gError);
-
+        llMergeBlock(ret, next_ptr, &ret);
     }
     // Throw the merged block into bin
-    RET_IF_RUN_ERROR(llThrowInBin(ret), gError);
+    llThrowInBin(ret);
 
 #if HEAP_CHECK_ENABLE
     gError = llCheckHeap();

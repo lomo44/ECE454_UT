@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.7)
 project(mdriver)
 
 set(CMAKE_C_STANDARD 99)
-set(CMAKE_C_FLAGS "-Wall -g")
+set(CMAKE_C_FLAGS "-Wall -O1 -g")
 
 set(SOURCE_FILES
         clock.o
