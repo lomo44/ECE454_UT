@@ -584,7 +584,18 @@ eLLError llCopyBlock(Heap_ptr in_pFrom, Heap_ptr in_pTo, int in_iCopySize) {
     return eLLError_None;
 }
 
+/*********************************************
+ * Heap Consistency Checker
+ *********************************************/
 
+/* Debug Function llIsBlockInList
+ * --------------------------------
+ * This function is used to check the correctness of a specific block
+ * This is ued only when HEAP_CHECK_ENABLE == 1
+ * in_pBlockPtr: pointer to the heap block
+ *
+ * Return: Error message
+ */
 eLLError llCheckBlock(Heap_ptr in_pBlockPtr) {
 
     // Check the consistency of the block
@@ -609,6 +620,15 @@ eLLError llCheckBlock(Heap_ptr in_pBlockPtr) {
     return eLLError_None;
 }
 
+/* Debug Function llIsBlockInList
+ * --------------------------------
+ * This function is used to check if one specific block is in the BIN
+ * This is ued only when HEAP_CHECK_ENABLE == 1
+ * in_pBin: pointer to the BIN
+ * in_pBlockPtr: pointer to the heap block
+ *
+ * Return: Error message
+ */
 int llIsBlockInList(Heap_ptr in_pBin, Heap_ptr in_pBlockPtr) {
     Heap_ptr start_block = GET(in_pBin);
     while (start_block != NULL) {
@@ -620,6 +640,14 @@ int llIsBlockInList(Heap_ptr in_pBin, Heap_ptr in_pBlockPtr) {
     return 0;
 }
 
+/* Debug Function llValidBining
+ * --------------------------------
+ * This function is used to check the correctness of a block in the BIN
+ * This is ued only when HEAP_CHECK_ENABLE == 1
+ * in_pBlockPtr: pointer to BIN
+ *
+ * Return: Error message
+ */
 eLLError llValidBining(Heap_ptr in_pBlockPtr) {
     int index = llGetBinningIndex(in_pBlockPtr);
     if (llIsBlockFree(in_pBlockPtr)) {
@@ -633,6 +661,13 @@ eLLError llValidBining(Heap_ptr in_pBlockPtr) {
     }
 }
 
+/* Debug Function llCheckHeap
+ * --------------------------------
+ * This function is used to check the correctness of the heap mem area
+ * This is ued only when HEAP_CHECK_ENABLE == 1
+ *
+ * Return: Error message
+ */
 eLLError llCheckHeap() {
     // valid every block
     Heap_ptr cur_ptr = gHeapStart;
@@ -658,6 +693,11 @@ eLLError llCheckHeap() {
     }
     return error;
 }
+
+/********************************************************
+ * Main functions of link list memory allocation (llaloc)
+ ********************************************************/
+
 /* Main Function llFree
  * --------------------------------
  * This function will free a data blocks
