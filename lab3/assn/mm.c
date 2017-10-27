@@ -67,58 +67,104 @@ team_t team = {
 #define LAB3_START 1
 
 #ifdef LAB3_START
-
 #define HEAP_CHECK_ENABLE 0
+
+/*********************************************
+ *  Type define and constant define
+ *********************************************/
 // All codes for lab3 goes inside here
-
-
-#define WORD_TO_BYTES(x) ((x)<<3)
-#define BYTES_TO_WORD(x) ((x)>>3)
-#define WORD_TO_DWORD(x) ((x)>>1)
-
+// heap pointer points to a heap block (data block + meta data)
 typedef uintptr_t *Heap_ptr;
+// data pointer points to a data block inside heap block
 typedef uintptr_t *Data_ptr;
-typedef int DWORD;
+// if the integer is WORD type, means it is the size in words (8 bytes)
+// this is also the default size in the code
 typedef int WORD;
+// if the integer is WORD type, means it is the size in bytes
 typedef int BYTE;
 
+// Size of the BIN holding a list of pointers to free blocks
 #define BIN_SIZE 160
-#define MALLOC_ALIGNMENT 4            // 16 bytes alignments
-#define MIN(x, y) ((x) < (y)?(x) :(y))
-#define PTR_ALIGNMENT (sizeof(void*))   // 8 bytes for 64bit machine
-
-#define MAGIC_NUMBER 889999
+// Size of each entries of hte Bin, 8 bytes for 64bit machine
+#define PTR_ALIGNMENT (sizeof(void*))
+// the alignment of address -16 bytes alignments
+#define MALLOC_ALIGNMENT 4
+/* the size (words) of guard blocks
+ * guard block is a block has only meta data and 0 real data block
+ * it locates at top and end of heap area
+ * it is used to protected merge unexpected memory space when llfree() is called
+ */
 #define GUARD_SIZE 4
-#define NEXT_PTR_OFFSET 1
+//Size in words of  header META data (Size of block + allocation)
 #define HEADER_OFFSET 1
+//Size in words of pointer to next free block in META data
+#define NEXT_PTR_SIZE 1
+//Size in words of  pointer to previous free block in META data
 #define PREVIOUS_PTR_OFFSET 1
+// Size of prologue in words
+#define PROLOGUE_OFFSET (HEADER_OFFSET+NEXT_PTR_SIZE)
+// Size of epilogue in words
+#define EPILOGUE_OFFSET (HEADER_OFFSET+PREVIOUS_PTR_OFFSET)
+/*
+ * Size of meta data in words
+ * Over all a block (8 bytes each) will have the data structure like following
+ * BLOCK 1: Header [60'b data size in word,3'b000,allocation bit]
+ * BLOCK 2: Pointer to next free block
+ * BLOCK 3: data block align with 16 bytes
+ * BLOCK 4: Pointer to previous free block
+ * BLOCK 5: Footer block [60'b data size in word,3'b000,allocation bit]
+ */
+#define META_DATA_WORD (PROLOGUE_OFFSET+EPILOGUE_OFFSET)
+
+//Define of block is used
 #define BLOCK_ALLOCATED 1
+//Define of block is free
 #define BLOCK_FREE 0
 #define INVALID_HEAP_PTR ((Heap_ptr)-1)
+//blocks under FAST_BLOCK_SIZE will not be merged because it is too small
 #define FAST_BLOCK_SIZE 10
+//blocks with size under SPLIT_THRESHOLD after split will not be split
 #define SPLIT_THRESHOLD 768
 
-#define PROLOGUE_OFFSET (HEADER_OFFSET+NEXT_PTR_OFFSET)
-#define EPILOGUE_OFFSET (HEADER_OFFSET+PREVIOUS_PTR_OFFSET)
-#define META_DATA_WORD (PROLOGUE_OFFSET+EPILOGUE_OFFSET)
-#define META_SIZE_DWORD (META_DATA_WORD >> 1)
+/*********************************************
+ *  Macro functions define
+ *********************************************/
+//macro returns the minimum value of (x,y)
+#define MIN(x, y) ((x) < (y)?(x) :(y))
 
+//macro change size in words (8 bytes) into size in bytes
+#define WORD_TO_BYTES(x) ((x)<<3)
+//macro change size in bytes into size in words (8 bytes)
+#define BYTES_TO_WORD(x) ((x)>>3)
+//macro change size in words (8 bytes) into size in words (16 bytes)
+#define WORD_TO_DWORD(x) ((x)>>1)
 
-#define llGetDataPtrFromHeapPtr(x) ((Data_ptr)(x+NEXT_PTR_OFFSET+HEADER_OFFSET))
+// returns the pointer to data blocks in side a heap block
+#define llGetDataPtrFromHeapPtr(x) ((Data_ptr)(x+NEXT_PTR_SIZE+HEADER_OFFSET))
+// returns the pointer to heap blocks contain the data blocks
 #define llGetHeapPtrFromDataPtr(x) ((Heap_ptr)(x-PROLOGUE_OFFSET))
+// returns the data size in the heap blocks
 #define llGetDataSizeFromHeader(x) (GET(x)>>MALLOC_ALIGNMENT)
+// return the pointer to previous heap block in memory space
 #define llGetPrevHeapPtrFromHeapPtr(x) ((Heap_ptr)(x-llGetDataSizeFromHeader(x-1)-META_DATA_WORD))
+// return the pointer to nexp heap block in memory space
 #define llGetNextHeapPtrFromHeapPtr(x) ((Heap_ptr)(x+META_DATA_WORD+llGetDataSizeFromHeader(x)))
 
+// set the next  free block linked in the BIN
 #define llSetNextBlock(x, target) (PUT((Heap_ptr)(x+HEADER_OFFSET),target))
+// returns the next free block linked in the BIN
 #define llGetNextBlock(x) ((Heap_ptr)(GET(x+HEADER_OFFSET)))
 
 //#define llSetPrivBlock(x, target) PUT((x+PROLOGUE_OFFSET+llGetDataSizeFromHeader(x)),target)
-#define llGetPrivBlock(x) ((Heap_ptr)(GET(x+PROLOGUE_OFFSET+llGetDataSizeFromHeader(x))))
 
+// set the previous  free block linked in the BIN
 void llSetPrivBlock(Heap_ptr in_pInput, Heap_ptr in_ptarget){
     PUT(((in_pInput)+(PROLOGUE_OFFSET)+(llGetDataSizeFromHeader(in_pInput))),(in_ptarget));
 }
+// returns the previous free block linked in the BIN
+#define llGetPrivBlock(x) ((Heap_ptr)(GET(x+PROLOGUE_OFFSET+llGetDataSizeFromHeader(x))))
+
+
 
 //#define llDisconnectBlock(y) {\
 //    Heap_ptr __next = llGetNextBlock(y);\
@@ -133,6 +179,7 @@ void llSetPrivBlock(Heap_ptr in_pInput, Heap_ptr in_ptarget){
 //    llSetPrivBlock(y, NULL);\
 //}
 
+//push x into the head of the link list
 #define llPush(x, head){\
     llSetNextBlock((x), (head));\
     llSetPrivBlock((x), NULL);\
@@ -140,6 +187,7 @@ void llSetPrivBlock(Heap_ptr in_pInput, Heap_ptr in_ptarget){
         llSetPrivBlock((head), x);\
 }
 
+// disconnect a block inside the link list and set its NextBloack and PrivBloack to NULL
 void llDisconnectBlock(Heap_ptr x){
     Heap_ptr __next = llGetNextBlock((x));
     Heap_ptr __prev = llGetPrivBlock((x));
@@ -154,9 +202,15 @@ void llDisconnectBlock(Heap_ptr x){
     llSetPrivBlock((x), NULL);
 }
 
+//check is the block is used(return 0) or free(return 1)
 #define llIsBlockFree(x) (!(GET(x) & 1))
+//calculate the index of a block in the BIN
 #define llGetBinningIndex(x) (MIN((WORD_TO_DWORD(llGetDataSizeFromHeader(x))-1),(BIN_SIZE-1)))
 
+/*********************************************
+ * Enum define
+ *********************************************/
+// enum of different error type
 typedef enum _eLLError {
     eLLError_heap_extend_fail = 1,
     eLLError_allocation_fail = 2,
@@ -170,18 +224,31 @@ typedef enum _eLLError {
     eLLError_None = 0
 } eLLError;
 
+//structure used in split block function contains the division of the block
 typedef struct _llSplitRecipe {
     int m_iBlockASize;
     int m_iBlockBSize;
 } llSplitRecipe;
 
+/*********************************************
+ * Global values define
+ *********************************************/
+// pointer to the BIN
 Heap_ptr gBin;
+// How many entries in the Bin
 int gBinSize;
+// Start point of the heap usage, used for heap check
 Heap_ptr gHeapStart;
+// End point of the heap usage, used for heap check
 Heap_ptr gHeapEnd;
-Heap_ptr gTop = NULL;
+//Error Message
 eLLError gError;
 
+/*********************************************
+ * Helping functions
+ *********************************************/
+
+//print out information of a block
 void llPrintBlock(Heap_ptr in_pBlockPtr) {
     // Place the header
     Heap_ptr end = in_pBlockPtr + PROLOGUE_OFFSET + PREVIOUS_PTR_OFFSET + (llGetDataSizeFromHeader(in_pBlockPtr));
@@ -195,10 +262,10 @@ void llPrintBlock(Heap_ptr in_pBlockPtr) {
  * Function: llGetAllignedSizeInBytes
  * -------------------------------------------------------------
  * Get aligned size from in_iInput
- * in_iInput:input size
+ * in_iInput:input size in bytes
  * in_iAlignment: alignment, must be a power of 2
  *
- * Return aligned size
+ * Return aligned size in bytes
  */
 BYTE llGetAllignedSizeInBytes(BYTE in_iInput, int in_iAlignment) {
     if ((in_iInput & ((1 << in_iAlignment) - 1)) > 0)
@@ -213,31 +280,9 @@ BYTE llGetAllignedSizeInBytes(BYTE in_iInput, int in_iAlignment) {
  * extend heap size
  * in_iExtendSize:request extra heap size
  *
- * Return: Error message
+ * Return: the point to the beginning of extended heap or error if failed
  */
-
 Heap_ptr llExtendHeap(BYTE in_iExtendSize) {
-#define FAST_HEAP 0
-#if FAST_HEAP
-    int extend_chunk = 16384;
-    if(gTop==NULL){
-        gTop = mem_sbrk(extend_chunk);
-        gHeapRemainSize+=extend_chunk;
-        gTotalHeapSize+=extend_chunk;
-    }
-    while(gHeapRemainSize < in_iExtendSize){
-        void* a = mem_sbrk(extend_chunk);
-        gHeapRemainSize += extend_chunk;
-        gTotalHeapSize+=extend_chunk;
-    }
-    gHeapRemainSize-=in_iExtendSize;
-
-    Heap_ptr ret = gTop;
-    gTop+=(BYTES_TO_WORD(in_iExtendSize));
-    printf("Extend %d, remain: %d\n",in_iExtendSize,gHeapRemainSize);
-    printf("Total extend: %d,%d\n",mem_heapsize(),gTotalHeapSize);
-    return ret;
-#endif
     Heap_ptr ret = mem_sbrk(in_iExtendSize);
     //printf("Address: %llx\n",ret);
     if (ret != INVALID_HEAP_PTR) {
@@ -245,18 +290,16 @@ Heap_ptr llExtendHeap(BYTE in_iExtendSize) {
     } else {
         return INVALID_HEAP_PTR;
     }
-
 }
 
 /*
  * Function: llInitBin
  * -------------------------------------------------------------
  * Initialize Bin for free blocks
- * in_iBinSize:Size of Bin
  *
  * Return: Error message
  */
-eLLError llInitBin(size_t in_iBinSize) {
+eLLError llInitBin() {
     // Extend heap for bin pointers
     gBin = llExtendHeap(BIN_SIZE * PTR_ALIGNMENT);
     if (gBin == INVALID_HEAP_PTR) {
@@ -747,7 +790,7 @@ Data_ptr llAlloc(int in_iSize) {
  * Main Allocation functions
  */
 eLLError llInit() {
-    llInitBin(BIN_SIZE);
+    llInitBin();
     Heap_ptr ret = llExtendHeap(WORD_TO_BYTES(GUARD_SIZE) * 2);
     llInitBlock(ret, 4);
     gHeapStart = ret+GUARD_SIZE;
