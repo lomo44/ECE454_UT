@@ -129,7 +129,7 @@ typedef int BYTE;
 // Enable Fast block direct allocation
 #define FAST_BLOCK_DIRECT_ALLOC_ENABLE 0
 // Enable Chunk Extend when calling mem_sbrk;
-#define CHUNK_EXTEND_ENABLE 32
+#define CHUNK_EXTEND_ENABLE 256
 // Size of the BIN holding a list of pointers to free blocks
 #define BIN_SIZE 64
 //blocks under FAST_BLOCK_SIZE will not be merged because it is too small
