@@ -248,7 +248,11 @@ eLLError gError;
  * Helping functions
  *********************************************/
 
-//print out information of a block
+/* Function: llPrintBlock
+ * -------------------------------------------------------------
+ * Print out information of one block, use for sel debug only
+ * in_pBlockPtr: pointer to a heap block
+ */
 void llPrintBlock(Heap_ptr in_pBlockPtr) {
     // Place the header
     Heap_ptr end = in_pBlockPtr + PROLOGUE_OFFSET + PREVIOUS_PTR_OFFSET + (llGetDataSizeFromHeader(in_pBlockPtr));
@@ -258,8 +262,7 @@ void llPrintBlock(Heap_ptr in_pBlockPtr) {
     printf("[Footer: %llx]Size: %d, Allocated: %d\n",end, llGetDataSizeFromHeader(end), !llIsBlockFree(end));
 }
 
-/*
- * Function: llGetAllignedSizeInBytes
+/* Function: llGetAllignedSizeInBytes
  * -------------------------------------------------------------
  * Get aligned size from in_iInput
  * in_iInput:input size in bytes
@@ -274,8 +277,7 @@ BYTE llGetAllignedSizeInBytes(BYTE in_iInput, int in_iAlignment) {
         return in_iInput;
 }
 
-/*
- * Function: llExtendHeap
+/* Function: llExtendHeap
  * -------------------------------------------------------------
  * extend heap size
  * in_iExtendSize:request extra heap size
@@ -292,8 +294,7 @@ Heap_ptr llExtendHeap(BYTE in_iExtendSize) {
     }
 }
 
-/*
- * Function: llInitBin
+/* Function: llInitBin
  * -------------------------------------------------------------
  * Initialize Bin for free blocks
  *
@@ -316,8 +317,7 @@ eLLError llInitBin() {
     }
 }
 
-/*
- * Function: llMarkBlockAllocationBit
+/* Function: llMarkBlockAllocationBit
  * -----------------------------------------
  * change the allocation inform of a block
  * in_pBlockPtr: pointer to a block
@@ -333,27 +333,11 @@ eLLError llMarkBlockAllocationBit(Heap_ptr in_pBlockPtr, int in_bAllocated) {
     return eLLError_None;
 }
 
-/*
- * Function: llDeAllocBlock
- * -----------------------------------------
- * deallocate a block
- * in_pBlockPtr: pointer to a block
- * Return: Error message
- */
-eLLError llDeAllocBlock(Heap_ptr in_pInputPtrA) {
-    llMarkBlockAllocationBit(in_pInputPtrA, BLOCK_FREE);
-    llSetNextBlock(in_pInputPtrA,NULL);
-    llSetPrivBlock(in_pInputPtrA,NULL);
-    return eLLError_None;
-}
-
-
-/*
- * Function llInitBlock
+/* Function llInitBlock
  * ------------------------
  * Initialize the block (with all meta data)
- * in_pInputPtr: pointer to data block
- * in_iBlockSizeInQword: desire block size with meta data
+ * in_pInputPtr: pointer to heap block
+ * in_iBlockSizeInWord: desire block size with meta data
  *
  * Return: error message
  */
@@ -372,8 +356,7 @@ eLLError llInitBlock(Heap_ptr in_pInputPtr, WORD in_iBlockSizeInWord) {
     return eLLError_None;
 }
 
-/*
- * Function llAllocFromHeap
+/* Function llAllocFromHeap
  * ------------------------
  * Initialize the block from heap(with all meta data)
  * io_pOutputPtr: pointer to data block
@@ -401,8 +384,7 @@ eLLError llAllocFromHeap(size_t in_iSizeInBytes, Data_ptr *io_pOutputPtr) {
 }
 
 
-/*
- * Function llAllocFromHeap
+/* Function llAllocFromHeap
  * ------------------------
  * Initialize the block from bin (initialized free block)(with all meta data)
  * io_pOutputPtr: pointer to data block
@@ -471,8 +453,7 @@ eLLError llAllocFromBin(BYTE in_iSizeInBytes, Data_ptr *io_pOutputPtr) {
 }
 
 
-/*
- * Function: llGetSplitedRemainderSize
+/* Function: llGetSplitedRemainderSize
  * -----------------------------------
  * calculate the remaining data size (no meta) after split
  * in_iTotalDataSize: total block size (with meta) available
@@ -490,8 +471,7 @@ WORD llGetSplitedRemainderSize(WORD in_iTotalDataSize, WORD in_iTargetSize) {
 
 }
 
-/*
- * Function: llGetMaximumExtendableSize
+/* Function: llGetMaximumExtendableSize
  * -----------------------------------
  * calculate the maximum extendable size of heap
  * in_pPtr: pointer to a heap
@@ -513,8 +493,7 @@ WORD llGetMaximumExtendableSize(Heap_ptr in_pPtr) {
     return max_size;
 }
 
-/*
- * Function: llThrowInBin
+/* Function: llThrowInBin
  * -----------------------------------
  * free a used data block and put it back to Bin
  * in_pHeapPtr: pointer to the bloack
@@ -546,8 +525,7 @@ eLLError llPullFromBin(Heap_ptr in_pHeapPtr) {
 
 }
 
-/*
- * Function llMergeBlock
+/* Function llMergeBlock
  * ---------------------
  * Merge up to three free block into one. assume merged block is free and contain no data
  * in_pInputPtrA: pointer to the free block A
@@ -571,8 +549,7 @@ eLLError llMergeBlock(Heap_ptr in_pInputPtrA, Heap_ptr in_pInputPtrB, Heap_ptr *
     return eLLError_None;
 }
 
-/*
- * Function llSplitBlock
+/* Function llSplitBlock
  * ---------------------
  * Split one free block into two. assume split legal
  * in_pInputPtr: pointer to the free block
@@ -582,8 +559,7 @@ eLLError llMergeBlock(Heap_ptr in_pInputPtrA, Heap_ptr in_pInputPtrB, Heap_ptr *
  *
  * Return: Error message
  */
-eLLError
-llSplitBlock(Heap_ptr in_pInputPtr, llSplitRecipe *in_pRecipe, Heap_ptr *io_pOutputPtrA, Heap_ptr *io_pOutputPtrB) {
+eLLError llSplitBlock(Heap_ptr in_pInputPtr, llSplitRecipe *in_pRecipe, Heap_ptr *io_pOutputPtrA, Heap_ptr *io_pOutputPtrB) {
     int block_A_size = in_pRecipe->m_iBlockASize + META_DATA_WORD;
     int block_B_size = in_pRecipe->m_iBlockBSize + META_DATA_WORD;
     *io_pOutputPtrA = in_pInputPtr;
@@ -594,22 +570,7 @@ llSplitBlock(Heap_ptr in_pInputPtr, llSplitRecipe *in_pRecipe, Heap_ptr *io_pOut
     return eLLError_None;
 }
 
-/*
- * Function llExtendBlock
- * ---------------------
- * Extend one free block into desire size. assume extend legal
- * in_pInputPtr: pointer to the free block
- * in_iExtendSize: desire new size of the block
- *
- * Return: Error message
- */
-eLLError llExtendBlock(Heap_ptr in_pInputPtr, WORD in_iExtendSize) {
-    llInitBlock(in_pInputPtr, in_iExtendSize);
-    return eLLError_None;
-}
-
-/*
- * Function llCopyBlock
+/* Function llCopyBlock
  * ---------------------
  * one block's data into another blcok. assume copy legal
  * in_pFrom: pointer to the block hold the data
