@@ -760,14 +760,27 @@ eLLError llInit() {
     return eLLError_None;
 }
 
-
-
-
+/* Function llRealloc
+ * -------------------------------------------
+ * This function will re-alloc a data block with following cases
+ * 1)input pointer = NULL                                       => alloc a new block
+ * 2)desire size= 0                                             => free the block
+ * 3)same or smaller desire size                                => do nothing
+ * 4)larger desire size
+ *   1. if the block is following by a large enough free block  => extend the block
+ *   2. if the block not available to extend                    => allocate a new block, copy data, free old block
+ *
+ *
+ * in_pDataPtr: pointer to the data block
+ * in_iSize: the desire new size (in bytes, not include meta data)
+ *
+ * Return: the pointer to the data block
+ */
 Data_ptr llRealloc(Data_ptr in_pDataPtr, int in_iSize) {
-    // Getting the current data size
-    //printf("Realloc\n");
+    //cover the data block to heap pointer
     Heap_ptr ptr = llGetHeapPtrFromDataPtr(in_pDataPtr);
-    int current_data_size = WORD_TO_BYTES(llGetDataSizeFromHeader(ptr));
+    // Getting the current data size
+    WORD current_data_size = WORD_TO_BYTES(llGetDataSizeFromHeader(ptr));
     Data_ptr ret = in_pDataPtr;
     if (in_pDataPtr == NULL) {
         // If input data ptr is NULL, then allocate a new block
@@ -775,63 +788,40 @@ Data_ptr llRealloc(Data_ptr in_pDataPtr, int in_iSize) {
     } else if (in_iSize == 0) {
         // Size equal zero, basically free
         llFree(in_pDataPtr);
-    } else if (current_data_size == in_iSize) {
-        // Size doesn't change, ignore
+    } else if (current_data_size >= in_iSize) {
+        // Size doesn't change or has enough size, ignore
     } else {
         // Final Reallocation
-        // Get the maximum extending size by
-        if (WORD_TO_BYTES(llGetDataSizeFromHeader(ptr)) >= in_iSize) {
-            // Local resizing is possible, extend the current block
-        } else {
-            // Check next block
-            Heap_ptr  next_block = llGetNextHeapPtrFromHeapPtr(ptr);
-            if(llIsBlockFree(next_block)){
-                //llPrintBlock(next_block);
-                int potential_size = llGetDataSizeFromHeader(next_block)+META_DATA_WORD+llGetDataSizeFromHeader(ptr);
-                if(WORD_TO_BYTES(potential_size)>=in_iSize){
-                    llPullFromBin(next_block);
-                    llInitBlock(ptr,potential_size+META_DATA_WORD);
-//                    int remainder_size = llGetSplitedRemainderSize(potential_size+META_DATA_WORD, in_iSize);
-////                    // If the remainder size is greater than 0 (splitable)
-//                    if (remainder_size > SPLIT_THRESHOLD) {
-//                        // Blk is splittable, then split the block and put residual into the bin
-//                        Heap_ptr outptrA;
-//                        Heap_ptr outptrB;
-//                        // Creating a new split recipe
-//                        llSplitRecipe newRecipe;
-//                        newRecipe.m_iBlockASize = in_iSize;
-//                        newRecipe.m_iBlockBSize = remainder_size;
-//                        //then split the current plock
-//                        llSplitBlock(ptr, &newRecipe, &outptrA, &outptrB);
-//                        // Throw the remainder size into the bin
-//                        llThrowInBin(outptrB);
-//                    }
-
-#if HEAP_CHECK_ENABLE
-                    gError = llCheckHeap();
-    if (gError != eLLError_None)
-        printf("Heap Error: %d\n", gError);
-#endif
-                    return llGetDataPtrFromHeapPtr(ptr);
-                }
+        // Check next block
+        Heap_ptr  next_block = llGetNextHeapPtrFromHeapPtr(ptr);
+        if(llIsBlockFree(next_block)){
+            WORD potential_size = llGetDataSizeFromHeader(next_block)+META_DATA_WORD+llGetDataSizeFromHeader(ptr);
+            if(WORD_TO_BYTES(potential_size)>=in_iSize){
+                llPullFromBin(next_block);
+                llInitBlock(ptr,potential_size+META_DATA_WORD);
+            #if HEAP_CHECK_ENABLE
+                gError = llCheckHeap();
+                if (gError != eLLError_None)
+                printf("Heap Error: %d\n", gError);
+            #endif
+            return llGetDataPtrFromHeapPtr(ptr);
             }
-            Data_ptr new_block = llAlloc(in_iSize);
-            Heap_ptr new_heap_ptr = llGetHeapPtrFromDataPtr(new_block);
-            // copy the old data into the new data block
-            llCopyBlock(ptr, new_heap_ptr, current_data_size);
-            // Free the old data block
-            llFree(in_pDataPtr);
-            ret = new_block;
         }
+        Data_ptr new_block = llAlloc(in_iSize);
+        Heap_ptr new_heap_ptr = llGetHeapPtrFromDataPtr(new_block);
+        // copy the old data into the new data block
+        llCopyBlock(ptr, new_heap_ptr, current_data_size);
+        // Free the old data block
+        llFree(in_pDataPtr);
+        ret = new_block;
     }
-#if HEAP_CHECK_ENABLE
-    gError = llCheckHeap();
-    if (gError != eLLError_None)
-        printf("Heap Error: %d\n", gError);
-#endif
+    #if HEAP_CHECK_ENABLE
+        gError = llCheckHeap();
+        if (gError != eLLError_None)
+            printf("Heap Error: %d\n", gError);
+    #endif
     return ret;
 }
-
 
 #endif
 
