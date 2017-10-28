@@ -129,13 +129,13 @@ typedef int BYTE;
 // Enable Fast block direct allocation
 #define FAST_BLOCK_DIRECT_ALLOC_ENABLE 0
 // Enable Chunk Extend when calling mem_sbrk;
-#define CHUNK_EXTEND_ENABLE 256
+#define CHUNK_EXTEND_ENABLE 210
 // Size of the BIN holding a list of pointers to free blocks
-#define BIN_SIZE 64
+#define BIN_SIZE 88
 //blocks under FAST_BLOCK_SIZE will not be merged because it is too small
-#define FAST_BLOCK_SIZE 8
+#define FAST_BLOCK_SIZE 12
 //blocks with size under SPLIT_THRESHOLD after split will not be split
-#define SPLIT_THRESHOLD 14
+#define SPLIT_THRESHOLD 8
 
 /*********************************************
  *  Macro functions define
@@ -748,6 +748,7 @@ eLLError llFree(Data_ptr in_pDataPtr) {
     // Throw the merged block into bin
     llThrowInBin(ret);
 #if HEAP_CHECK_ENABLE
+    printf("Free: %llx\n", ret);
     gError = llCheckHeap();
     if (gError != eLLError_None)
         printf("Heap Error: %d\n", gError);
