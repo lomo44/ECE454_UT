@@ -183,30 +183,30 @@ typedef int BYTE;
 // returns the next free block linked in the BIN
 #define llGetNextBlock(x) (GET_PTR(x+HEADER_OFFSET))
 // set the previous  free block linked in the BIN
-#define llSetPrivBlock(x, target) (PUT_PTR((x+PROLOGUE_OFFSET+llGetDataSizeFromHeader(x)),target))
+#define llSetPrevBlock(x, target) (PUT_PTR((x+PROLOGUE_OFFSET+llGetDataSizeFromHeader(x)),target))
 // returns the previous free block linked in the BIN
-#define llGetPrivBlock(x) ((Heap_ptr)(GET(x+PROLOGUE_OFFSET+llGetDataSizeFromHeader(x))))
+#define llGetPrevBlock(x) ((Heap_ptr)(GET(x+PROLOGUE_OFFSET+llGetDataSizeFromHeader(x))))
 
 // disconnect a block inside the link list and set its NextBloack and PrivBloack to NULL
 #define llDisconnectBlock(y) {\
     Heap_ptr __next = llGetNextBlock(y);\
-    Heap_ptr __prev = llGetPrivBlock(y);\
+    Heap_ptr __prev = llGetPrevBlock(y);\
     if(__next!=NULL){\
-        llSetPrivBlock(__next, __prev);\
+        llSetPrevBlock(__next, __prev);\
     }\
     if(__prev!=NULL){\
         llSetNextBlock(__prev, __next);\
     }\
     llSetNextBlock(y, NULL);\
-    llSetPrivBlock(y, NULL);\
+    llSetPrevBlock(y, NULL);\
 }
 
 //push x into the head of the link list
 #define llPush(x, head){\
     llSetNextBlock((x), (head));\
-    llSetPrivBlock((x), NULL);\
+    llSetPrevBlock((x), NULL);\
     if((head)!= NULL)\
-        llSetPrivBlock((head), x);\
+        llSetPrevBlock((head), x);\
 }
 
 //check is the block is used(return 0) or free(return 1)
@@ -266,7 +266,7 @@ void llPrintBlock(Heap_ptr in_pBlockPtr) {
     Heap_ptr end = in_pBlockPtr + PROLOGUE_OFFSET + PREVIOUS_PTR_OFFSET + (llGetDataSizeFromHeader(in_pBlockPtr));
     printf("[Header: %llx]Size: %d, Allocated: %d\n",in_pBlockPtr,llGetDataSizeFromHeader(in_pBlockPtr), !llIsBlockFree(in_pBlockPtr));
     printf("Next Ptr: %llx\n", GET(in_pBlockPtr + 1));
-    printf("Priv Ptr: %llx\n", llGetPrivBlock(in_pBlockPtr));
+    printf("Priv Ptr: %llx\n", llGetPrevBlock(in_pBlockPtr));
     printf("[Footer: %llx]Size: %d, Allocated: %d\n",end, llGetDataSizeFromHeader(end), !llIsBlockFree(end));
 }
 
@@ -359,7 +359,7 @@ eLLError llInitBlock(Heap_ptr in_pInputPtr, WORD in_iBlockSizeInWord) {
     // Place the header
     PUT(in_pInputPtr, PACK(data_size_in_dword << MALLOC_ALIGNMENT, 1));
     // initialize the previous ptr
-    llSetPrivBlock(in_pInputPtr,NULL);
+    llSetPrevBlock(in_pInputPtr,NULL);
     // initialize the next ptr
     llSetNextBlock(in_pInputPtr,NULL);
     // initialize the footer
@@ -701,7 +701,7 @@ eLLError llValidBining(Heap_ptr in_pBlockPtr) {
         return llIsBlockInList(gBin + index, in_pBlockPtr)==1?eLLError_None:eLLError_search_fail;
     }
     else{
-        if(llGetNextBlock(in_pBlockPtr) != NULL || llGetPrivBlock(in_pBlockPtr) != NULL){
+        if(llGetNextBlock(in_pBlockPtr) != NULL || llGetPrevBlock(in_pBlockPtr) != NULL){
             return eLLError_Non_Empty_Next_Ptr;
         }
         return eLLError_None;
