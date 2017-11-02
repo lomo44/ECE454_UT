@@ -155,6 +155,10 @@ typedef int BYTE;
  *********************************************/
 //macro returns the minimum value of (x,y)
 #define MIN(x, y) ((x) < (y)?(x) :(y))
+// Get Ptr from address
+#define GET_PTR(x) (Heap_ptr)(GET(x))
+// Put Ptr in address
+#define PUT_PTR(x,y) PUT((x),(uintptr_t)(y))
 
 //macro change size in words (8 bytes) into size in bytes
 #define WORD_TO_BYTES(x) ((x)<<3)
@@ -175,14 +179,13 @@ typedef int BYTE;
 #define llGetNextHeapPtrFromHeapPtr(x) ((x+META_DATA_WORD+llGetDataSizeFromHeader(x)))
 
 // set the next  free block linked in the BIN
-#define llSetNextBlock(x, target) (PUT((x+HEADER_OFFSET),target))
+#define llSetNextBlock(x, target) (PUT_PTR((x+HEADER_OFFSET),target))
 // returns the next free block linked in the BIN
-#define llGetNextBlock(x) ((Heap_ptr)(GET(x+HEADER_OFFSET)))
+#define llGetNextBlock(x) (GET_PTR(x+HEADER_OFFSET))
 // set the previous  free block linked in the BIN
-#define llSetPrivBlock(x, target) (PUT((x+PROLOGUE_OFFSET+llGetDataSizeFromHeader(x)),target))
+#define llSetPrivBlock(x, target) (PUT_PTR((x+PROLOGUE_OFFSET+llGetDataSizeFromHeader(x)),target))
 // returns the previous free block linked in the BIN
 #define llGetPrivBlock(x) ((Heap_ptr)(GET(x+PROLOGUE_OFFSET+llGetDataSizeFromHeader(x))))
-
 
 // disconnect a block inside the link list and set its NextBloack and PrivBloack to NULL
 #define llDisconnectBlock(y) {\
@@ -318,7 +321,7 @@ eLLError llInitBin() {
         // Initialize bin
         int i;
         for (i = 0; i < gBinSize; i++) {
-            PUT(gBin + i, NULL);
+            PUT_PTR(gBin + i, NULL);
         }
         return eLLError_None;
     }
@@ -422,11 +425,11 @@ eLLError llAllocFromBin(BYTE in_iSizeInBytes, Data_ptr *io_pOutputPtr) {
     Heap_ptr ret = NULL;
     //go though the first part of the BIN to check is there is available block
     while (start_index < gBinSize-1) {
-        if (GET(gBin + start_index) != NULL) {
+        if (GET_PTR(gBin + start_index) != NULL) {
             // valid bin found, reconstruct the link list
-            ret = GET(gBin + start_index);
+            ret = GET_PTR(gBin + start_index);
             // set the head of the linked list to the next element
-            PUT(gBin + start_index, llGetNextBlock(ret));
+            PUT_PTR(gBin + start_index, llGetNextBlock(ret));
             llDisconnectBlock(ret);
             break;
         }
@@ -436,14 +439,14 @@ eLLError llAllocFromBin(BYTE in_iSizeInBytes, Data_ptr *io_pOutputPtr) {
     // This is special case cause last entries contains all blocks greater than certian value
     //nor all blocks in the entry is larger than the request size
     if(ret == NULL) {
-        Heap_ptr cur_ptr= (Heap_ptr)GET(gBin+gBinSize-1);
+        Heap_ptr cur_ptr= GET_PTR(gBin+gBinSize-1);
         if(cur_ptr!=NULL){
             Heap_ptr next_ptr = llGetNextBlock(cur_ptr);
             if (WORD_TO_BYTES(llGetDataSizeFromHeader(cur_ptr))>= in_iSizeInBytes)
             {
                 // Head is the target, need to change the head
                 ret = cur_ptr;
-                PUT((gBin+gBinSize-1), next_ptr);
+                PUT_PTR((gBin+gBinSize-1), next_ptr);
                 llDisconnectBlock(ret);
             } else {
                 cur_ptr = next_ptr;
@@ -530,7 +533,7 @@ eLLError llThrowInBin(Heap_ptr in_pHeapPtr) {
 
     int index = llGetBinningIndex(in_pHeapPtr);
     llPush(in_pHeapPtr,(Heap_ptr)GET(gBin+index));
-    PUT(gBin + index, in_pHeapPtr);
+    PUT_PTR(gBin + index, in_pHeapPtr);
     return eLLError_None;
 }
 
@@ -543,8 +546,8 @@ eLLError llThrowInBin(Heap_ptr in_pHeapPtr) {
  * Return: Error message
  */
 eLLError llPullFromList(Heap_ptr in_pBin, Heap_ptr in_pTarget) {
-    if(GET(in_pBin) == in_pTarget)
-        PUT(in_pBin,llGetNextBlock(in_pTarget));
+    if(GET_PTR(in_pBin) == in_pTarget)
+        PUT_PTR(in_pBin,llGetNextBlock(in_pTarget));
     llDisconnectBlock(in_pTarget);
     return eLLError_None;
 }
@@ -673,7 +676,7 @@ eLLError llCheckBlock(Heap_ptr in_pBlockPtr) {
  * Return: Error message
  */
 int llIsBlockInList(Heap_ptr in_pBin, Heap_ptr in_pBlockPtr) {
-    Heap_ptr start_block = GET(in_pBin);
+    Heap_ptr start_block = (Heap_ptr)GET(in_pBin);
     while (start_block != NULL) {
         if (start_block == in_pBlockPtr) {
             return 1;
