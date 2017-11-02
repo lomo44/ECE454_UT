@@ -107,6 +107,19 @@ typedef int BYTE;
 /*
  * Size of meta data in words
  * Over all a block (8 bytes each) will have the data structure like following
+ * 63______________________2___________1_________0
+ * |    Block Size (bytes) |unused bits|alloc bit|
+ * |_______________________|___________|_________|
+ * |    Pointer  to next free block in the BIN   |
+ * |_____________________________________________|
+ * |                                             |
+ * |                                             |
+ * |       data payload 16 byte aligned          |
+ * |_____________________________________________|
+ * |  Pointer to previous free block in the BIN  |
+ * |_____________________________________________|
+ * |    Block Size (bytes) |unused bits|alloc bit|
+ * |_____________________________________________|
  * BLOCK 1: Header [60'b data size in word,3'b000,allocation bit]
  * BLOCK 2: Pointer to next free block
  * BLOCK 3: data block align with 16 bytes
@@ -242,6 +255,7 @@ eLLError gError;
 /* Function: llPrintBlock
  * -------------------------------------------------------------
  * Print out information of one block, use for sel debug only
+ * Input:
  * in_pBlockPtr: pointer to a heap block
  */
 void llPrintBlock(Heap_ptr in_pBlockPtr) {
@@ -256,10 +270,11 @@ void llPrintBlock(Heap_ptr in_pBlockPtr) {
 /* Function: llGetAllignedSizeInBytes
  * -------------------------------------------------------------
  * Get aligned size from in_iInput
+ * Input:
  * in_iInput:input size in bytes
  * in_iAlignment: alignment, must be a power of 2
  *
- * Return aligned size in bytes
+ * Return: aligned size in bytes
  */
 BYTE llGetAllignedSizeInBytes(BYTE in_iInput, int in_iAlignment) {
     if ((in_iInput & ((1 << in_iAlignment) - 1)) > 0)
@@ -271,6 +286,7 @@ BYTE llGetAllignedSizeInBytes(BYTE in_iInput, int in_iAlignment) {
 /* Function: llExtendHeap
  * -------------------------------------------------------------
  * extend heap size
+ * Input:
  * in_iExtendSize:request extra heap size
  *
  * Return: the point to the beginning of extended heap or error if failed
@@ -311,6 +327,7 @@ eLLError llInitBin() {
 /* Function: llMarkBlockAllocationBit
  * -----------------------------------------
  * change the allocation inform of a block
+ * Input:
  * in_pBlockPtr: pointer to a block
  * in_bAllocated: allocation inform (0=not used,1= used)
  *
@@ -327,6 +344,7 @@ eLLError llMarkBlockAllocationBit(Heap_ptr in_pBlockPtr, int in_bAllocated) {
 /* Function llInitBlock
  * ------------------------
  * Initialize the block (with all meta data)
+ * Input:
  * in_pInputPtr: pointer to heap block
  * in_iBlockSizeInWord: desire block size with meta data
  *
@@ -350,6 +368,7 @@ eLLError llInitBlock(Heap_ptr in_pInputPtr, WORD in_iBlockSizeInWord) {
 /* Function llAllocFromHeap
  * ------------------------
  * Initialize the block from heap(with all meta data)
+ * Input:
  * io_pOutputPtr: pointer to data block
  * in_iSizeInBytes: desire block size with meta data
  *
@@ -380,6 +399,7 @@ eLLError llAllocFromHeap(size_t in_iSizeInBytes, Data_ptr *io_pOutputPtr) {
 /* Main Sub Function llAllocFromHeap
  * ------------------------
  * Initialize the block from bin (initialized free block)(with all meta data)
+ * Input:
  * io_pOutputPtr: pointer to data block
  * in_iSizeInBytes: desire block size with meta data
  *
@@ -459,6 +479,7 @@ eLLError llAllocFromBin(BYTE in_iSizeInBytes, Data_ptr *io_pOutputPtr) {
 /* Helping Function: llGetSplitedRemainderSize
  * -----------------------------------
  * calculate the remaining data size (no meta) after split
+ * Input:
  * in_iTotalDataSize: total block size (with meta) available
  * in_iTargetSize: desire data (no meta)size
  *
@@ -477,6 +498,7 @@ WORD llGetSplitedRemainderSize(WORD in_iTotalDataSize, WORD in_iTargetSize) {
 /* Helping Function: llGetMaximumExtendableSize
  * -----------------------------------
  * calculate the maximum extendable size of heap
+ * Input:
  * in_pPtr: pointer to a heap
  * in_iTargetSize: desire data (no meta)size
  *
@@ -499,7 +521,8 @@ WORD llGetMaximumExtendableSize(Heap_ptr in_pPtr) {
 /* Helping Function: llThrowInBin
  * -----------------------------------
  * free a used data block and put it back to Bin
- * in_pHeapPtr: pointer to the bloack
+ * Input:
+ * in_pHeapPtr: pointer to the block
  *
  * Return: Error Message
  */
@@ -514,6 +537,7 @@ eLLError llThrowInBin(Heap_ptr in_pHeapPtr) {
 /* Helping Function llPullFromBin
  * ---------------------
  * This function pull one specific block from a specific link list in BIN
+ * Input:
  * in_pHeapPtr: pointer to the block
  *
  * Return: Error message
@@ -528,6 +552,7 @@ eLLError llPullFromList(Heap_ptr in_pBin, Heap_ptr in_pTarget) {
 /* Helping Function llPullFromBin
  * ---------------------
  * This function pull one specific block from BIN
+ * Input:
  * in_pHeapPtr: pointer to the block
  *
  * Return: Error message
@@ -541,6 +566,7 @@ eLLError llPullFromBin(Heap_ptr in_pHeapPtr) {
 /* Helping Function llMergeBlock
  * ---------------------
  * Merge up to three free block into one. assume merged block is free and contain no data
+ * Input:
  * in_pInputPtrA: pointer to the free block A
  * in_pInputPtrB: pointer to the free block B
  * io_pOutputPtr: pointer to the merged new block
@@ -565,6 +591,7 @@ eLLError llMergeBlock(Heap_ptr in_pInputPtrA, Heap_ptr in_pInputPtrB, Heap_ptr *
 /* Helping Function llSplitBlock
  * ---------------------
  * Split one free block into two. assume split legal
+ * Input:
  * in_pInputPtr: pointer to the free block
  * in_pRecipe: desire division of the block
  * io_pOutputPtrA: pointer to the free block A
@@ -585,7 +612,8 @@ eLLError llSplitBlock(Heap_ptr in_pInputPtr, llSplitRecipe *in_pRecipe, Heap_ptr
 
 /* Helping Function llCopyBlock
  * ---------------------
- * one block's data into another blcok. assume copy legal
+ * one block's data into another block. assume copy legal
+ * Input:
  * in_pFrom: pointer to the block hold the data
  * in_pTo: pointer to the empty block
  * in_iCopySize: data size need to copy in 8 bytes
@@ -605,6 +633,7 @@ eLLError llCopyBlock(Heap_ptr in_pFrom, Heap_ptr in_pTo, int in_iCopySize) {
  * --------------------------------
  * This function is used to check the correctness of a specific block
  * This is ued only when HEAP_CHECK_ENABLE == 1
+ * Input:
  * in_pBlockPtr: pointer to the heap block
  *
  * Return: Error message
@@ -637,6 +666,7 @@ eLLError llCheckBlock(Heap_ptr in_pBlockPtr) {
  * --------------------------------
  * This function is used to check if one specific block is in the BIN
  * This is ued only when HEAP_CHECK_ENABLE == 1
+ * Input:
  * in_pBin: pointer to the BIN
  * in_pBlockPtr: pointer to the heap block
  *
@@ -657,6 +687,7 @@ int llIsBlockInList(Heap_ptr in_pBin, Heap_ptr in_pBlockPtr) {
  * --------------------------------
  * This function is used to check the correctness of a block in the BIN
  * This is ued only when HEAP_CHECK_ENABLE == 1
+ * Input:
  * in_pBlockPtr: pointer to BIN
  *
  * Return: Error message
@@ -716,7 +747,7 @@ eLLError llCheckHeap() {
  * This function will free a data blocks
  * When program frees a block, it will looks at previous block and next block in the heap to check
  * if it is possible to merge. After merging, it will put the blocks into the bin for future re-use
- *
+ * Input:
  * in_pDataPtr: pointer to the data bloack needs to be free
  *
  * Return: Error message
@@ -763,7 +794,7 @@ eLLError llFree(Data_ptr in_pDataPtr) {
  * If there is no usable blocks from the BIN, the program will extend the heap (at least 256 bytes)to alloc the block
  * The free second-hand blocks may have different size from the design size, so the program will check kif the free
  * second-hand block is splittable. If yes, it will split the block and put the not used on back to BIN
- *
+ * Input:
  * in_iSize: desire size
  *
  * Return pointer to the data block
@@ -848,7 +879,7 @@ eLLError llInit() {
  *   1. if the block is following by a large enough free block  => extend the block
  *   2. if the block not available to extend                    => allocate a new block, copy data, free old block
  *
- *
+ * Input:
  * in_pDataPtr: pointer to the data block
  * in_iSize: the desire new size (in bytes, not include meta data)
  *
