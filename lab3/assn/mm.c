@@ -107,7 +107,7 @@ typedef int BYTE;
 /*
  * Size of meta data in words
  * Over all a block (8 bytes each) will have the data structure like following
- * 63______________________2___________1_________0
+ * 63______________________3___________1_________0
  * |    Block Size (bytes) |unused bits|alloc bit|
  * |_______________________|___________|_________|
  * |    Pointer  to next free block in the BIN   |
