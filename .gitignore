@@ -1,0 +1,9 @@
+
+# Some ignoring file for the lab4
+lab4/allocators/alloclibs/*
+lab4/allocators/kheap/*
+lab4/allocators/libc/*
+lab4/allocators/alloc/*.o
+lab4/benchmarks/*
+lab4/include/*
+lab4/util/*
