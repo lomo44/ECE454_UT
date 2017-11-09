@@ -238,6 +238,44 @@ typedef struct _llSplitRecipe {
     int m_iBlockBSize;
 } llSplitRecipe;
 
+#define LAB4_START 1
+#if LAB4_START
+#define NUM_OF_AREANA 4
+#define ARENA_INITIAL_SIZE 8000
+
+typedef int llArenaID;
+
+typedef struct _llArenaContext {
+	llArenaID m_iArenaID;
+	int m_iArenaSize;
+	Heap_ptr m_pBins[BIN_SIZE];
+	pthread_mutex_t m_ArenaLock;
+} llArenaContext;
+
+typedef struct _llControlContext {
+	llArenaContext m_pArenas[NUM_OF_AREANA];
+	pthread_mutex_t m_iHeapLock;
+} llControlContext;
+
+/** New global variables **/
+llControlContext* gControlContext = NULL;
+
+
+#define llCreateOnHeap(__type) (__type*)(mem_sbrk(sizeof(__type)))
+#define llGetArenaIDFromHeapPtr(x) ((llArenaID)((GET(x) & 15) >> 1))
+
+eLLError llInitControlContext();
+eLLError llInitArenaContexts();
+eLLError llInitArena(Heap_ptr in_pHeapPtr);
+eLLError llExtendArena(llArenaID in_iArenaID, int in_iSize);
+
+/** Call this function to try lock one of the arenas **/
+eLLError llLockArena(llArenaID* io_iArenaID);
+eLLError llUnlockArena(llArenaID in_iArenaID);
+
+
+#endif
+
 /*********************************************
  * Global values define
  *********************************************/
