@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "malloc.h": "c"
+        "malloc.h": "c",
+        "pthread.h": "c"
     }
 }
