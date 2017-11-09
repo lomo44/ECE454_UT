@@ -127,7 +127,7 @@ typedef int BYTE;
  * BLOCK 4: Pointer to previous free block
  * BLOCK 5: Footer block [60'b data size in word,3'b000,allocation bit]
  */
-#define META_DATA_WORD (PROLOGUE_OFFSET+EPILOGUE_OFFSET)
+#define BLOCK_META_SIZE_WORD (PROLOGUE_OFFSET+EPILOGUE_OFFSET)
 //Define of block is used
 #define BLOCK_ALLOCATED 1
 //Define of block is free
@@ -175,9 +175,9 @@ typedef int BYTE;
 // returns the data size in the heap blocks
 #define llGetDataSizeFromHeader(x) (GET(x)>>MALLOC_ALIGNMENT)
 // return the pointer to previous heap block in memory space
-#define llGetPrevHeapPtrFromHeapPtr(x) ((x-llGetDataSizeFromHeader(x-1)-META_DATA_WORD))
+#define llGetPrevHeapPtrFromHeapPtr(x) ((x-llGetDataSizeFromHeader(x-1)-BLOCK_META_SIZE_WORD))
 // return the pointer to nexp heap block in memory space
-#define llGetNextHeapPtrFromHeapPtr(x) ((x+META_DATA_WORD+llGetDataSizeFromHeader(x)))
+#define llGetNextHeapPtrFromHeapPtr(x) ((x+BLOCK_META_SIZE_WORD+llGetDataSizeFromHeader(x)))
 
 // set the next  free block linked in the BIN
 #define llSetNextBlock(x, target) (PUT_PTR((x+HEADER_OFFSET),target))
@@ -228,7 +228,10 @@ typedef enum _eLLError {
     eLLError_mismatch_magic_number = 6,
     eLLError_Non_Empty_Next_Ptr = 7,
     eLLError_data_not_align = 8,
-    eLLError_zero_size_block = 9,
+	eLLError_zero_size_block = 9,
+	eLLError_arena_busy = 10,
+	eLLError_arena_full = 11,
+	eLLError_target_initialized = 12,
     eLLError_None = 0
 } eLLError;
 
@@ -242,7 +245,9 @@ typedef struct _llSplitRecipe {
 #if LAB4_START
 #define NUM_OF_AREANA 4
 #define ARENA_INITIAL_SIZE 8000
-
+#define ARENA_PROLOGUE_SIZE 1
+#define ARENA_EPILOGUE_SIZE 1
+#define ARENA_META_SIZE (ARENA_EPILOGUE_SIZE+ARENA_PROLOGUE_SIZE)
 typedef int llArenaID;
 
 typedef struct _llArenaContext {
@@ -263,15 +268,74 @@ llControlContext* gControlContext = NULL;
 
 #define llCreateOnHeap(__type) (__type*)(mem_sbrk(sizeof(__type)))
 #define llGetArenaIDFromHeapPtr(x) ((llArenaID)((GET(x) & 15) >> 1))
+#define llSetArenaIDToHeapPtr(x,id) PUT(x,(GET(x)& ((~15)+1) | (id << 1))) 
 
-eLLError llInitControlContext();
-eLLError llInitArenaContexts();
-eLLError llInitArena(Heap_ptr in_pHeapPtr);
-eLLError llExtendArena(llArenaID in_iArenaID, int in_iSize);
+eLLError llInitArena(Heap_ptr in_pHeapPtr, int in_iArenaSizeInWord){
+    // Set prologue 
+    PUT(in_pHeapPtr,PACK((in_iArenaSizeInWord) << MALLOC_ALIGNMENT,1));
+    // Set epilogue
+    PUT(in_pHeapPtr+in_iArenaSizeInWord, PACK((in_iArenaSizeInWord) << MALLOC_ALIGNMENT,1));
+}
+eLLError llExtendArena(llArenaID in_iArenaID, int in_iSizeInWord){
+    int target_size = MAX(in_iSizeInWord, ARENA_INITIAL_SIZE);
+    Heap_ptr* extended_ptr = mem_sbrk(WORD_TO_BYTES(target_size));
+    if(extended_ptr!=NULL){
+        llInitArena(extended_ptr,in_iSizeInWord);
+        return eLLError_None;
+    }
+    else{
+        return eLLError_allocation_fail;
+    }
+}
+eLLError llInitControlContext(){
+	if(gControlContext==NULL){
+		Heap_ptr* tmpControlContext = llCreateOnHeap(llControlContext);
+		if(tmpControlContext!=NULL){
+			gControlContext = tmpControlContext;
+			return eLLError_None;
+		}
+		return eLLError_allocation_fail;
+	}
+	return eLLError_target_initialized;
+}
+eLLError llInitArenaContexts(){
+	if(gControlContext!=NULL){
+		int i;
+		for(i = 0 ; i < NUM_OF_AREANA; i++){
+            // Initialize arena ID
+            gControlContext->m_pArenas[i].m_iArenaID = i;
+            // Initialize arena lock
+            pthread_mutex_init(&gControlContext->m_pArenas[i].m_ArenaLock,NULL);
+            // Initialize arena size
+            gControlContext->m_pArenas[i].m_iArenaSize = ARENA_INITIAL_SIZE;
+        }
+	}
+}
+
+
 
 /** Call this function to try lock one of the arenas **/
-eLLError llLockArena(llArenaID* io_iArenaID);
-eLLError llUnlockArena(llArenaID in_iArenaID);
+eLLError llLockArena(llArenaID* io_iArenaID){
+    llArenaID target_arena = -1;
+    int i;
+    // iterate through every possible arena and try to gain a lock for it.
+    for(int i = 0; i < NUM_OF_AREANA; i++){
+        if(pthread_mutex_trylock(&gControlContext->m_pArenas[i].m_ArenaLock)==0){
+            target_arena = i;
+        }
+    }
+    if(target_arena==-1){
+        // We have not aquired any lock, wait for an arena based on its thread id
+        pthread_t id = pthread_self();
+        target_arena = id&NUM_OF_AREANA;
+        pthread_mutex_lock(&gControlContext->m_pArenas[target_arena].m_ArenaLock);
+    }
+    *io_iArenaID = target_arena;
+    return eLLError_None;
+}
+eLLError llUnlockArena(llArenaID in_iArenaID){
+    pthread_mutex_unlock(&gControlContext->m_pArenas[in_iArenaID].m_ArenaLock);
+}
 
 
 #endif
@@ -394,7 +458,7 @@ eLLError llMarkBlockAllocationBit(Heap_ptr in_pBlockPtr, int in_bAllocated) {
  */
 eLLError llInitBlock(Heap_ptr in_pInputPtr, WORD in_iBlockSizeInWord) {
     //llPrintBlock(llGetPrevHeapPtrFromHeapPtr(in_pInputPtr));
-    WORD data_size_in_dword = in_iBlockSizeInWord - META_DATA_WORD;
+    WORD data_size_in_dword = in_iBlockSizeInWord - BLOCK_META_SIZE_WORD;
     // Place the header
     PUT(in_pInputPtr, PACK(data_size_in_dword << MALLOC_ALIGNMENT, 1));
     // initialize the previous ptr
@@ -420,7 +484,7 @@ eLLError llAllocFromHeap(size_t in_iSizeInBytes, Data_ptr *io_pOutputPtr) {
     // get the corresponding alignment size
     WORD aligned_size = BYTES_TO_WORD(llGetAllignedSizeInBytes(in_iSizeInBytes, MALLOC_ALIGNMENT));
     // Calculate the real block size
-    WORD block_size = aligned_size + META_DATA_WORD;
+    WORD block_size = aligned_size + BLOCK_META_SIZE_WORD;
     // Allocate a new block from heap
     Heap_ptr bp = llExtendHeap(WORD_TO_BYTES(block_size));
     if (bp == INVALID_HEAP_PTR) {
@@ -528,7 +592,7 @@ eLLError llAllocFromBin(BYTE in_iSizeInBytes, Data_ptr *io_pOutputPtr) {
  * Return: remain data size (no meta)
  */
 WORD llGetSplitedRemainderSize(WORD in_iTotalDataSize, WORD in_iTargetSize) {
-    WORD remain_size = in_iTotalDataSize - in_iTargetSize - META_DATA_WORD;
+    WORD remain_size = in_iTotalDataSize - in_iTargetSize - BLOCK_META_SIZE_WORD;
     if (remain_size < 4) {
         //printf("Error: Try to split size %d from size %d\n", in_iTargetSize, in_iTotalDataSize);
         return 0;
@@ -551,7 +615,7 @@ WORD llGetMaximumExtendableSize(Heap_ptr in_pPtr) {
     Heap_ptr cur_ptr = llGetNextHeapPtrFromHeapPtr(in_pPtr);
     while (cur_ptr < gHeapEnd) {
         if (llIsBlockFree(cur_ptr)) {
-            max_size += (llGetDataSizeFromHeader(cur_ptr) + META_DATA_WORD);
+            max_size += (llGetDataSizeFromHeader(cur_ptr) + BLOCK_META_SIZE_WORD);
         } else {
             break;
         }
@@ -616,8 +680,8 @@ eLLError llPullFromBin(Heap_ptr in_pHeapPtr) {
  * Return: Error message
  */
 eLLError llMergeBlock(Heap_ptr in_pInputPtrA, Heap_ptr in_pInputPtrB, Heap_ptr *io_pOutputPtr) {
-    WORD block_A_size = llGetDataSizeFromHeader (in_pInputPtrA) + META_DATA_WORD;
-    WORD block_B_size = llGetDataSizeFromHeader (in_pInputPtrB) + META_DATA_WORD;
+    WORD block_A_size = llGetDataSizeFromHeader (in_pInputPtrA) + BLOCK_META_SIZE_WORD;
+    WORD block_B_size = llGetDataSizeFromHeader (in_pInputPtrB) + BLOCK_META_SIZE_WORD;
     //let the merged get be the previous block
     if (in_pInputPtrA < in_pInputPtrB) {
         *io_pOutputPtr = in_pInputPtrA;
@@ -642,8 +706,8 @@ eLLError llMergeBlock(Heap_ptr in_pInputPtrA, Heap_ptr in_pInputPtrB, Heap_ptr *
  * Return: Error message
  */
 eLLError llSplitBlock(Heap_ptr in_pInputPtr, llSplitRecipe *in_pRecipe, Heap_ptr *io_pOutputPtrA, Heap_ptr *io_pOutputPtrB) {
-    WORD block_A_size = in_pRecipe->m_iBlockASize + META_DATA_WORD;
-    WORD block_B_size = in_pRecipe->m_iBlockBSize + META_DATA_WORD;
+    WORD block_A_size = in_pRecipe->m_iBlockASize + BLOCK_META_SIZE_WORD;
+    WORD block_B_size = in_pRecipe->m_iBlockBSize + BLOCK_META_SIZE_WORD;
     *io_pOutputPtrA = in_pInputPtr;
     llInitBlock(*io_pOutputPtrA, block_A_size);
     *io_pOutputPtrB = in_pInputPtr + block_A_size;
@@ -863,7 +927,7 @@ Data_ptr llAlloc(int in_iSize) {
             int real_data_size = BYTES_TO_WORD(llGetAllignedSizeInBytes(in_iSize, MALLOC_ALIGNMENT));
             // Get the remainder size after spliting the main block
 
-            if(block_size-META_DATA_WORD > real_data_size){
+            if(block_size-BLOCK_META_SIZE_WORD > real_data_size){
                 int remainder_size = llGetSplitedRemainderSize(block_size, real_data_size);
                 // If the remainder size is greater than 0 (splitable)
                 if (remainder_size > SPLIT_THRESHOLD) {
@@ -946,10 +1010,10 @@ Data_ptr llRealloc(Data_ptr in_pDataPtr, int in_iSize) {
         // Check next block
         Heap_ptr  next_block = llGetNextHeapPtrFromHeapPtr(ptr);
         if(llIsBlockFree(next_block)){
-            WORD potential_size = llGetDataSizeFromHeader(next_block)+META_DATA_WORD+llGetDataSizeFromHeader(ptr);
+            WORD potential_size = llGetDataSizeFromHeader(next_block)+BLOCK_META_SIZE_WORD+llGetDataSizeFromHeader(ptr);
             if(WORD_TO_BYTES(potential_size)>=in_iSize){
                 llPullFromBin(next_block);
-                llInitBlock(ptr,potential_size+META_DATA_WORD);
+                llInitBlock(ptr,potential_size+BLOCK_META_SIZE_WORD);
             #if HEAP_CHECK_ENABLE
                 gError = llCheckHeap();
                 if (gError != eLLError_None)
