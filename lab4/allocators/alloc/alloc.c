@@ -955,6 +955,7 @@ eLLError llLockArena(llArenaID* io_iArenaID){
     for(int i = 0; i < NUM_OF_AREANA; i++){
         if(pthread_mutex_trylock(&gControlContext->m_pArenas[i].m_ArenaLock)==0){
             target_arena = i;
+            break;
         }
     }
     if(target_arena==-1){
@@ -1008,15 +1009,10 @@ Data_ptr llFree(void* bp){
  * Return Error message
  */
 eLLError llInit() {
-    llInitBin();
-    Heap_ptr ret = llExtendHeap(WORD_TO_BYTES(GUARD_SIZE) * 2);
-    //initialize a top guard block
-    llInitBlock(ret, 4,0);
-    gHeapStart = ret+GUARD_SIZE;
-    //initialize a bottom guard block
-    llInitBlock(ret + 4, 4,0);
-    gHeapEnd = ret+GUARD_SIZE;
-    return eLLError_None;
+    eLLError error;
+    error = llCreateControlContext();
+    error = llInitControlContext();
+    return error;
 }
 pthread_mutex_t malloc_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -1037,9 +1033,7 @@ int mm_init(void) {
  * Free the block and coalesce with neighbouring blocks
  **********************************************************/
 void mm_free(void *bp) {
-    pthread_mutex_lock(&malloc_lock);
-    llFreeToBin(bp,gBin );
-    pthread_mutex_unlock(&malloc_lock);
+    llFree(bp);
 }
 
 
@@ -1052,11 +1046,7 @@ void mm_free(void *bp) {
  * If no block satisfies the request, the heap is extended
  **********************************************************/
 void *mm_malloc(size_t size) {
-    Data_ptr ll_data_point;
-    pthread_mutex_lock(&malloc_lock);
-    ll_data_point= llAlloc(size);
-    pthread_mutex_unlock(&malloc_lock);
-    return ll_data_point;
+    return llAlloc(size);
 }
 
 /**********************************************************
