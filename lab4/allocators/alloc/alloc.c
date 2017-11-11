@@ -1015,7 +1015,7 @@ eLLError llAllocFromArena(int in_iSize,llArenaID in_iArenaID,Data_ptr* io_pPtr){
                     //then split the current plock
                     llSplitBlock(heap_ret, &newRecipe, &outptrA, &outptrB);
                     // Throw the remainder size into the bin
-                    llThrowInBin(outptrB);
+                    llThrowInArenaBin(outptrB,in_iArenaID);
                 }
             }
         }
@@ -1031,6 +1031,7 @@ eLLError llAllocFromArena(int in_iSize,llArenaID in_iArenaID,Data_ptr* io_pPtr){
     return ret;
 } //TODO: 
 eLLError llFreeToArena(Data_ptr* in_pPtr, llArenaID in_iArenaID); //TODO: 
+<<<<<<< HEAD
 eLLError llThrowInArenaBin(Heap_ptr in_pPtr, llArenaID in_iArenaID){
     Heap_ptr arena_bin = gControlContext->m_pArenas[in_iArenaID].m_pBins[0];
     return llThrowInBin(in_pPtr, arena_bin);
@@ -1042,6 +1043,9 @@ eLLError llInitArena(Heap_ptr in_pHeapPtr, int in_iArenaSizeInWord){
     PUT(in_pHeapPtr+in_iArenaSizeInWord+ARENA_PROLOGUE_SIZE, PACK((in_iArenaSizeInWord-ARENA_META_SIZE) << MALLOC_ALIGNMENT,1));
 }
 
+=======
+eLLError llThrowInArenaBin(Heap_ptr in_pPtr, llArenaID in_iArenaID); //TODO: 
+>>>>>>> 2445350c5c1af2e5d326e232bfda5bae28255b34
 
 eLLError llExtendArena(llArenaID in_iArenaID, int in_iSizeInWord){
     int target_size = MAX(in_iSizeInWord, ARENA_INITIAL_SIZE);
