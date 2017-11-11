@@ -505,7 +505,7 @@ eLLError llAllocFromBin(BYTE in_iSizeInBytes,Heap_ptr in_bin, llArenaID in_id, D
     if (ret != NULL) {
         // modified the allocation bit
         llMarkBlockAllocationBit(ret, BLOCK_ALLOCATED);
-        llSetArenaIDToHeapPtr(in_id);
+        llSetArenaIDToHeapPtr (in_id);
         *io_pOutputPtr = llGetDataPtrFromHeapPtr(ret);
         return eLLError_None;
     } else {
