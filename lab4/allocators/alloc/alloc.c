@@ -505,7 +505,7 @@ eLLError llAllocFromBin(BYTE in_iSizeInBytes,Heap_ptr in_bin, llArenaID in_id, D
     if (ret != NULL) {
         // modified the allocation bit
         llMarkBlockAllocationBit(ret, BLOCK_ALLOCATED);
-        llSetArenaIDToHeapPtr (in_id);
+        llSetArenaIDToHeapPtr(in_id);
         *io_pOutputPtr = llGetDataPtrFromHeapPtr(ret);
         return eLLError_None;
     } else {
@@ -795,7 +795,7 @@ eLLError llCheckHeap() {
  *
  * Return: Error message
  */
-eLLError llFree(Data_ptr in_pDataPtr) {
+eLLError llFree(Data_ptr in_pDataPtr, Heap_ptr in_pBinPtr) {
     // Convert the given data ptr to heap ptr
     Heap_ptr cur_ptr = llGetHeapPtrFromDataPtr(in_pDataPtr);
     // Deallocate the current block
@@ -811,16 +811,16 @@ eLLError llFree(Data_ptr in_pDataPtr) {
     // Check if previous block is free
     if (is_prev_free != BLOCK_FREE && llGetDataSizeFromHeader(prev_ptr) > FAST_BLOCK_SIZE && llAreBlocksInSameArena(prev_ptr,cur_ptr)) {
         // Previous block is free, merge current block with previous block
-        llPullFromBin(prev_ptr,gBin);
+        llPullFromBin(prev_ptr,in_pBinPtr);
         llMergeBlock(ret, prev_ptr, &ret);
     }
     if (is_next_free != BLOCK_FREE && llGetDataSizeFromHeader(next_ptr) > FAST_BLOCK_SIZE && llAreBlocksInSameArena(prev_ptr,cur_ptr)) {
         // Next block is free
-        llPullFromBin(next_ptr,gBin);
+        llPullFromBin(next_ptr,in_pBinPtr);
         llMergeBlock(ret, next_ptr, &ret);
     }
     // Throw the merged block into bin
-    llThrowInBin(ret,gBin);
+    llThrowInBin(ret,in_pBinPtr);
 #if HEAP_CHECK_ENABLE
     printf("Free: %llx\n", ret);
     gError = llCheckHeap();
@@ -939,7 +939,7 @@ Data_ptr llRealloc(Data_ptr in_pDataPtr, int in_iSize) {
         ret = llAlloc(in_iSize);
     } else if (in_iSize == 0) {
         // Size equal zero, basically free
-        llFree(in_pDataPtr);
+        llFree(in_pDataPtr,gBin);
     } else if (current_data_size >= in_iSize) {
         // Size doesn't change or has enough size, ignore
     } else {
@@ -964,7 +964,7 @@ Data_ptr llRealloc(Data_ptr in_pDataPtr, int in_iSize) {
         // copy the old data into the new data block
         llCopyBlock(ptr, new_heap_ptr, current_data_size);
         // Free the old data block
-        llFree(in_pDataPtr);
+        llFree(in_pDataPtr,gBin);
         ret = new_block;
     }
     #if HEAP_CHECK_ENABLE
@@ -1030,10 +1030,12 @@ eLLError llAllocFromArena(int in_iSize,llArenaID in_iArenaID,Data_ptr* io_pPtr){
 #endif
     return ret;
 } //TODO: 
-eLLError llFreeToArena(Data_ptr* in_pPtr, llArenaID in_iArenaID); //TODO: 
-<<<<<<< HEAD
+eLLError llFreeToArena(Data_ptr* in_pPtr, llArenaID in_iArenaID){
+    Heap_ptr bin_ptr = gControlContext->m_pArenas[in_iArenaID].m_pBins;
+    return llFree(in_pPtr,bin_ptr);
+}
 eLLError llThrowInArenaBin(Heap_ptr in_pPtr, llArenaID in_iArenaID){
-    Heap_ptr arena_bin = gControlContext->m_pArenas[in_iArenaID].m_pBins[0];
+    Heap_ptr arena_bin = gControlContext->m_pArenas[in_iArenaID].m_pBins;
     return llThrowInBin(in_pPtr, arena_bin);
 }
 eLLError llInitArena(Heap_ptr in_pHeapPtr, int in_iArenaSizeInWord){
@@ -1043,9 +1045,6 @@ eLLError llInitArena(Heap_ptr in_pHeapPtr, int in_iArenaSizeInWord){
     PUT(in_pHeapPtr+in_iArenaSizeInWord+ARENA_PROLOGUE_SIZE, PACK((in_iArenaSizeInWord-ARENA_META_SIZE) << MALLOC_ALIGNMENT,1));
 }
 
-=======
-eLLError llThrowInArenaBin(Heap_ptr in_pPtr, llArenaID in_iArenaID); //TODO: 
->>>>>>> 2445350c5c1af2e5d326e232bfda5bae28255b34
 
 eLLError llExtendArena(llArenaID in_iArenaID, int in_iSizeInWord){
     int target_size = MAX(in_iSizeInWord, ARENA_INITIAL_SIZE);
@@ -1134,7 +1133,7 @@ int mm_init(void) {
  **********************************************************/
 void mm_free(void *bp) {
     pthread_mutex_lock(&malloc_lock);
-    llFree(bp);
+    llFree(bp,gBin);
     pthread_mutex_unlock(&malloc_lock);
 }
 
