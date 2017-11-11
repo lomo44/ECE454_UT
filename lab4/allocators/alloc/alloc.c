@@ -795,7 +795,7 @@ eLLError llCheckHeap() {
  *
  * Return: Error message
  */
-eLLError llFree(Data_ptr in_pDataPtr) {
+eLLError llFree(Data_ptr in_pDataPtr, Heap_ptr in_pBinPtr) {
     // Convert the given data ptr to heap ptr
     Heap_ptr cur_ptr = llGetHeapPtrFromDataPtr(in_pDataPtr);
     // Deallocate the current block
@@ -811,16 +811,16 @@ eLLError llFree(Data_ptr in_pDataPtr) {
     // Check if previous block is free
     if (is_prev_free != BLOCK_FREE && llGetDataSizeFromHeader(prev_ptr) > FAST_BLOCK_SIZE && llAreBlocksInSameArena(prev_ptr,cur_ptr)) {
         // Previous block is free, merge current block with previous block
-        llPullFromBin(prev_ptr,gBin);
+        llPullFromBin(prev_ptr,in_pBinPtr);
         llMergeBlock(ret, prev_ptr, &ret);
     }
     if (is_next_free != BLOCK_FREE && llGetDataSizeFromHeader(next_ptr) > FAST_BLOCK_SIZE && llAreBlocksInSameArena(prev_ptr,cur_ptr)) {
         // Next block is free
-        llPullFromBin(next_ptr,gBin);
+        llPullFromBin(next_ptr,in_pBinPtr);
         llMergeBlock(ret, next_ptr, &ret);
     }
     // Throw the merged block into bin
-    llThrowInBin(ret,gBin);
+    llThrowInBin(ret,in_pBinPtr);
 #if HEAP_CHECK_ENABLE
     printf("Free: %llx\n", ret);
     gError = llCheckHeap();
@@ -840,6 +840,7 @@ eLLError llInitArena(Heap_ptr in_pHeapPtr, int in_iArenaSizeInWord){
     PUT(in_pHeapPtr+in_iArenaSizeInWord+ARENA_PROLOGUE_SIZE, PACK((in_iArenaSizeInWord-ARENA_META_SIZE) << MALLOC_ALIGNMENT,1));
 }
 
+<<<<<<< HEAD
 eLLError llExtendArena(llArenaID in_iArenaID, int in_iSizeInWord){
     int target_size = MAX(in_iSizeInWord, ARENA_INITIAL_SIZE);
     pthread_mutex_lock(&gControlContext->m_iHeapLock);
@@ -851,6 +852,62 @@ eLLError llExtendArena(llArenaID in_iArenaID, int in_iSizeInWord){
     }
     else{
         return eLLError_allocation_fail;
+=======
+/* Main Function llRealloc
+ * -------------------------------------------
+ * This function will re-alloc a data block with following cases
+ * 1)input pointer = NULL                                       => alloc a new block
+ * 2)desire size= 0                                             => free the block
+ * 3)same or smaller desire size                                => do nothing
+ * 4)larger desire size
+ *   1. if the block is following by a large enough free block  => extend the block
+ *   2. if the block not available to extend                    => allocate a new block, copy data, free old block
+ *
+ * Input:
+ * in_pDataPtr: pointer to the data block
+ * in_iSize: the desire new size (in bytes, not include meta data)
+ *
+ * Return: the pointer to the data block
+ */
+Data_ptr llRealloc(Data_ptr in_pDataPtr, int in_iSize) {
+    //cover the data block to heap pointer
+    Heap_ptr ptr = llGetHeapPtrFromDataPtr(in_pDataPtr);
+    // Getting the current data size
+    WORD current_data_size = WORD_TO_BYTES(llGetDataSizeFromHeader(ptr));
+    Data_ptr ret = in_pDataPtr;
+    if (in_pDataPtr == NULL) {
+        // If input data ptr is NULL, then allocate a new block
+        ret = llAlloc(in_iSize);
+    } else if (in_iSize == 0) {
+        // Size equal zero, basically free
+        llFree(in_pDataPtr,gBin);
+    } else if (current_data_size >= in_iSize) {
+        // Size doesn't change or has enough size, ignore
+    } else {
+        // Final Reallocation
+        // Check next block
+        Heap_ptr  next_block = llGetNextHeapPtrFromHeapPtr(ptr);
+        if(llIsBlockFree(next_block)){
+            WORD potential_size = llGetDataSizeFromHeader(next_block)+BLOCK_META_SIZE_WORD+llGetDataSizeFromHeader(ptr);
+            if(WORD_TO_BYTES(potential_size)>=in_iSize){
+                llPullFromBin(next_block,gBin);
+                llInitBlock(ptr,potential_size+BLOCK_META_SIZE_WORD,0);
+            #if HEAP_CHECK_ENABLE
+                gError = llCheckHeap();
+                if (gError != eLLError_None)
+                printf("Heap Error: %d\n", gError);
+            #endif
+            return llGetDataPtrFromHeapPtr(ptr);
+            }
+        }
+        Data_ptr new_block = llAlloc(in_iSize);
+        Heap_ptr new_heap_ptr = llGetHeapPtrFromDataPtr(new_block);
+        // copy the old data into the new data block
+        llCopyBlock(ptr, new_heap_ptr, current_data_size);
+        // Free the old data block
+        llFree(in_pDataPtr,gBin);
+        ret = new_block;
+>>>>>>> 83912e8140612f756aba1606345e79716b9bbfbe
     }
 }
 
@@ -910,7 +967,39 @@ eLLError llAllocFromArena(int in_iSize,llArenaID in_iArenaID,Data_ptr* io_pPtr){
     io_pPtr = ret;
     return error;
 } //TODO: 
+<<<<<<< HEAD
 eLLError llFreeToArena(Data_ptr* in_pPtr, llArenaID in_iArenaID); //TODO: 
+=======
+eLLError llFreeToArena(Data_ptr* in_pPtr, llArenaID in_iArenaID){
+    Heap_ptr bin_ptr = gControlContext->m_pArenas[in_iArenaID].m_pBins;
+    return llFree(in_pPtr,bin_ptr);
+}
+eLLError llThrowInArenaBin(Heap_ptr in_pPtr, llArenaID in_iArenaID){
+    Heap_ptr arena_bin = gControlContext->m_pArenas[in_iArenaID].m_pBins;
+    return llThrowInBin(in_pPtr, arena_bin);
+}
+eLLError llInitArena(Heap_ptr in_pHeapPtr, int in_iArenaSizeInWord){
+    // Set prologue 
+    PUT(in_pHeapPtr,PACK((in_iArenaSizeInWord-ARENA_META_SIZE) << MALLOC_ALIGNMENT,1));
+    // Set epilogue
+    PUT(in_pHeapPtr+in_iArenaSizeInWord+ARENA_PROLOGUE_SIZE, PACK((in_iArenaSizeInWord-ARENA_META_SIZE) << MALLOC_ALIGNMENT,1));
+}
+
+
+eLLError llExtendArena(llArenaID in_iArenaID, int in_iSizeInWord){
+    int target_size = MAX(in_iSizeInWord, ARENA_INITIAL_SIZE);
+    pthread_mutex_lock(&gControlContext->m_iHeapLock);
+    Heap_ptr extended_ptr = mem_sbrk(WORD_TO_BYTES(target_size));
+    pthread_mutex_lock(&gControlContext->m_iHeapLock);
+    if(extended_ptr!=NULL){
+        llInitArena(extended_ptr,in_iSizeInWord);
+        return eLLError_None;
+    }
+    else{
+        return eLLError_allocation_fail;
+    }
+}
+>>>>>>> 83912e8140612f756aba1606345e79716b9bbfbe
 
 eLLError llInitControlContext(){
 	if(gControlContext==NULL){
@@ -1019,7 +1108,7 @@ int mm_init(void) {
  **********************************************************/
 void mm_free(void *bp) {
     pthread_mutex_lock(&malloc_lock);
-    llFree(bp);
+    llFree(bp,gBin);
     pthread_mutex_unlock(&malloc_lock);
 }
 
