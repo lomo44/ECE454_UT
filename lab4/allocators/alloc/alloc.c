@@ -270,20 +270,20 @@ llControlContext* gControlContext = NULL;
 #define llGetArenaIDFromHeapPtr(x) ((llArenaID)((GET(x) & 15) >> 1))
 #define llSetArenaIDToHeapPtr(x,id) PUT(x,(GET(x)& ((~15)+1) | (id << 1))) 
 #define llGetArenaSizeFromHeapPtr(x) //TODO:
+#define llGetHeapPtrFromArenaPtr(x) //TODO:
 
 
 /** All of the allocation function belowed are not thread-safe, make sure you hold
  * the lock of the arena before you use any function **/
-eLLError llAllocFromArena(int in_iSize, Data_ptr* in_pPtr, llArenaID in_iArenaID);
-eLLError llFreeToArena(Data_ptr* in_pPtr, llArenaID in_iArenaID);
-eLLError llThrowInArenaBin(Heap_ptr in_pPtr, llArenaID in_iArenaID);
+eLLError llAllocFromArena(int in_iSize, Data_ptr* in_pPtr, llArenaID in_iArenaID); //TODO: 
+eLLError llFreeToArena(Data_ptr* in_pPtr, llArenaID in_iArenaID); //TODO: 
+eLLError llThrowInArenaBin(Heap_ptr in_pPtr, llArenaID in_iArenaID); //TODO: 
 
 eLLError llExtendArena(llArenaID in_iArenaID, int in_iSizeInWord){
     int target_size = MAX(in_iSizeInWord, ARENA_INITIAL_SIZE);
     pthread_mutex_lock(&gControlContext->m_iHeapLock);
     Heap_ptr* extended_ptr = mem_sbrk(WORD_TO_BYTES(target_size));
     pthread_mutex_lock(&gControlContext->m_iHeapLock);
-    //TODO: Add throw in bin to specifc arena
     if(extended_ptr!=NULL){
         llInitArena(extended_ptr,in_iSizeInWord);
         return eLLError_None;
