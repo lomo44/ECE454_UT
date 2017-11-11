@@ -241,118 +241,6 @@ typedef struct _llSplitRecipe {
     int m_iBlockBSize;
 } llSplitRecipe;
 
-#define LAB4_START 1
-#if LAB4_START
-#define NUM_OF_AREANA 4
-#define ARENA_INITIAL_SIZE 8000
-#define ARENA_PROLOGUE_SIZE 1
-#define ARENA_EPILOGUE_SIZE 1
-#define ARENA_META_SIZE (ARENA_EPILOGUE_SIZE+ARENA_PROLOGUE_SIZE)
-typedef int llArenaID;
-
-typedef struct _llArenaContext {
-	llArenaID m_iArenaID;
-	int m_iArenaSize;
-	Heap_ptr m_pBins[BIN_SIZE];
-	pthread_mutex_t m_ArenaLock;
-} llArenaContext;
-
-typedef struct _llControlContext {
-	llArenaContext m_pArenas[NUM_OF_AREANA];
-	pthread_mutex_t m_iHeapLock;
-} llControlContext;
-
-/** New global variables **/
-llControlContext* gControlContext = NULL;
-
-
-#define llCreateOnHeap(__type) (__type*)(mem_sbrk(sizeof(__type)))
-#define llGetArenaIDFromHeapPtr(x) ((llArenaID)((GET(x) & 15) >> 1))
-#define llSetArenaIDToHeapPtr(x,id) PUT(x,(GET(x)& ((~15)+1) | (id << 1))) 
-#define llGetArenaSizeFromHeapPtr(x) //TODO:
-#define llGetHeapPtrFromArenaPtr(x) //TODO:
-
-
-/** All of the allocation function belowed are not thread-safe, make sure you hold
- * the lock of the arena before you use any function **/
-eLLError llAllocFromArena(int in_iSize, Data_ptr* in_pPtr, llArenaID in_iArenaID); //TODO: 
-eLLError llFreeToArena(Data_ptr* in_pPtr, llArenaID in_iArenaID); //TODO: 
-eLLError llThrowInArenaBin(Heap_ptr in_pPtr, llArenaID in_iArenaID); //TODO: 
-
-eLLError llExtendArena(llArenaID in_iArenaID, int in_iSizeInWord){
-    int target_size = MAX(in_iSizeInWord, ARENA_INITIAL_SIZE);
-    pthread_mutex_lock(&gControlContext->m_iHeapLock);
-    Heap_ptr* extended_ptr = mem_sbrk(WORD_TO_BYTES(target_size));
-    pthread_mutex_lock(&gControlContext->m_iHeapLock);
-    if(extended_ptr!=NULL){
-        llInitArena(extended_ptr,in_iSizeInWord);
-        return eLLError_None;
-    }
-    else{
-        return eLLError_allocation_fail;
-    }
-}
-
-eLLError llInitArena(Heap_ptr in_pHeapPtr, int in_iArenaSizeInWord){
-    // Set prologue 
-    PUT(in_pHeapPtr,PACK((in_iArenaSizeInWord-ARENA_META_SIZE) << MALLOC_ALIGNMENT,1));
-    // Set epilogue
-    PUT(in_pHeapPtr+in_iArenaSizeInWord, PACK((in_iArenaSizeInWord-ARENA_META_SIZE) << MALLOC_ALIGNMENT,1));
-}
-
-eLLError llInitControlContext(){
-	if(gControlContext==NULL){
-		Heap_ptr* tmpControlContext = llCreateOnHeap(llControlContext);
-		if(tmpControlContext!=NULL){
-			gControlContext = tmpControlContext;
-			return eLLError_None;
-		}
-		return eLLError_allocation_fail;
-	}
-	return eLLError_target_initialized;
-}
-eLLError llInitArenaContexts(){
-	if(gControlContext!=NULL){
-		int i;
-		for(i = 0 ; i < NUM_OF_AREANA; i++){
-            // Initialize arena ID
-            gControlContext->m_pArenas[i].m_iArenaID = i;
-            // Initialize arena lock
-            pthread_mutex_init(&gControlContext->m_pArenas[i].m_ArenaLock,NULL);
-            // Initialize arena size
-            gControlContext->m_pArenas[i].m_iArenaSize = ARENA_INITIAL_SIZE;
-        }
-	}
-}
-
-
-
-/** Call this function to try lock one of the arenas **/
-eLLError llLockArena(llArenaID* io_iArenaID){
-    llArenaID target_arena = -1;
-    int i;
-    // iterate through every possible arena and try to gain a lock for it.
-    for(int i = 0; i < NUM_OF_AREANA; i++){
-        if(pthread_mutex_trylock(&gControlContext->m_pArenas[i].m_ArenaLock)==0){
-            target_arena = i;
-        }
-    }
-    if(target_arena==-1){
-        // We have not aquired any lock, wait for an arena based on its thread id
-        pthread_t id = pthread_self();
-        target_arena = id&NUM_OF_AREANA;
-        pthread_mutex_lock(&gControlContext->m_pArenas[target_arena].m_ArenaLock);
-    }
-    *io_iArenaID = target_arena;
-    return eLLError_None;
-}
-eLLError llUnlockArena(llArenaID in_iArenaID){
-    pthread_mutex_unlock(&gControlContext->m_pArenas[in_iArenaID].m_ArenaLock);
-}
-
-
-#endif
-
 /*********************************************
  * Global values define
  *********************************************/
@@ -1050,6 +938,118 @@ Data_ptr llRealloc(Data_ptr in_pDataPtr, int in_iSize) {
     #endif
     return ret;
 }
+
+#endif
+
+#define LAB4_START 1
+#if LAB4_START
+#define NUM_OF_AREANA 4
+#define ARENA_INITIAL_SIZE 8000
+#define ARENA_PROLOGUE_SIZE 1
+#define ARENA_EPILOGUE_SIZE 1
+#define ARENA_META_SIZE (ARENA_EPILOGUE_SIZE+ARENA_PROLOGUE_SIZE)
+typedef int llArenaID;
+
+typedef struct _llArenaContext {
+	llArenaID m_iArenaID;
+	int m_iArenaSize;
+	Heap_ptr m_pBins[BIN_SIZE];
+	pthread_mutex_t m_ArenaLock;
+} llArenaContext;
+
+typedef struct _llControlContext {
+	llArenaContext m_pArenas[NUM_OF_AREANA];
+	pthread_mutex_t m_iHeapLock;
+} llControlContext;
+
+/** New global variables **/
+llControlContext* gControlContext = NULL;
+
+
+#define llCreateOnHeap(__type) (__type*)(mem_sbrk(sizeof(__type)))
+#define llGetArenaIDFromHeapPtr(x) ((llArenaID)((GET(x) & 15) >> 1))
+#define llSetArenaIDToHeapPtr(x,id) PUT(x,(GET(x)& ((~15)+1) | (id << 1))) 
+#define llGetArenaSizeFromHeapPtr(x) //TODO:
+#define llGetHeapPtrFromArenaPtr(x) //TODO:
+
+
+/** All of the allocation function belowed are not thread-safe, make sure you hold
+ * the lock of the arena before you use any function **/
+eLLError llAllocFromArena(int in_iSize, Data_ptr* in_pPtr, llArenaID in_iArenaID); //TODO: 
+eLLError llFreeToArena(Data_ptr* in_pPtr, llArenaID in_iArenaID); //TODO: 
+eLLError llThrowInArenaBin(Heap_ptr in_pPtr, llArenaID in_iArenaID); //TODO: 
+
+eLLError llExtendArena(llArenaID in_iArenaID, int in_iSizeInWord){
+    int target_size = MAX(in_iSizeInWord, ARENA_INITIAL_SIZE);
+    pthread_mutex_lock(&gControlContext->m_iHeapLock);
+    Heap_ptr* extended_ptr = mem_sbrk(WORD_TO_BYTES(target_size));
+    pthread_mutex_lock(&gControlContext->m_iHeapLock);
+    if(extended_ptr!=NULL){
+        llInitArena(extended_ptr,in_iSizeInWord);
+        return eLLError_None;
+    }
+    else{
+        return eLLError_allocation_fail;
+    }
+}
+
+eLLError llInitArena(Heap_ptr in_pHeapPtr, int in_iArenaSizeInWord){
+    // Set prologue 
+    PUT(in_pHeapPtr,PACK((in_iArenaSizeInWord-ARENA_META_SIZE) << MALLOC_ALIGNMENT,1));
+    // Set epilogue
+    PUT(in_pHeapPtr+in_iArenaSizeInWord, PACK((in_iArenaSizeInWord-ARENA_META_SIZE) << MALLOC_ALIGNMENT,1));
+}
+
+eLLError llInitControlContext(){
+	if(gControlContext==NULL){
+		Heap_ptr* tmpControlContext = llCreateOnHeap(llControlContext);
+		if(tmpControlContext!=NULL){
+			gControlContext = tmpControlContext;
+			return eLLError_None;
+		}
+		return eLLError_allocation_fail;
+	}
+	return eLLError_target_initialized;
+}
+eLLError llInitArenaContexts(){
+	if(gControlContext!=NULL){
+		int i;
+		for(i = 0 ; i < NUM_OF_AREANA; i++){
+            // Initialize arena ID
+            gControlContext->m_pArenas[i].m_iArenaID = i;
+            // Initialize arena lock
+            pthread_mutex_init(&gControlContext->m_pArenas[i].m_ArenaLock,NULL);
+            // Initialize arena size
+            gControlContext->m_pArenas[i].m_iArenaSize = ARENA_INITIAL_SIZE;
+        }
+	}
+}
+
+
+
+/** Call this function to try lock one of the arenas **/
+eLLError llLockArena(llArenaID* io_iArenaID){
+    llArenaID target_arena = -1;
+    int i;
+    // iterate through every possible arena and try to gain a lock for it.
+    for(int i = 0; i < NUM_OF_AREANA; i++){
+        if(pthread_mutex_trylock(&gControlContext->m_pArenas[i].m_ArenaLock)==0){
+            target_arena = i;
+        }
+    }
+    if(target_arena==-1){
+        // We have not aquired any lock, wait for an arena based on its thread id
+        pthread_t id = pthread_self();
+        target_arena = id&NUM_OF_AREANA;
+        pthread_mutex_lock(&gControlContext->m_pArenas[target_arena].m_ArenaLock);
+    }
+    *io_iArenaID = target_arena;
+    return eLLError_None;
+}
+eLLError llUnlockArena(llArenaID in_iArenaID){
+    pthread_mutex_unlock(&gControlContext->m_pArenas[in_iArenaID].m_ArenaLock);
+}
+
 
 #endif
 
