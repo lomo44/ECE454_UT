@@ -254,6 +254,38 @@ Heap_ptr gHeapStart;
 Heap_ptr gHeapEnd;
 //Error Message
 eLLError gError;
+#define LAB4_START 1
+#if LAB4_START
+#define NUM_OF_AREANA 4
+#define ARENA_INITIAL_SIZE 8000
+#define ARENA_PROLOGUE_SIZE 1
+#define ARENA_EPILOGUE_SIZE 1
+#define ARENA_META_SIZE (ARENA_EPILOGUE_SIZE+ARENA_PROLOGUE_SIZE)
+typedef int llArenaID;
+
+typedef struct _llArenaContext {
+	llArenaID m_iArenaID;
+	int m_iArenaSize;
+	Heap_ptr m_pBins[BIN_SIZE];
+	pthread_mutex_t m_ArenaLock;
+} llArenaContext;
+
+typedef struct _llControlContext {
+	llArenaContext m_pArenas[NUM_OF_AREANA];
+	pthread_mutex_t m_iHeapLock;
+} llControlContext;
+
+/** New global variables **/
+llControlContext* gControlContext = NULL;
+
+
+#define llCreateOnHeap(__type) (__type*)(mem_sbrk(sizeof(__type)))
+#define llGetArenaIDFromHeapPtr(x) ((llArenaID)((GET(x) & 15) >> 1))
+#define llSetArenaIDToHeapPtr(x,id) PUT(x,(GET(x)& ((~15)+1) | (id << 1))) 
+#define llGetArenaSizeFromHeapPtr(x) //TODO:
+#define llGetHeapPtrFromArenaPtr(x) //TODO:
+#define llAreBlocksInSameArena(x,y) ((llGetArenaIDFromHeapPtr(x))==(llGetArenaIDFromHeapPtr(y)))
+#endif
 
 /*********************************************
  * Helping functions
@@ -357,18 +389,19 @@ eLLError llMarkBlockAllocationBit(Heap_ptr in_pBlockPtr, int in_bAllocated) {
  *
  * Return: error message
  */
-eLLError llInitBlock(Heap_ptr in_pInputPtr, WORD in_iBlockSizeInWord) {
+//TODO: Change function description
+eLLError llInitBlock(Heap_ptr in_pInputPtr, WORD in_iBlockSizeInWord, llArenaID in_iArenaID) {
     //llPrintBlock(llGetPrevHeapPtrFromHeapPtr(in_pInputPtr));
     WORD data_size_in_dword = in_iBlockSizeInWord - BLOCK_META_SIZE_WORD;
     // Place the header
-    PUT(in_pInputPtr, PACK(data_size_in_dword << MALLOC_ALIGNMENT, 1));
+    PUT(in_pInputPtr, PACK((data_size_in_dword << MALLOC_ALIGNMENT) | (in_iArenaID << 1), 1));
     // initialize the previous ptr
     llSetPrevBlock(in_pInputPtr,NULL);
     // initialize the next ptr
     llSetNextBlock(in_pInputPtr,NULL);
     // initialize the footer
     PUT(in_pInputPtr + PROLOGUE_OFFSET + data_size_in_dword + PREVIOUS_PTR_OFFSET,
-        PACK(data_size_in_dword << MALLOC_ALIGNMENT, 1));
+        PACK((data_size_in_dword << MALLOC_ALIGNMENT) | (in_iArenaID << 1) << MALLOC_ALIGNMENT, 1));
     return eLLError_None;
 }
 
@@ -393,10 +426,10 @@ eLLError llAllocFromHeap(size_t in_iSizeInBytes, Data_ptr *io_pOutputPtr) {
     } else {
         // Initialize the block
         // use bp-GUARD_SIZE re over-write the last bottom heap guard block
-        llInitBlock(bp - GUARD_SIZE, block_size);
+        llInitBlock(bp - GUARD_SIZE, block_size,0);
         gHeapEnd  = bp-GUARD_SIZE+block_size;
         // re-init a bottom guard block
-        llInitBlock((bp - GUARD_SIZE + block_size), GUARD_SIZE);
+        llInitBlock((bp - GUARD_SIZE + block_size), GUARD_SIZE,0);
         *io_pOutputPtr = llGetDataPtrFromHeapPtr(bp - GUARD_SIZE);
         return eLLError_None;
     }
@@ -533,11 +566,11 @@ WORD llGetMaximumExtendableSize(Heap_ptr in_pPtr) {
  *
  * Return: Error Message
  */
-eLLError llThrowInBin(Heap_ptr in_pHeapPtr) {
-
+//TODO: Change function description
+eLLError llThrowInBin(Heap_ptr in_pHeapPtr, Heap_ptr in_pBinPtr) {
     int index = llGetBinningIndex(in_pHeapPtr);
-    llPush(in_pHeapPtr,(Heap_ptr)GET(gBin+index));
-    PUT_PTR(gBin + index, in_pHeapPtr);
+    llPush(in_pHeapPtr,GET_PTR(in_pBinPtr+index));
+    PUT_PTR(in_pBinPtr + index, in_pHeapPtr);
     return eLLError_None;
 }
 
@@ -564,9 +597,9 @@ eLLError llPullFromList(Heap_ptr in_pBin, Heap_ptr in_pTarget) {
  *
  * Return: Error message
  */
-eLLError llPullFromBin(Heap_ptr in_pHeapPtr) {
+eLLError llPullFromBin(Heap_ptr in_pHeapPtr, Heap_ptr in_pBinPtr) {
     int index = llGetBinningIndex(in_pHeapPtr);
-    return llPullFromList(gBin + index, in_pHeapPtr);
+    return llPullFromList(in_pBinPtr + index, in_pHeapPtr);
 
 }
 
@@ -583,6 +616,7 @@ eLLError llPullFromBin(Heap_ptr in_pHeapPtr) {
 eLLError llMergeBlock(Heap_ptr in_pInputPtrA, Heap_ptr in_pInputPtrB, Heap_ptr *io_pOutputPtr) {
     WORD block_A_size = llGetDataSizeFromHeader (in_pInputPtrA) + BLOCK_META_SIZE_WORD;
     WORD block_B_size = llGetDataSizeFromHeader (in_pInputPtrB) + BLOCK_META_SIZE_WORD;
+    llArenaID arena_id = llGetArenaIDFromHeapPtr(in_pInputPtrA);
     //let the merged get be the previous block
     if (in_pInputPtrA < in_pInputPtrB) {
         *io_pOutputPtr = in_pInputPtrA;
@@ -590,7 +624,7 @@ eLLError llMergeBlock(Heap_ptr in_pInputPtrA, Heap_ptr in_pInputPtrB, Heap_ptr *
         *io_pOutputPtr = in_pInputPtrB;
     }
     //re-initialize the block
-    llInitBlock(*io_pOutputPtr, block_A_size + block_B_size);
+    llInitBlock(*io_pOutputPtr, block_A_size + block_B_size,arena_id);
     llMarkBlockAllocationBit(*io_pOutputPtr,BLOCK_FREE);
     return eLLError_None;
 }
@@ -609,10 +643,11 @@ eLLError llMergeBlock(Heap_ptr in_pInputPtrA, Heap_ptr in_pInputPtrB, Heap_ptr *
 eLLError llSplitBlock(Heap_ptr in_pInputPtr, llSplitRecipe *in_pRecipe, Heap_ptr *io_pOutputPtrA, Heap_ptr *io_pOutputPtrB) {
     WORD block_A_size = in_pRecipe->m_iBlockASize + BLOCK_META_SIZE_WORD;
     WORD block_B_size = in_pRecipe->m_iBlockBSize + BLOCK_META_SIZE_WORD;
+    llArenaID arena_id = llGetArenaIDFromHeapPtr(in_pInputPtr);
     *io_pOutputPtrA = in_pInputPtr;
-    llInitBlock(*io_pOutputPtrA, block_A_size);
+    llInitBlock(*io_pOutputPtrA, block_A_size, arena_id);
     *io_pOutputPtrB = in_pInputPtr + block_A_size;
-    llInitBlock(*io_pOutputPtrB, block_B_size);
+    llInitBlock(*io_pOutputPtrB, block_B_size,arena_id);
     llMarkBlockAllocationBit(*io_pOutputPtrB,BLOCK_FREE);
     return eLLError_None;
 }
@@ -773,18 +808,18 @@ eLLError llFree(Data_ptr in_pDataPtr) {
     int is_next_free = llIsBlockFree(next_ptr);
     Heap_ptr ret = cur_ptr;
     // Check if previous block is free
-    if (is_prev_free != BLOCK_FREE && llGetDataSizeFromHeader(prev_ptr) > FAST_BLOCK_SIZE) {
+    if (is_prev_free != BLOCK_FREE && llGetDataSizeFromHeader(prev_ptr) > FAST_BLOCK_SIZE && llAreBlocksInSameArena(prev_ptr,cur_ptr)) {
         // Previous block is free, merge current block with previous block
-        llPullFromBin(prev_ptr);
+        llPullFromBin(prev_ptr,gBin);
         llMergeBlock(ret, prev_ptr, &ret);
     }
-    if (is_next_free != BLOCK_FREE && llGetDataSizeFromHeader(next_ptr) > FAST_BLOCK_SIZE) {
+    if (is_next_free != BLOCK_FREE && llGetDataSizeFromHeader(next_ptr) > FAST_BLOCK_SIZE && llAreBlocksInSameArena(prev_ptr,cur_ptr)) {
         // Next block is free
-        llPullFromBin(next_ptr);
+        llPullFromBin(next_ptr,gBin);
         llMergeBlock(ret, next_ptr, &ret);
     }
     // Throw the merged block into bin
-    llThrowInBin(ret);
+    llThrowInBin(ret,gBin);
 #if HEAP_CHECK_ENABLE
     printf("Free: %llx\n", ret);
     gError = llCheckHeap();
@@ -842,7 +877,7 @@ Data_ptr llAlloc(int in_iSize) {
                     //then split the current plock
                     llSplitBlock(heap_ret, &newRecipe, &outptrA, &outptrB);
                     // Throw the remainder size into the bin
-                    llThrowInBin(outptrB);
+                    llThrowInBin(outptrB,gBin);
                 }
             }
         }
@@ -868,10 +903,10 @@ eLLError llInit() {
     llInitBin();
     Heap_ptr ret = llExtendHeap(WORD_TO_BYTES(GUARD_SIZE) * 2);
     //initialize a top guard block
-    llInitBlock(ret, 4);
+    llInitBlock(ret, 4,0);
     gHeapStart = ret+GUARD_SIZE;
     //initialize a bottom guard block
-    llInitBlock(ret + 4, 4);
+    llInitBlock(ret + 4, 4,0);
     gHeapEnd = ret+GUARD_SIZE;
     return eLLError_None;
 }
@@ -913,8 +948,8 @@ Data_ptr llRealloc(Data_ptr in_pDataPtr, int in_iSize) {
         if(llIsBlockFree(next_block)){
             WORD potential_size = llGetDataSizeFromHeader(next_block)+BLOCK_META_SIZE_WORD+llGetDataSizeFromHeader(ptr);
             if(WORD_TO_BYTES(potential_size)>=in_iSize){
-                llPullFromBin(next_block);
-                llInitBlock(ptr,potential_size+BLOCK_META_SIZE_WORD);
+                llPullFromBin(next_block,gBin);
+                llInitBlock(ptr,potential_size+BLOCK_META_SIZE_WORD,0);
             #if HEAP_CHECK_ENABLE
                 gError = llCheckHeap();
                 if (gError != eLLError_None)
@@ -940,49 +975,28 @@ Data_ptr llRealloc(Data_ptr in_pDataPtr, int in_iSize) {
 }
 
 #endif
-
-#define LAB4_START 1
 #if LAB4_START
-#define NUM_OF_AREANA 4
-#define ARENA_INITIAL_SIZE 8000
-#define ARENA_PROLOGUE_SIZE 1
-#define ARENA_EPILOGUE_SIZE 1
-#define ARENA_META_SIZE (ARENA_EPILOGUE_SIZE+ARENA_PROLOGUE_SIZE)
-typedef int llArenaID;
-
-typedef struct _llArenaContext {
-	llArenaID m_iArenaID;
-	int m_iArenaSize;
-	Heap_ptr m_pBins[BIN_SIZE];
-	pthread_mutex_t m_ArenaLock;
-} llArenaContext;
-
-typedef struct _llControlContext {
-	llArenaContext m_pArenas[NUM_OF_AREANA];
-	pthread_mutex_t m_iHeapLock;
-} llControlContext;
-
-/** New global variables **/
-llControlContext* gControlContext = NULL;
-
-
-#define llCreateOnHeap(__type) (__type*)(mem_sbrk(sizeof(__type)))
-#define llGetArenaIDFromHeapPtr(x) ((llArenaID)((GET(x) & 15) >> 1))
-#define llSetArenaIDToHeapPtr(x,id) PUT(x,(GET(x)& ((~15)+1) | (id << 1))) 
-#define llGetArenaSizeFromHeapPtr(x) //TODO:
-#define llGetHeapPtrFromArenaPtr(x) //TODO:
-
-
 /** All of the allocation function belowed are not thread-safe, make sure you hold
  * the lock of the arena before you use any function **/
 eLLError llAllocFromArena(int in_iSize,llArenaID in_iArenaID,Data_ptr* io_pPtr); //TODO: 
-eLLError llFreeToArena(Data_ptr* in_pPtr, llArenaID in_iArenaID); //TODO: 
-eLLError llThrowInArenaBin(Heap_ptr in_pPtr, llArenaID in_iArenaID); //TODO: 
+eLLError llFreeToArena(Data_ptr* in_pPtr, llArenaID in_iArenaID); //TOD && x)GetArenaIDFromHeapPtr((prev_ptr,cur_ptryO: 
+eLLError llThrowInArenaBin(Heap_ptr in_pPtr, llArenaID in_iArenaID){
+    Heap_ptr arena_bin = gControlContext->m_pArenas[in_iArenaID].m_pBins[0];
+    return llThrowInBin(in_pPtr, arena_bin);
+}
+
+eLLError llInitArena(Heap_ptr in_pHeapPtr, int in_iArenaSizeInWord){
+    // Set prologue 
+    PUT(in_pHeapPtr,PACK((in_iArenaSizeInWord-ARENA_META_SIZE) << MALLOC_ALIGNMENT,1));
+    // Set epilogue
+    PUT(in_pHeapPtr+in_iArenaSizeInWord+ARENA_PROLOGUE_SIZE, PACK((in_iArenaSizeInWord-ARENA_META_SIZE) << MALLOC_ALIGNMENT,1));
+}
+
 
 eLLError llExtendArena(llArenaID in_iArenaID, int in_iSizeInWord){
     int target_size = MAX(in_iSizeInWord, ARENA_INITIAL_SIZE);
     pthread_mutex_lock(&gControlContext->m_iHeapLock);
-    Heap_ptr* extended_ptr = mem_sbrk(WORD_TO_BYTES(target_size));
+    Heap_ptr extended_ptr = mem_sbrk(WORD_TO_BYTES(target_size));
     pthread_mutex_lock(&gControlContext->m_iHeapLock);
     if(extended_ptr!=NULL){
         llInitArena(extended_ptr,in_iSizeInWord);
@@ -993,16 +1007,9 @@ eLLError llExtendArena(llArenaID in_iArenaID, int in_iSizeInWord){
     }
 }
 
-eLLError llInitArena(Heap_ptr in_pHeapPtr, int in_iArenaSizeInWord){
-    // Set prologue 
-    PUT(in_pHeapPtr,PACK((in_iArenaSizeInWord-ARENA_META_SIZE) << MALLOC_ALIGNMENT,1));
-    // Set epilogue
-    PUT(in_pHeapPtr+in_iArenaSizeInWord+ARENA_PROLOGUE_SIZE, PACK((in_iArenaSizeInWord-ARENA_META_SIZE) << MALLOC_ALIGNMENT,1));
-}
-
 eLLError llInitControlContext(){
 	if(gControlContext==NULL){
-		Heap_ptr* tmpControlContext = llCreateOnHeap(llControlContext);
+		llControlContext* tmpControlContext = llCreateOnHeap(llControlContext);
 		if(tmpControlContext!=NULL){
 			gControlContext = tmpControlContext;
 			return eLLError_None;
