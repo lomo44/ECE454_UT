@@ -842,14 +842,14 @@ eLLError llInitArena(Heap_ptr in_pHeapPtr, int in_iArenaSizeInWord){
     return eLLError_None;
 }
 eLLError llThrowInArenaBin(Heap_ptr in_pPtr, llArenaID in_iArenaID){
-    Heap_ptr arena_bin = gControlContext->m_pArenas[in_iArenaID].m_pBins[0];
+    Heap_ptr arena_bin = (Heap_ptr)gControlContext->m_pArenas[in_iArenaID].m_pBins;
     return llThrowInBin(in_pPtr, arena_bin);
 }
 eLLError llExtendArena(llArenaID in_iArenaID, int in_iSizeInWord){
     int target_size = MAX(in_iSizeInWord, ARENA_INITIAL_SIZE);
     pthread_mutex_lock(&gControlContext->m_iHeapLock);
     Heap_ptr extended_ptr = mem_sbrk(WORD_TO_BYTES(target_size));
-    pthread_mutex_lock(&gControlContext->m_iHeapLock);
+    pthread_mutex_unlock(&gControlContext->m_iHeapLock);
     if(extended_ptr!=NULL){
         llInitArena(extended_ptr,in_iSizeInWord);
         Heap_ptr block_ptr = llGetHeapPtrFromArenaPtr(extended_ptr);
@@ -871,7 +871,7 @@ eLLError llAllocFromArena(int in_iSize,llArenaID in_iArenaID,Data_ptr* io_pPtr){
     if(error!=eLLError_None){
         llExtendArena (in_iArenaID,in_iSize);
         error = llAllocFromBin(in_iSize,in_iArenaID,&ret);
-        assert(error!=eLLError_None);
+        assert(error==eLLError_None);
     }
     if (error != eLLError_allocation_fail) {
         // Successfully found a free block inside the list, now we need to check if the block is splittable
@@ -1012,6 +1012,7 @@ eLLError llInit() {
     eLLError error;
     error = llCreateControlContext();
     error = llInitControlContext();
+    gBinSize = BIN_SIZE;
     return error;
 }
 pthread_mutex_t malloc_lock = PTHREAD_MUTEX_INITIALIZER;
