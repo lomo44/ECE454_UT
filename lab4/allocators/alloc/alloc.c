@@ -282,8 +282,7 @@ llControlContext* gControlContext = NULL;
 #define llCreateOnHeap(__type) (__type*)(mem_sbrk(sizeof(__type)))
 #define llGetArenaIDFromHeapPtr(x) ((llArenaID)((GET(x) & 15) >> 1))
 #define llSetArenaIDToHeapPtr(x,id) PUT(x,(GET(x)& ((~15)+1) | (id << 1))) 
-#define llGetArenaSizeFromHeapPtr(x) //TODO:
-#define llGetHeapPtrFromArenaPtr(x) //TODO:
+#define llGetHeapPtrFromArenaPtr(x) (x+ARENA_PROLOGUE_SIZE)
 #define llAreBlocksInSameArena(x,y) ((llGetArenaIDFromHeapPtr(x))==(llGetArenaIDFromHeapPtr(y)))
 #endif
 
@@ -910,6 +909,7 @@ eLLError llAllocFromArena(int in_iSize,llArenaID in_iArenaID,Data_ptr* io_pPtr){
     io_pPtr = ret;
     return error;
 } //TODO: 
+
 eLLError llFreeToArena(Data_ptr* in_pPtr, llArenaID in_iArenaID){
     Heap_ptr bin_ptr = gControlContext->m_pArenas[in_iArenaID].m_pBins;
     return llFree(in_pPtr,bin_ptr);
