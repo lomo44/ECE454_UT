@@ -987,7 +987,10 @@ eLLError llUnlockArena(llArenaID in_iArenaID){
  */
 Data_ptr llAlloc(int in_iSize) {
     Data_ptr ret=NULL;
-    llAllocFromArena (in_iSize,0,&ret); //TODO: just some foo input; 
+    llArenaID arena_id;
+    llLockArena(&arena_id);
+    llAllocFromArena (in_iSize,arena_id,&ret); 
+    llUnlockArena(arena_id);
     return ret;
 }
 Data_ptr llFree(void* bp){
