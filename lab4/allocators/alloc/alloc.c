@@ -373,9 +373,9 @@ eLLError llInitBin() {
  */
 eLLError llMarkBlockAllocationBit(Heap_ptr in_pBlockPtr, int in_bAllocated) {
     WORD data_size = llGetDataSizeFromHeader(in_pBlockPtr);
-    PUT(in_pBlockPtr, PACK(data_size << MALLOC_ALIGNMENT, in_bAllocated));
+    PUT(in_pBlockPtr, (((GET(in_pBlockPtr)>>1)<<1)|in_bAllocated));  
     PUT(in_pBlockPtr + PROLOGUE_OFFSET + data_size + PREVIOUS_PTR_OFFSET,
-        PACK(data_size << MALLOC_ALIGNMENT, in_bAllocated));
+        (((GET(in_pBlockPtr)>>1)<<1)|in_bAllocated));
     return eLLError_None;
 }
 
@@ -394,6 +394,8 @@ eLLError llInitBlock(Heap_ptr in_pInputPtr, WORD in_iBlockSizeInWord, llArenaID 
     WORD data_size_in_dword = in_iBlockSizeInWord - BLOCK_META_SIZE_WORD;
     // Place the header
     PUT(in_pInputPtr, PACK((data_size_in_dword << MALLOC_ALIGNMENT) | (in_iArenaID << 1), 1));
+    int id = llGetArenaIDFromHeapPtr(in_pInputPtr);
+    assert(id==in_iArenaID);
     // initialize the previous ptr
     llSetPrevBlock(in_pInputPtr,NULL);
     // initialize the next ptr
@@ -505,6 +507,8 @@ eLLError llAllocFromBin(BYTE in_iSizeInBytes, llArenaID in_id, Data_ptr *io_pOut
         // modified the allocation bit
         llMarkBlockAllocationBit(ret, BLOCK_ALLOCATED);
         llSetArenaIDToHeapPtr (ret,in_id);
+        int id = llGetArenaIDFromHeapPtr(ret);
+        assert(id==in_id);
         *io_pOutputPtr = llGetDataPtrFromHeapPtr(ret);
         return eLLError_None;
     } else {
@@ -952,18 +956,20 @@ eLLError llInitControlContext(){
 eLLError llLockArena(llArenaID* io_iArenaID){
     llArenaID target_arena = -1;
     // iterate through every possible arena and try to gain a lock for it.
-    for(int i = 0; i < NUM_OF_AREANA; i++){
-        if(pthread_mutex_trylock(&gControlContext->m_pArenas[i].m_ArenaLock)==0){
-            target_arena = i;
-            break;
+    while(target_arena==-1) {
+        for(int i = 0; i < NUM_OF_AREANA; i++){
+            if(pthread_mutex_trylock(&gControlContext->m_pArenas[i].m_ArenaLock)==0){
+                target_arena = i;
+                break;
+            }
         }
     }
-    if(target_arena==-1){
-        // We have not aquired any lock, wait for an arena based on its thread id
-        pthread_t id = pthread_self();
-        target_arena = id&NUM_OF_AREANA;
-        pthread_mutex_lock(&gControlContext->m_pArenas[target_arena].m_ArenaLock);
-    }
+    // if(target_arena==-1){
+    //     // We have not aquired any lock, wait for an arena based on its thread id
+    //     pthread_t id = pthread_self();
+    //     target_arena = id&NUM_OF_AREANA;
+    //     pthread_mutex_lock(&gControlContext->m_pArenas[target_arena].m_ArenaLock);
+    // }
     *io_iArenaID = target_arena;
     return eLLError_None;
 }
