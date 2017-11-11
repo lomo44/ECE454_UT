@@ -445,8 +445,8 @@ eLLError llAllocFromHeap(size_t in_iSizeInBytes, Data_ptr *io_pOutputPtr) {
  *
  * Return: error message
  */
-eLLError llAllocFromBin(BYTE in_iSizeInBytes,Heap_ptr in_bin, llArenaID in_id, Data_ptr *io_pOutputPtr) { //TODO:change comment  
-
+eLLError llAllocFromBin(BYTE in_iSizeInBytes, llArenaID in_id, Data_ptr *io_pOutputPtr) { //TODO:change comment  
+    Heap_ptr in_bin = gControlContext[in_id].m_pArenas->m_pBins;
     // Calculate the aligned bucket size
     int aligned_size = llGetAllignedSizeInBytes(in_iSizeInBytes, MALLOC_ALIGNMENT);
     // Calculate the bucket index;
@@ -505,7 +505,7 @@ eLLError llAllocFromBin(BYTE in_iSizeInBytes,Heap_ptr in_bin, llArenaID in_id, D
     if (ret != NULL) {
         // modified the allocation bit
         llMarkBlockAllocationBit(ret, BLOCK_ALLOCATED);
-        llSetArenaIDToHeapPtr (in_id);
+        llSetArenaIDToHeapPtr (ret,in_id);
         *io_pOutputPtr = llGetDataPtrFromHeapPtr(ret);
         return eLLError_None;
     } else {
@@ -830,166 +830,45 @@ eLLError llFree(Data_ptr in_pDataPtr) {
     return gError;
 }
 
-/* Main Function llAlloc
- * --------------------------------
- * This function will allocate a heap block contain data block with size (in_iSize)
- * This function will find if there is possible free blocks from the BIN
- * If there is no usable blocks from the BIN, the program will extend the heap (at least 256 bytes)to alloc the block
- * The free second-hand blocks may have different size from the design size, so the program will check kif the free
- * second-hand block is splittable. If yes, it will split the block and put the not used on back to BIN
- * Input:
- * in_iSize: desire size
- *
- * Return pointer to the data block
- */
-Data_ptr llAlloc(int in_iSize) {
-
-    Data_ptr ret = NULL;
-    // Try to allocate a block from bin
-    eLLError error = llAllocFromBin(in_iSize, &ret);
-    if(error!=eLLError_None){
-#if CHUNK_EXTEND_ENABLE
-        error =  llAllocFromHeap(MAX(CHUNK_EXTEND_ENABLE,in_iSize),&ret);
-#else
-        error =  llAllocFromHeap(in_iSize,&ret);
-#endif
-    }
-    if (error != eLLError_allocation_fail) {
-        // Successfully found a free block inside the list, now we need to check if the block is splittable
-        Heap_ptr heap_ret = llGetHeapPtrFromDataPtr(ret);
-        // Get the allocated block size
-        int block_size = llGetDataSizeFromHeader(heap_ret);
-        if(block_size > FAST_BLOCK_SIZE){
-            // Get the alligned data size
-            int real_data_size = BYTES_TO_WORD(llGetAllignedSizeInBytes(in_iSize, MALLOC_ALIGNMENT));
-            // Get the remainder size after spliting the main block
-
-            if(block_size-BLOCK_META_SIZE_WORD > real_data_size){
-                int remainder_size = llGetSplitedRemainderSize(block_size, real_data_size);
-                // If the remainder size is greater than 0 (splitable)
-                if (remainder_size > SPLIT_THRESHOLD) {
-                    // Blk is splittable, then split the block and put residual into the bin
-                    Heap_ptr outptrA;
-                    Heap_ptr outptrB;
-                    // Creating a new split recipe
-                    llSplitRecipe newRecipe;
-                    newRecipe.m_iBlockASize = real_data_size;
-                    newRecipe.m_iBlockBSize = remainder_size;
-                    //then split the current plock
-                    llSplitBlock(heap_ret, &newRecipe, &outptrA, &outptrB);
-                    // Throw the remainder size into the bin
-                    llThrowInBin(outptrB,gBin);
-                }
-            }
-        }
-
-    }
-
-#if HEAP_CHECK_ENABLE
-    printf("Alloc: %llx\n",llGetHeapPtrFromDataPtr(ret));
-    gError = llCheckHeap();
-    if (gError != eLLError_None)
-        printf("Heap Error: %d\n", gError);
-#endif
-    return ret;
-}
-
-/* Main Function llInit
- * --------------------------------
- * Initialize the Bin and the guard block
- *
- * Return Error message
- */
-eLLError llInit() {
-    llInitBin();
-    Heap_ptr ret = llExtendHeap(WORD_TO_BYTES(GUARD_SIZE) * 2);
-    //initialize a top guard block
-    llInitBlock(ret, 4,0);
-    gHeapStart = ret+GUARD_SIZE;
-    //initialize a bottom guard block
-    llInitBlock(ret + 4, 4,0);
-    gHeapEnd = ret+GUARD_SIZE;
-    return eLLError_None;
-}
-
-/* Main Function llRealloc
- * -------------------------------------------
- * This function will re-alloc a data block with following cases
- * 1)input pointer = NULL                                       => alloc a new block
- * 2)desire size= 0                                             => free the block
- * 3)same or smaller desire size                                => do nothing
- * 4)larger desire size
- *   1. if the block is following by a large enough free block  => extend the block
- *   2. if the block not available to extend                    => allocate a new block, copy data, free old block
- *
- * Input:
- * in_pDataPtr: pointer to the data block
- * in_iSize: the desire new size (in bytes, not include meta data)
- *
- * Return: the pointer to the data block
- */
-Data_ptr llRealloc(Data_ptr in_pDataPtr, int in_iSize) {
-    //cover the data block to heap pointer
-    Heap_ptr ptr = llGetHeapPtrFromDataPtr(in_pDataPtr);
-    // Getting the current data size
-    WORD current_data_size = WORD_TO_BYTES(llGetDataSizeFromHeader(ptr));
-    Data_ptr ret = in_pDataPtr;
-    if (in_pDataPtr == NULL) {
-        // If input data ptr is NULL, then allocate a new block
-        ret = llAlloc(in_iSize);
-    } else if (in_iSize == 0) {
-        // Size equal zero, basically free
-        llFree(in_pDataPtr);
-    } else if (current_data_size >= in_iSize) {
-        // Size doesn't change or has enough size, ignore
-    } else {
-        // Final Reallocation
-        // Check next block
-        Heap_ptr  next_block = llGetNextHeapPtrFromHeapPtr(ptr);
-        if(llIsBlockFree(next_block)){
-            WORD potential_size = llGetDataSizeFromHeader(next_block)+BLOCK_META_SIZE_WORD+llGetDataSizeFromHeader(ptr);
-            if(WORD_TO_BYTES(potential_size)>=in_iSize){
-                llPullFromBin(next_block,gBin);
-                llInitBlock(ptr,potential_size+BLOCK_META_SIZE_WORD,0);
-            #if HEAP_CHECK_ENABLE
-                gError = llCheckHeap();
-                if (gError != eLLError_None)
-                printf("Heap Error: %d\n", gError);
-            #endif
-            return llGetDataPtrFromHeapPtr(ptr);
-            }
-        }
-        Data_ptr new_block = llAlloc(in_iSize);
-        Heap_ptr new_heap_ptr = llGetHeapPtrFromDataPtr(new_block);
-        // copy the old data into the new data block
-        llCopyBlock(ptr, new_heap_ptr, current_data_size);
-        // Free the old data block
-        llFree(in_pDataPtr);
-        ret = new_block;
-    }
-    #if HEAP_CHECK_ENABLE
-        gError = llCheckHeap();
-        if (gError != eLLError_None)
-            printf("Heap Error: %d\n", gError);
-    #endif
-    return ret;
-}
-
 #endif
 #if LAB4_START
+
+eLLError llInitArena(Heap_ptr in_pHeapPtr, int in_iArenaSizeInWord){
+    // Set prologue 
+    PUT(in_pHeapPtr,PACK((in_iArenaSizeInWord-ARENA_META_SIZE) << MALLOC_ALIGNMENT,1));
+    // Set epilogue
+    PUT(in_pHeapPtr+in_iArenaSizeInWord+ARENA_PROLOGUE_SIZE, PACK((in_iArenaSizeInWord-ARENA_META_SIZE) << MALLOC_ALIGNMENT,1));
+}
+
+eLLError llExtendArena(llArenaID in_iArenaID, int in_iSizeInWord){
+    int target_size = MAX(in_iSizeInWord, ARENA_INITIAL_SIZE);
+    pthread_mutex_lock(&gControlContext->m_iHeapLock);
+    Heap_ptr extended_ptr = mem_sbrk(WORD_TO_BYTES(target_size));
+    pthread_mutex_lock(&gControlContext->m_iHeapLock);
+    if(extended_ptr!=NULL){
+        llInitArena(extended_ptr,in_iSizeInWord);
+        return eLLError_None;
+    }
+    else{
+        return eLLError_allocation_fail;
+    }
+}
+
 /** All of the allocation function belowed are not thread-safe, make sure you hold
  * the lock of the arena before you use any function **/
+eLLError llThrowInArenaBin(Heap_ptr in_pPtr, llArenaID in_iArenaID){
+    Heap_ptr arena_bin = gControlContext->m_pArenas[in_iArenaID].m_pBins[0];
+    return llThrowInBin(in_pPtr, arena_bin);
+}
 eLLError llAllocFromArena(int in_iSize,llArenaID in_iArenaID,Data_ptr* io_pPtr){
 
     Data_ptr ret = NULL;
     // Try to allocate a block from bin
-    eLLError error = llAllocFromBin(in_iSize,gControlContext[in_iArenaID].m_pArenas->m_pBins,in_iArenaID,&ret);
+    eLLError error = llAllocFromBin(in_iSize,in_iArenaID,&ret);
     if(error!=eLLError_None){
-#if CHUNK_EXTEND_ENABLE
-        error =  llAllocFromHeap(MAX(CHUNK_EXTEND_ENABLE,in_iSize),&ret);
-#else
-        error =  llAllocFromHeap(in_iSize,&ret);
-#endif
+        llExtendArena (in_iArenaID,in_iSize);
+        error = llAllocFromBin(in_iSize,in_iArenaID,&ret);
+        assert(error!=eLLError_None);
     }
     if (error != eLLError_allocation_fail) {
         // Successfully found a free block inside the list, now we need to check if the block is splittable
@@ -1028,38 +907,10 @@ eLLError llAllocFromArena(int in_iSize,llArenaID in_iArenaID,Data_ptr* io_pPtr){
     if (gError != eLLError_None)
         printf("Heap Error: %d\n", gError);
 #endif
-    return ret;
+    io_pPtr = ret;
+    return error;
 } //TODO: 
 eLLError llFreeToArena(Data_ptr* in_pPtr, llArenaID in_iArenaID); //TODO: 
-<<<<<<< HEAD
-eLLError llThrowInArenaBin(Heap_ptr in_pPtr, llArenaID in_iArenaID){
-    Heap_ptr arena_bin = gControlContext->m_pArenas[in_iArenaID].m_pBins[0];
-    return llThrowInBin(in_pPtr, arena_bin);
-}
-eLLError llInitArena(Heap_ptr in_pHeapPtr, int in_iArenaSizeInWord){
-    // Set prologue 
-    PUT(in_pHeapPtr,PACK((in_iArenaSizeInWord-ARENA_META_SIZE) << MALLOC_ALIGNMENT,1));
-    // Set epilogue
-    PUT(in_pHeapPtr+in_iArenaSizeInWord+ARENA_PROLOGUE_SIZE, PACK((in_iArenaSizeInWord-ARENA_META_SIZE) << MALLOC_ALIGNMENT,1));
-}
-
-=======
-eLLError llThrowInArenaBin(Heap_ptr in_pPtr, llArenaID in_iArenaID); //TODO: 
->>>>>>> 2445350c5c1af2e5d326e232bfda5bae28255b34
-
-eLLError llExtendArena(llArenaID in_iArenaID, int in_iSizeInWord){
-    int target_size = MAX(in_iSizeInWord, ARENA_INITIAL_SIZE);
-    pthread_mutex_lock(&gControlContext->m_iHeapLock);
-    Heap_ptr extended_ptr = mem_sbrk(WORD_TO_BYTES(target_size));
-    pthread_mutex_lock(&gControlContext->m_iHeapLock);
-    if(extended_ptr!=NULL){
-        llInitArena(extended_ptr,in_iSizeInWord);
-        return eLLError_None;
-    }
-    else{
-        return eLLError_allocation_fail;
-    }
-}
 
 eLLError llInitControlContext(){
 	if(gControlContext==NULL){
@@ -1113,7 +964,41 @@ eLLError llUnlockArena(llArenaID in_iArenaID){
 
 
 #endif
+/* Main Function llAlloc
+ * --------------------------------
+ * This function will allocate a heap block contain data block with size (in_iSize)
+ * This function will find if there is possible free blocks from the BIN
+ * If there is no usable blocks from the BIN, the program will extend the heap (at least 256 bytes)to alloc the block
+ * The free second-hand blocks may have different size from the design size, so the program will check kif the free
+ * second-hand block is splittable. If yes, it will split the block and put the not used on back to BIN
+ * Input:
+ * in_iSize: desire size
+ *
+ * Return pointer to the data block
+ */
+Data_ptr llAlloc(int in_iSize) {
+    Data_ptr ret=NULL;
+    llAllocFromArena (in_iSize,0,&ret); //TODO: just some foo input; 
+    return ret;
+}
 
+/* Main Function llInit
+ * --------------------------------
+ * Initialize the Bin and the guard block
+ *
+ * Return Error message
+ */
+eLLError llInit() {
+    llInitBin();
+    Heap_ptr ret = llExtendHeap(WORD_TO_BYTES(GUARD_SIZE) * 2);
+    //initialize a top guard block
+    llInitBlock(ret, 4,0);
+    gHeapStart = ret+GUARD_SIZE;
+    //initialize a bottom guard block
+    llInitBlock(ret + 4, 4,0);
+    gHeapEnd = ret+GUARD_SIZE;
+    return eLLError_None;
+}
 pthread_mutex_t malloc_lock = PTHREAD_MUTEX_INITIALIZER;
 
 /**********************************************************
