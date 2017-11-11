@@ -271,6 +271,7 @@ llControlContext* gControlContext = NULL;
 #define llSetArenaIDToHeapPtr(x,id) PUT(x,(GET(x)& ((~15)+1) | (id << 1))) 
 #define llGetArenaSizeFromHeapPtr(x) //TODO:
 
+
 /** All of the allocation function belowed are not thread-safe, make sure you hold
  * the lock of the arena before you use any function **/
 eLLError llAllocFromArena(int in_iSize, Data_ptr* in_pPtr, llArenaID in_iArenaID);
