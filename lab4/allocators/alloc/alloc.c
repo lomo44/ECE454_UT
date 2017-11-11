@@ -278,7 +278,10 @@ eLLError llInitArena(Heap_ptr in_pHeapPtr, int in_iArenaSizeInWord){
 }
 eLLError llExtendArena(llArenaID in_iArenaID, int in_iSizeInWord){
     int target_size = MAX(in_iSizeInWord, ARENA_INITIAL_SIZE);
+    pthread_mutex_lock(&gControlContext->m_iHeapLock);
     Heap_ptr* extended_ptr = mem_sbrk(WORD_TO_BYTES(target_size));
+    pthread_mutex_lock(&gControlContext->m_iHeapLock);
+    //TODO: Add throw in bin to specifc arena
     if(extended_ptr!=NULL){
         llInitArena(extended_ptr,in_iSizeInWord);
         return eLLError_None;
