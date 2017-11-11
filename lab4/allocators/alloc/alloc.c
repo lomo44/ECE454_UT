@@ -412,7 +412,7 @@ eLLError llAllocFromHeap(size_t in_iSizeInBytes, Data_ptr *io_pOutputPtr) {
  *
  * Return: error message
  */
-eLLError llAllocFromBin(BYTE in_iSizeInBytes, Data_ptr *io_pOutputPtr) {
+eLLError llAllocFromBin(BYTE in_iSizeInBytes,Heap_ptr in_bin, llArenaID in_id, Data_ptr *io_pOutputPtr) { //TODO:change comment  
 
     // Calculate the aligned bucket size
     int aligned_size = llGetAllignedSizeInBytes(in_iSizeInBytes, MALLOC_ALIGNMENT);
@@ -421,7 +421,7 @@ eLLError llAllocFromBin(BYTE in_iSizeInBytes, Data_ptr *io_pOutputPtr) {
     // Iterate through bin and get the best fit bucket
 
 #if FAST_BLOCK_DIRECT_ALLOC_ENABLE
-    if(BYTES_TO_WORD(in_iSizeInBytes) <= FAST_BLOCK_SIZE && GET(gBin + start_index) == NULL){
+    if(BYTES_TO_WORD(in_iSizeInBytes) <= FAST_BLOCK_SIZE && GET(in_bin + start_index) == NULL){
         return eLLError_search_fail;
     }
 #endif
@@ -429,11 +429,11 @@ eLLError llAllocFromBin(BYTE in_iSizeInBytes, Data_ptr *io_pOutputPtr) {
     Heap_ptr ret = NULL;
     //go though the first part of the BIN to check is there is available block
     while (start_index < gBinSize-1) {
-        if (GET_PTR(gBin + start_index) != NULL) {
+        if (GET_PTR(in_bin + start_index) != NULL) {
             // valid bin found, reconstruct the link list
-            ret = GET_PTR(gBin + start_index);
+            ret = GET_PTR(in_bin + start_index);
             // set the head of the linked list to the next element
-            PUT_PTR(gBin + start_index, llGetNextBlock(ret));
+            PUT_PTR(in_bin + start_index, llGetNextBlock(ret));
             llDisconnectBlock(ret);
             break;
         }
@@ -443,14 +443,14 @@ eLLError llAllocFromBin(BYTE in_iSizeInBytes, Data_ptr *io_pOutputPtr) {
     // This is special case cause last entries contains all blocks greater than certian value
     //nor all blocks in the entry is larger than the request size
     if(ret == NULL) {
-        Heap_ptr cur_ptr= GET_PTR(gBin+gBinSize-1);
+        Heap_ptr cur_ptr= GET_PTR(in_bin+gBinSize-1);
         if(cur_ptr!=NULL){
             Heap_ptr next_ptr = llGetNextBlock(cur_ptr);
             if (WORD_TO_BYTES(llGetDataSizeFromHeader(cur_ptr))>= in_iSizeInBytes)
             {
                 // Head is the target, need to change the head
                 ret = cur_ptr;
-                PUT_PTR((gBin+gBinSize-1), next_ptr);
+                PUT_PTR((in_bin+gBinSize-1), next_ptr);
                 llDisconnectBlock(ret);
             } else {
                 cur_ptr = next_ptr;
@@ -472,6 +472,7 @@ eLLError llAllocFromBin(BYTE in_iSizeInBytes, Data_ptr *io_pOutputPtr) {
     if (ret != NULL) {
         // modified the allocation bit
         llMarkBlockAllocationBit(ret, BLOCK_ALLOCATED);
+        llSetArenaIDToHeapPtr (in_id);
         *io_pOutputPtr = llGetDataPtrFromHeapPtr(ret);
         return eLLError_None;
     } else {
@@ -975,7 +976,57 @@ llControlContext* gControlContext = NULL;
 
 /** All of the allocation function belowed are not thread-safe, make sure you hold
  * the lock of the arena before you use any function **/
-eLLError llAllocFromArena(int in_iSize,llArenaID in_iArenaID,Data_ptr* io_pPtr); //TODO: 
+eLLError llAllocFromArena(int in_iSize,llArenaID in_iArenaID,Data_ptr* io_pPtr){
+
+    Data_ptr ret = NULL;
+    // Try to allocate a block from bin
+    eLLError error = llAllocFromBin(in_iSize,gControlContext[in_iArenaID].m_pArenas->m_pBins,in_iArenaID,&ret);
+    if(error!=eLLError_None){
+#if CHUNK_EXTEND_ENABLE
+        error =  llAllocFromHeap(MAX(CHUNK_EXTEND_ENABLE,in_iSize),&ret);
+#else
+        error =  llAllocFromHeap(in_iSize,&ret);
+#endif
+    }
+    if (error != eLLError_allocation_fail) {
+        // Successfully found a free block inside the list, now we need to check if the block is splittable
+        Heap_ptr heap_ret = llGetHeapPtrFromDataPtr(ret);
+        // Get the allocated block size
+        int block_size = llGetDataSizeFromHeader(heap_ret);
+        if(block_size > FAST_BLOCK_SIZE){
+            // Get the alligned data size
+            int real_data_size = BYTES_TO_WORD(llGetAllignedSizeInBytes(in_iSize, MALLOC_ALIGNMENT));
+            // Get the remainder size after spliting the main block
+
+            if(block_size-BLOCK_META_SIZE_WORD > real_data_size){
+                int remainder_size = llGetSplitedRemainderSize(block_size, real_data_size);
+                // If the remainder size is greater than 0 (splitable)
+                if (remainder_size > SPLIT_THRESHOLD) {
+                    // Blk is splittable, then split the block and put residual into the bin
+                    Heap_ptr outptrA;
+                    Heap_ptr outptrB;
+                    // Creating a new split recipe
+                    llSplitRecipe newRecipe;
+                    newRecipe.m_iBlockASize = real_data_size;
+                    newRecipe.m_iBlockBSize = remainder_size;
+                    //then split the current plock
+                    llSplitBlock(heap_ret, &newRecipe, &outptrA, &outptrB);
+                    // Throw the remainder size into the bin
+                    llThrowInBin(outptrB);
+                }
+            }
+        }
+
+    }
+
+#if HEAP_CHECK_ENABLE
+    printf("Alloc: %llx\n",llGetHeapPtrFromDataPtr(ret));
+    gError = llCheckHeap();
+    if (gError != eLLError_None)
+        printf("Heap Error: %d\n", gError);
+#endif
+    return ret;
+} //TODO: 
 eLLError llFreeToArena(Data_ptr* in_pPtr, llArenaID in_iArenaID); //TODO: 
 eLLError llThrowInArenaBin(Heap_ptr in_pPtr, llArenaID in_iArenaID); //TODO: 
 
