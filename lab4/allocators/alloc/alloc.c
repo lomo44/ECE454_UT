@@ -445,7 +445,7 @@ eLLError llAllocFromHeap(size_t in_iSizeInBytes, Data_ptr *io_pOutputPtr) {
  * Return: error message
  */
 eLLError llAllocFromBin(BYTE in_iSizeInBytes, llArenaID in_id, Data_ptr *io_pOutputPtr) { //TODO:change comment  
-    Heap_ptr in_bin = (Heap_ptr)gControlContext[in_id].m_pArenas->m_pBins;
+    Heap_ptr in_bin = (Heap_ptr)gControlContext->m_pArenas[in_id].m_pBins;
     // Calculate the aligned bucket size
     int aligned_size = llGetAllignedSizeInBytes(in_iSizeInBytes, MALLOC_ALIGNMENT);
     // Calculate the bucket index;
