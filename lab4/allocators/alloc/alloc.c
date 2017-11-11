@@ -915,28 +915,6 @@ eLLError llFreeToArena(Data_ptr* in_pPtr, llArenaID in_iArenaID){
     return llFree(in_pPtr,bin_ptr);
 }
 
-eLLError llInitArena(Heap_ptr in_pHeapPtr, int in_iArenaSizeInWord){
-    // Set prologue 
-    PUT(in_pHeapPtr,PACK((in_iArenaSizeInWord-ARENA_META_SIZE) << MALLOC_ALIGNMENT,1));
-    // Set epilogue
-    PUT(in_pHeapPtr+in_iArenaSizeInWord+ARENA_PROLOGUE_SIZE, PACK((in_iArenaSizeInWord-ARENA_META_SIZE) << MALLOC_ALIGNMENT,1));
-}
-
-
-eLLError llExtendArena(llArenaID in_iArenaID, int in_iSizeInWord){
-    int target_size = MAX(in_iSizeInWord, ARENA_INITIAL_SIZE);
-    pthread_mutex_lock(&gControlContext->m_iHeapLock);
-    Heap_ptr extended_ptr = mem_sbrk(WORD_TO_BYTES(target_size));
-    pthread_mutex_lock(&gControlContext->m_iHeapLock);
-    if(extended_ptr!=NULL){
-        llInitArena(extended_ptr,in_iSizeInWord);
-        return eLLError_None;
-    }
-    else{
-        return eLLError_allocation_fail;
-    }
-}
-
 eLLError llInitControlContext(){
 	if(gControlContext==NULL){
 		llControlContext* tmpControlContext = llCreateOnHeap(llControlContext);
