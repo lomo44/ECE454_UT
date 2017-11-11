@@ -979,7 +979,6 @@ Data_ptr llRealloc(Data_ptr in_pDataPtr, int in_iSize) {
 #if LAB4_START
 /** All of the allocation function belowed are not thread-safe, make sure you hold
  * the lock of the arena before you use any function **/
-<<<<<<< HEAD
 eLLError llAllocFromArena(int in_iSize,llArenaID in_iArenaID,Data_ptr* io_pPtr){
 
     Data_ptr ret = NULL;
@@ -1032,15 +1031,10 @@ eLLError llAllocFromArena(int in_iSize,llArenaID in_iArenaID,Data_ptr* io_pPtr){
     return ret;
 } //TODO: 
 eLLError llFreeToArena(Data_ptr* in_pPtr, llArenaID in_iArenaID); //TODO: 
-eLLError llThrowInArenaBin(Heap_ptr in_pPtr, llArenaID in_iArenaID); //TODO: 
-=======
-eLLError llAllocFromArena(int in_iSize,llArenaID in_iArenaID,Data_ptr* io_pPtr); //TODO: 
-eLLError llFreeToArena(Data_ptr* in_pPtr, llArenaID in_iArenaID); //TOD && x)GetArenaIDFromHeapPtr((prev_ptr,cur_ptryO: 
 eLLError llThrowInArenaBin(Heap_ptr in_pPtr, llArenaID in_iArenaID){
     Heap_ptr arena_bin = gControlContext->m_pArenas[in_iArenaID].m_pBins[0];
     return llThrowInBin(in_pPtr, arena_bin);
 }
-
 eLLError llInitArena(Heap_ptr in_pHeapPtr, int in_iArenaSizeInWord){
     // Set prologue 
     PUT(in_pHeapPtr,PACK((in_iArenaSizeInWord-ARENA_META_SIZE) << MALLOC_ALIGNMENT,1));
@@ -1048,7 +1042,6 @@ eLLError llInitArena(Heap_ptr in_pHeapPtr, int in_iArenaSizeInWord){
     PUT(in_pHeapPtr+in_iArenaSizeInWord+ARENA_PROLOGUE_SIZE, PACK((in_iArenaSizeInWord-ARENA_META_SIZE) << MALLOC_ALIGNMENT,1));
 }
 
->>>>>>> 59a0603823b9e1bf72a4768f643baa04169b5e7e
 
 eLLError llExtendArena(llArenaID in_iArenaID, int in_iSizeInWord){
     int target_size = MAX(in_iSizeInWord, ARENA_INITIAL_SIZE);
