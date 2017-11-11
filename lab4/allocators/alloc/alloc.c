@@ -92,7 +92,7 @@ typedef int BYTE;
 /* the size (words) of guard blocks
  * guard block is a block has only meta data and 0 real data block
  * it locates at top and end of heap area
- * it is used to protected merge unexpected memory space when llfree() is called
+ * it is used to protected merge unexpected memory space when llFreeToBin() is called
  */
 #define GUARD_SIZE 4
 //Size in words of  header META data (Size of block + allocation)
@@ -784,7 +784,7 @@ eLLError llCheckHeap() {
  * Main functions of link list memory allocation (llaloc)
  ********************************************************/
 
-/* Main Function llFree
+/* Main Function llFreeToBin
  * --------------------------------
  * This function will free a data blocks
  * When program frees a block, it will looks at previous block and next block in the heap to check
@@ -794,7 +794,7 @@ eLLError llCheckHeap() {
  *
  * Return: Error message
  */
-eLLError llFree(Data_ptr in_pDataPtr, Heap_ptr in_pBinPtr) {
+eLLError llFreeToBin(Data_ptr in_pDataPtr, Heap_ptr in_pBinPtr) {
     // Convert the given data ptr to heap ptr
     Heap_ptr cur_ptr = llGetHeapPtrFromDataPtr(in_pDataPtr);
     // Deallocate the current block
@@ -916,7 +916,7 @@ eLLError llAllocFromArena(int in_iSize,llArenaID in_iArenaID,Data_ptr* io_pPtr){
 
 eLLError llFreeToArena(Data_ptr in_pPtr, llArenaID in_iArenaID){
     Heap_ptr bin_ptr = (Heap_ptr)gControlContext->m_pArenas[in_iArenaID].m_pBins;
-    return llFree(in_pPtr,bin_ptr);
+    return llFreeToBin(in_pPtr,bin_ptr);
 }
 
 eLLError llCreateControlContext(){
@@ -990,7 +990,14 @@ Data_ptr llAlloc(int in_iSize) {
     llAllocFromArena (in_iSize,0,&ret); //TODO: just some foo input; 
     return ret;
 }
-
+Data_ptr llFree(void* bp){
+    Heap_ptr heapPtr = llGetHeapPtrFromDataPtr(bp);
+    llArenaID id = llGetArenaIDFromHeapPtr(heapPtr);
+    // Lock the correponding arena
+    pthread_mutex_lock(&gControlContext->m_pArenas[id].m_ArenaLock);
+    llFreeToArena((Data_ptr)bp,id);
+    pthread_mutex_unlock(&gControlContext->m_pArenas[id].m_ArenaLock);
+}
 /* Main Function llInit
  * --------------------------------
  * Initialize the Bin and the guard block
@@ -1028,7 +1035,7 @@ int mm_init(void) {
  **********************************************************/
 void mm_free(void *bp) {
     pthread_mutex_lock(&malloc_lock);
-    llFree(bp,gBin );
+    llFreeToBin(bp,gBin );
     pthread_mutex_unlock(&malloc_lock);
 }
 
