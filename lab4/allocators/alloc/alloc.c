@@ -394,8 +394,6 @@ eLLError llInitBlock(Heap_ptr in_pInputPtr, WORD in_iBlockSizeInWord, llArenaID 
     WORD data_size_in_dword = in_iBlockSizeInWord - BLOCK_META_SIZE_WORD;
     // Place the header
     PUT(in_pInputPtr, PACK((data_size_in_dword << MALLOC_ALIGNMENT) | (in_iArenaID << 1), 1));
-    int id = llGetArenaIDFromHeapPtr(in_pInputPtr);
-    assert(id==in_iArenaID);
     // initialize the previous ptr
     llSetPrevBlock(in_pInputPtr,NULL);
     // initialize the next ptr
@@ -915,6 +913,7 @@ eLLError llAllocFromArena(int in_iSize,llArenaID in_iArenaID,Data_ptr* io_pPtr){
         printf("Heap Error: %d\n", gError);
 #endif
     *io_pPtr = ret;
+    assert(ret!=NULL);
     return error;
 } //TODO: 
 
@@ -956,20 +955,19 @@ eLLError llInitControlContext(){
 eLLError llLockArena(llArenaID* io_iArenaID){
     llArenaID target_arena = -1;
     // iterate through every possible arena and try to gain a lock for it.
-    while(target_arena==-1) {
-        for(int i = 0; i < NUM_OF_AREANA; i++){
-            if(pthread_mutex_trylock(&gControlContext->m_pArenas[i].m_ArenaLock)==0){
-                target_arena = i;
-                break;
-            }
+    for(int i = 0; i < NUM_OF_AREANA; i++){
+        if(pthread_mutex_trylock(&gControlContext->m_pArenas[i].m_ArenaLock)==0){
+            target_arena = i;
+            break;
         }
     }
-    // if(target_arena==-1){
-    //     // We have not aquired any lock, wait for an arena based on its thread id
-    //     pthread_t id = pthread_self();
-    //     target_arena = id&NUM_OF_AREANA;
-    //     pthread_mutex_lock(&gControlContext->m_pArenas[target_arena].m_ArenaLock);
-    // }
+    if(target_arena==-1){
+        // We have not aquired any lock, wait for an arena based on its thread id
+        uint64_t id = pthread_self();
+        id = id%10;
+        target_arena = (id/2)%NUM_OF_AREANA;
+        pthread_mutex_lock(&gControlContext->m_pArenas[target_arena].m_ArenaLock);
+    }
     *io_iArenaID = target_arena;
     return eLLError_None;
 }
@@ -997,14 +995,16 @@ Data_ptr llAlloc(int in_iSize) {
     llArenaID arena_id;
     llLockArena(&arena_id);
     llAllocFromArena (in_iSize,arena_id,&ret); 
+    Heap_ptr ret_ptr = llGetHeapPtrFromDataPtr(ret);
     llUnlockArena(arena_id);
     return ret;
 }
 Data_ptr llFree(void* bp){
-    Heap_ptr heapPtr = llGetHeapPtrFromDataPtr(bp);
+    Heap_ptr heapPtr = llGetHeapPtrFromDataPtr((Data_ptr)bp);
     llArenaID id = llGetArenaIDFromHeapPtr(heapPtr);
     // Lock the correponding arena
     pthread_mutex_lock(&gControlContext->m_pArenas[id].m_ArenaLock);
+    //llPrintBlock(heapPtr);
     llFreeToArena((Data_ptr)bp,id);
     pthread_mutex_unlock(&gControlContext->m_pArenas[id].m_ArenaLock);
 }
