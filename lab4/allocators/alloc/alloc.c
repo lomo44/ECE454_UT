@@ -848,11 +848,11 @@ eLLError llThrowInArenaBin(Heap_ptr in_pPtr, llArenaID in_iArenaID){
     Heap_ptr arena_bin = (Heap_ptr)gControlContext->m_pArenas[in_iArenaID].m_pBins;
     return llThrowInBin(in_pPtr, arena_bin);
 }
+
 eLLError llExtendArena(llArenaID in_iArenaID, int in_iSizeInWord){
     int target_size = MAX(in_iSizeInWord, ARENA_INITIAL_SIZE);
     pthread_mutex_lock(&gControlContext->m_iHeapLock);
     Heap_ptr extended_ptr = mem_sbrk(WORD_TO_BYTES(target_size));
-    
     if(extended_ptr!=NULL){
         llInitArena(extended_ptr,target_size);
         llInitBlock(extended_ptr+ARENA_PROLOGUE_SIZE,target_size-ARENA_META_SIZE,in_iArenaID);
@@ -865,15 +865,13 @@ eLLError llExtendArena(llArenaID in_iArenaID, int in_iSizeInWord){
         return eLLError_allocation_fail;
     }
 }
-
-
 eLLError llAllocFromArena(int in_iSize,llArenaID in_iArenaID,Data_ptr* io_pPtr){
 
     Data_ptr ret = NULL;
     // Try to allocate a block from bin
     eLLError error = llAllocFromBin(in_iSize,in_iArenaID,&ret);
     if(error!=eLLError_None){
-        llExtendArena (in_iArenaID,in_iSize);
+        llExtendArena (in_iArenaID,in_iSize);     
         error = llAllocFromBin(in_iSize,in_iArenaID,&ret);
         assert(error==eLLError_None);
     }
@@ -965,9 +963,9 @@ eLLError llLockArena(llArenaID* io_iArenaID){
     }
     if(target_arena==-1){
         // We have not aquired any lock, wait for an arena based on its thread id
-        uint64_t id = pthread_self();
-        id = id%10;
-        target_arena = (id/2)%NUM_OF_AREANA;
+        pthread_t id = pthread_self();
+        target_arena = ((id>>2)/37)%NUM_OF_AREANA;
+        //printf ("I am waitng Arena %d\n",target_arena);
         pthread_mutex_lock(&gControlContext->m_pArenas[target_arena].m_ArenaLock);
     }
     *io_iArenaID = target_arena;
