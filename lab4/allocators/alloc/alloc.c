@@ -400,7 +400,7 @@ eLLError llInitBlock(Heap_ptr in_pInputPtr, WORD in_iBlockSizeInWord, llArenaID 
     llSetNextBlock(in_pInputPtr,NULL);
     // initialize the footer
     PUT(in_pInputPtr + PROLOGUE_OFFSET + data_size_in_dword + PREVIOUS_PTR_OFFSET,
-        PACK((data_size_in_dword << MALLOC_ALIGNMENT) | (in_iArenaID << 1) << MALLOC_ALIGNMENT, 1));
+        PACK((data_size_in_dword << MALLOC_ALIGNMENT) | (in_iArenaID << 1), 1));
     return eLLError_None;
 }
 
@@ -466,8 +466,6 @@ eLLError llAllocFromBin(BYTE in_iSizeInBytes, llArenaID in_id, Data_ptr *io_pOut
             ret = GET_PTR(in_bin + start_index);
             // set the head of the linked list to the next element
             PUT_PTR(in_bin + start_index, llGetNextBlock(ret));
-            Heap_ptr a = ret+1;
-            int a_size = llGetDataSizeFromHeader(ret);
             llDisconnectBlock(ret);
             break;
         }
@@ -505,7 +503,7 @@ eLLError llAllocFromBin(BYTE in_iSizeInBytes, llArenaID in_id, Data_ptr *io_pOut
     // find a usable block
     if (ret != NULL) {
         // modified the allocation bit
-        llMarkBlockAllocationBit(ret, BLOCK_ALLOCATED);
+        llMarkBlockAllocationBit(ret, BLOCK_ALLOCATED);//TODO: Check if the allocation bit has been overwritten
         llSetArenaIDToHeapPtr (ret,in_id);
         int id = llGetArenaIDFromHeapPtr(ret);
         assert(id==in_id);
@@ -804,7 +802,6 @@ eLLError llFreeToBin(Data_ptr in_pDataPtr, Heap_ptr in_pBinPtr) {
     // Deallocate the current block
     llMarkBlockAllocationBit(cur_ptr,BLOCK_FREE);
     // Get the previous block ptr
-    Heap_ptr aa = cur_ptr-1;
     Heap_ptr prev_ptr = llGetPrevHeapPtrFromHeapPtr(cur_ptr);
     // Get the next block ptr
     Heap_ptr next_ptr = llGetNextHeapPtrFromHeapPtr(cur_ptr);
@@ -855,14 +852,16 @@ eLLError llExtendArena(llArenaID in_iArenaID, int in_iSizeInWord){
     int target_size = MAX(in_iSizeInWord, ARENA_INITIAL_SIZE);
     pthread_mutex_lock(&gControlContext->m_iHeapLock);
     Heap_ptr extended_ptr = mem_sbrk(WORD_TO_BYTES(target_size));
-    pthread_mutex_unlock(&gControlContext->m_iHeapLock);
+    
     if(extended_ptr!=NULL){
         llInitArena(extended_ptr,target_size);
         llInitBlock(extended_ptr+ARENA_PROLOGUE_SIZE,target_size-ARENA_META_SIZE,in_iArenaID);
+        pthread_mutex_unlock(&gControlContext->m_iHeapLock);
         llThrowInArenaBin(extended_ptr+ARENA_PROLOGUE_SIZE,in_iArenaID);
         return eLLError_None;
     }
     else{
+        pthread_mutex_unlock(&gControlContext->m_iHeapLock);
         return eLLError_allocation_fail;
     }
 }
@@ -998,7 +997,6 @@ Data_ptr llAlloc(int in_iSize) {
     llArenaID arena_id;
     llLockArena(&arena_id);
     llAllocFromArena (in_iSize,arena_id,&ret); 
-    Heap_ptr ret_ptr = llGetHeapPtrFromDataPtr(ret);
     llUnlockArena(arena_id);
     return ret;
 }
