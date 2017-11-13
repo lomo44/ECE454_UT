@@ -23,17 +23,19 @@
  * NOTE TO STUDENTS: Before you do anything else, please
  * provide your team information in the following struct.
  ********************************************************/
-name_t my_name = {
+name_t myname = {
         /* Team name */
         "NSFW",
         /* First member's full name */
         "LI ZHUANG",
         /* First member's email address */
         "johnnn.li@mail.utoronto.ca",
+        "1000311628",
         /* Second member's full name (leave blank if none) */
         "LIN GUJIANG",
         /* Second member's email address (leave blank if none) */
-        "gujiang.lin@mail.utoronto.ca"
+        "gujiang.lin@mail.utoronto.ca",
+        "1000268239"
 };
 
 /*************************************************************************
@@ -256,7 +258,7 @@ Heap_ptr gHeapEnd;
 eLLError gError;
 #define LAB4_START 1
 #if LAB4_START
-#define NUM_OF_AREANA 4
+#define NUM_OF_AREANA 8
 #define ARENA_INITIAL_SIZE 8000
 #define ARENA_PROLOGUE_SIZE 4
 #define ARENA_EPILOGUE_SIZE 4
@@ -955,19 +957,22 @@ eLLError llInitControlContext(){
 eLLError llLockArena(llArenaID* io_iArenaID){
     llArenaID target_arena = -1;
     // iterate through every possible arena and try to gain a lock for it.
-    for(int i = 0; i < NUM_OF_AREANA; i++){
-        if(pthread_mutex_trylock(&gControlContext->m_pArenas[i].m_ArenaLock)==0){
-            target_arena = i;
-            break;
-        }
-    }
-    if(target_arena==-1){
-        // We have not aquired any lock, wait for an arena based on its thread id
-        pthread_t id = pthread_self();
-        target_arena = ((id>>2)/37)%NUM_OF_AREANA;
+    pthread_t id = pthread_self();
+    target_arena = ((id>>2)/37)%NUM_OF_AREANA;
         //printf ("I am waitng Arena %d\n",target_arena);
-        pthread_mutex_lock(&gControlContext->m_pArenas[target_arena].m_ArenaLock);
-    }
+    if(pthread_mutex_trylock(&gControlContext->m_pArenas[target_arena].m_ArenaLock)!=0){
+        target_arena = -1;
+        for(int i = 0; i < NUM_OF_AREANA; i++){
+            if(pthread_mutex_trylock(&gControlContext->m_pArenas[i].m_ArenaLock)==0){
+                target_arena = i;
+                break;
+            }
+        }
+        if(target_arena==-1){
+            target_arena = ((id>>2)/37)%NUM_OF_AREANA;
+            pthread_mutex_lock(&gControlContext->m_pArenas[target_arena].m_ArenaLock);
+        }
+    }  
     *io_iArenaID = target_arena;
     return eLLError_None;
 }
