@@ -4,27 +4,30 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "taskName": "Build All(Release)",
+            "label": "Build All(Release)",
             "type": "shell",
             "command": "make all",
             "problemMatcher":[
-            ]
+            ],
+            "group":"build"
         },
         {
-            "taskName": "Build Debug",
+            "label": "Build Debug",
             "type": "shell",
             "command": "make debug",
             "problemMatcher":[
                 
-            ]
+            ],
+            "group":"build"
         },
         {
-            "taskName": "Clean",
+            "label": "Clean",
             "type": "shell",
             "command": "make clean",
             "problemMatcher": [
                 "$gcc"
-            ]
+            ],
+            "group":"build"
         }
     ]
 }

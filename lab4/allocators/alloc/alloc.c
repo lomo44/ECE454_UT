@@ -23,21 +23,25 @@
  * NOTE TO STUDENTS: Before you do anything else, please
  * provide your team information in the following struct.
  ********************************************************/
+
 name_t myname = {
-        /* Team name */
-        "NSFW",
-        /* First member's full name */
-        "LI ZHUANG",
-        /* First member's email address */
-        "johnnn.li@mail.utoronto.ca",
-        "1000311628",
-        /* Second member's full name (leave blank if none) */
-        "LIN GUJIANG",
-        /* Second member's email address (leave blank if none) */
-        "gujiang.lin@mail.utoronto.ca",
-        "1000268239"
+     /* team name to be displayed on webpage */
+     "Terryfolds",
+     /* Full name of first team member */
+     "Li Zhuang",
+     /* Email address of first team member */
+     "johnnnn.li@mail.utoronto.ca",
+     /* Student Number of first team member */
+     "1000311628"
+     /* Full name of second team member */
+     "Lin Gujiang",
+     /* Email address of second team member */
+     "gujiang.lin@mail.utoronto.ca",
+     /* Student Number of second team member */
+     "1000268239"
 };
 
+//fgrep -o 0 result.txt | wc -l;fgrep -o 1 result.txt | wc -l;fgrep -o 2 result.txt | wc -l;fgrep -o 3 result.txt | wc -l;fgrep -o 4 result.txt | wc -l;fgrep -o 5 result.txt | wc -l;fgrep -o 6 result.txt | wc -l;fgrep -o 7 result.txt | wc -l;fgrep -o 0 result.txt | wc -l;fgrep -o 1 result.txt | wc -l;fgrep -o 2 result.txt | wc -l;fgrep -o 3 result.txt | wc -l;fgrep -o 4 result.txt | wc -l;fgrep -o 5 result.txt | wc -l;fgrep -o 6 result.txt | wc -l;fgrep -o 7 result.txt | wc -l;
 /*************************************************************************
  * Basic Constants and Macros
  * You are not required to use these macros but may find them helpful.
@@ -259,7 +263,7 @@ eLLError gError;
 #define LAB4_START 1
 #if LAB4_START
 #define NUM_OF_AREANA 8
-#define ARENA_INITIAL_SIZE 8000
+#define ARENA_INITIAL_SIZE 10000
 #define ARENA_PROLOGUE_SIZE 4
 #define ARENA_EPILOGUE_SIZE 4
 #define ARENA_META_SIZE (ARENA_EPILOGUE_SIZE+ARENA_PROLOGUE_SIZE)
@@ -507,8 +511,8 @@ eLLError llAllocFromBin(BYTE in_iSizeInBytes, llArenaID in_id, Data_ptr *io_pOut
         // modified the allocation bit
         llMarkBlockAllocationBit(ret, BLOCK_ALLOCATED);//TODO: Check if the allocation bit has been overwritten
         llSetArenaIDToHeapPtr (ret,in_id);
-        int id = llGetArenaIDFromHeapPtr(ret);
-        assert(id==in_id);
+        // int id = llGetArenaIDFromHeapPtr(ret);
+        // assert(id==in_id);
         *io_pOutputPtr = llGetDataPtrFromHeapPtr(ret);
         return eLLError_None;
     } else {
@@ -855,15 +859,15 @@ eLLError llExtendArena(llArenaID in_iArenaID, int in_iSizeInWord){
     int target_size = MAX(in_iSizeInWord, ARENA_INITIAL_SIZE);
     pthread_mutex_lock(&gControlContext->m_iHeapLock);
     Heap_ptr extended_ptr = mem_sbrk(WORD_TO_BYTES(target_size));
+    pthread_mutex_unlock(&gControlContext->m_iHeapLock);
     if(extended_ptr!=NULL){
         llInitArena(extended_ptr,target_size);
         llInitBlock(extended_ptr+ARENA_PROLOGUE_SIZE,target_size-ARENA_META_SIZE,in_iArenaID);
-        pthread_mutex_unlock(&gControlContext->m_iHeapLock);
+        
         llThrowInArenaBin(extended_ptr+ARENA_PROLOGUE_SIZE,in_iArenaID);
         return eLLError_None;
     }
     else{
-        pthread_mutex_unlock(&gControlContext->m_iHeapLock);
         return eLLError_allocation_fail;
     }
 }
@@ -875,7 +879,7 @@ eLLError llAllocFromArena(int in_iSize,llArenaID in_iArenaID,Data_ptr* io_pPtr){
     if(error!=eLLError_None){
         llExtendArena (in_iArenaID,in_iSize);     
         error = llAllocFromBin(in_iSize,in_iArenaID,&ret);
-        assert(error==eLLError_None);
+        //assert(error==eLLError_None);
     }
     if (error != eLLError_allocation_fail) {
         // Successfully found a free block inside the list, now we need to check if the block is splittable
@@ -915,7 +919,7 @@ eLLError llAllocFromArena(int in_iSize,llArenaID in_iArenaID,Data_ptr* io_pPtr){
         printf("Heap Error: %d\n", gError);
 #endif
     *io_pPtr = ret;
-    assert(ret!=NULL);
+    //assert(ret!=NULL);
     return error;
 } //TODO: 
 
@@ -953,12 +957,15 @@ eLLError llInitControlContext(){
     return eLLError_target_initialized;
 }
 
+#define llHashID(id,num) (((id>>12))%num)
+
 /** Call this function to try lock one of the arenas **/
 eLLError llLockArena(llArenaID* io_iArenaID){
     llArenaID target_arena = -1;
     // iterate through every possible arena and try to gain a lock for it.
     pthread_t id = pthread_self();
-    target_arena = ((id>>2)/37)%NUM_OF_AREANA;
+    target_arena = llHashID(id,NUM_OF_AREANA);
+    printf("target_arena: %d\n",target_arena);
         //printf ("I am waitng Arena %d\n",target_arena);
     if(pthread_mutex_trylock(&gControlContext->m_pArenas[target_arena].m_ArenaLock)!=0){
         target_arena = -1;
@@ -969,7 +976,7 @@ eLLError llLockArena(llArenaID* io_iArenaID){
             }
         }
         if(target_arena==-1){
-            target_arena = ((id>>2)/37)%NUM_OF_AREANA;
+            target_arena = llHashID(id,NUM_OF_AREANA);
             pthread_mutex_lock(&gControlContext->m_pArenas[target_arena].m_ArenaLock);
         }
     }  
