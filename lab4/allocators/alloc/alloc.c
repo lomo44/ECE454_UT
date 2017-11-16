@@ -965,7 +965,6 @@ eLLError llLockArena(llArenaID* io_iArenaID){
     // iterate through every possible arena and try to gain a lock for it.
     pthread_t id = pthread_self();
     target_arena = llHashID(id,NUM_OF_AREANA);
-    printf("target_arena: %d\n",target_arena);
         //printf ("I am waitng Arena %d\n",target_arena);
     if(pthread_mutex_trylock(&gControlContext->m_pArenas[target_arena].m_ArenaLock)!=0){
         target_arena = -1;
