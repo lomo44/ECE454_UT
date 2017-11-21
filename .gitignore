@@ -7,3 +7,8 @@ lab4/allocators/alloc/*.o
 lab4/benchmarks/*
 lab4/include/*
 lab4/util/*
+
+lab5/*.o
+lab5/gol
+lab5/initboard
+lab5/outputs/*
