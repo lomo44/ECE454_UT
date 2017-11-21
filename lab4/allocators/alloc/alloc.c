@@ -263,7 +263,7 @@ eLLError gError;
 #define LAB4_START 1
 #if LAB4_START
 #define NUM_OF_AREANA 8
-#define ARENA_INITIAL_SIZE 10000
+#define ARENA_INITIAL_SIZE 2000
 #define ARENA_PROLOGUE_SIZE 4
 #define ARENA_EPILOGUE_SIZE 4
 #define ARENA_META_SIZE (ARENA_EPILOGUE_SIZE+ARENA_PROLOGUE_SIZE)
@@ -816,13 +816,13 @@ eLLError llFreeToBin(Data_ptr in_pDataPtr, Heap_ptr in_pBinPtr) {
     int is_next_free = llIsBlockFree(next_ptr);
     Heap_ptr ret = cur_ptr;
     // Check if previous block is free
-    if (is_prev_free != BLOCK_FREE && llGetDataSizeFromHeader(prev_ptr) > FAST_BLOCK_SIZE && llAreBlocksInSameArena(prev_ptr,cur_ptr)) {
+    if (is_prev_free != BLOCK_FREE && llGetDataSizeFromHeader(prev_ptr) > FAST_BLOCK_SIZE) {
         // Previous block is free, merge current block with previous block
         //llPrintBlock(prev_ptr);
         llPullFromBin(prev_ptr,in_pBinPtr);
         llMergeBlock(ret, prev_ptr, &ret);
     }
-    if (is_next_free != BLOCK_FREE && llGetDataSizeFromHeader(next_ptr) > FAST_BLOCK_SIZE && llAreBlocksInSameArena(next_ptr,cur_ptr)) {
+    if (is_next_free != BLOCK_FREE && llGetDataSizeFromHeader(next_ptr) > FAST_BLOCK_SIZE) {
         // Next block is free
         llPullFromBin(next_ptr,in_pBinPtr);
         llMergeBlock(ret, next_ptr, &ret);
@@ -871,16 +871,49 @@ eLLError llExtendArena(llArenaID in_iArenaID, int in_iSizeInWord){
         return eLLError_allocation_fail;
     }
 }
+#define llHashID(id,num) (((id>>12))%num)
+
+/** Call this function to try lock one of the arenas **/
+eLLError llLockArena(llArenaID* io_iArenaID){
+    llArenaID target_arena = -1;
+    // iterate through every possible arena and try to gain a lock for it.
+    pthread_t id = pthread_self();
+    target_arena = llHashID(id,NUM_OF_AREANA);
+        //printf ("I am waitng Arena %d\n",target_arena);
+    if(pthread_mutex_trylock(&gControlContext->m_pArenas[target_arena].m_ArenaLock)!=0){
+        target_arena = -1;
+        for(int i = 0; i < NUM_OF_AREANA; i++){
+            if(pthread_mutex_trylock(&gControlContext->m_pArenas[i].m_ArenaLock)==0){
+                target_arena = i;
+                break;
+            }
+        }
+        if(target_arena==-1){
+            target_arena = llHashID(id,NUM_OF_AREANA);
+            pthread_mutex_lock(&gControlContext->m_pArenas[target_arena].m_ArenaLock);
+        }
+    }  
+    *io_iArenaID = target_arena;
+    return eLLError_None;
+}
+eLLError llUnlockArena(llArenaID in_iArenaID){
+    pthread_mutex_unlock(&gControlContext->m_pArenas[in_iArenaID].m_ArenaLock);
+    return eLLError_None;
+}
+
+
 eLLError llAllocFromArena(int in_iSize,llArenaID in_iArenaID,Data_ptr* io_pPtr){
 
     Data_ptr ret = NULL;
     // Try to allocate a block from bin
-    eLLError error = llAllocFromBin(in_iSize,in_iArenaID,&ret);
+    llArenaID id;
+    llLockArena(&id);
+    eLLError error = llAllocFromBin(in_iSize,id,&ret);
     if(error!=eLLError_None){
-        llExtendArena (in_iArenaID,in_iSize);     
-        error = llAllocFromBin(in_iSize,in_iArenaID,&ret);
-        //assert(error==eLLError_None);
+        llExtendArena (id,in_iSize);     
+        error = llAllocFromBin(in_iSize,id,&ret);        //assert(error==eLLError_None);
     }
+    llUnlockArena(id);
     if (error != eLLError_allocation_fail) {
         // Successfully found a free block inside the list, now we need to check if the block is splittable
         Heap_ptr heap_ret = llGetHeapPtrFromDataPtr(ret);
@@ -905,7 +938,9 @@ eLLError llAllocFromArena(int in_iSize,llArenaID in_iArenaID,Data_ptr* io_pPtr){
                     //then split the current plock
                     llSplitBlock(heap_ret, &newRecipe, &outptrA, &outptrB);
                     // Throw the remainder size into the bin
-                    llThrowInArenaBin(outptrB,in_iArenaID);
+                    pthread_mutex_lock(&gControlContext->m_pArenas[id].m_ArenaLock);
+                    llThrowInArenaBin(outptrB,id);
+                    pthread_mutex_unlock(&gControlContext->m_pArenas[id].m_ArenaLock);
                 }
             }
         }
@@ -957,35 +992,7 @@ eLLError llInitControlContext(){
     return eLLError_target_initialized;
 }
 
-#define llHashID(id,num) (((id>>12))%num)
 
-/** Call this function to try lock one of the arenas **/
-eLLError llLockArena(llArenaID* io_iArenaID){
-    llArenaID target_arena = -1;
-    // iterate through every possible arena and try to gain a lock for it.
-    pthread_t id = pthread_self();
-    target_arena = llHashID(id,NUM_OF_AREANA);
-        //printf ("I am waitng Arena %d\n",target_arena);
-    if(pthread_mutex_trylock(&gControlContext->m_pArenas[target_arena].m_ArenaLock)!=0){
-        target_arena = -1;
-        for(int i = 0; i < NUM_OF_AREANA; i++){
-            if(pthread_mutex_trylock(&gControlContext->m_pArenas[i].m_ArenaLock)==0){
-                target_arena = i;
-                break;
-            }
-        }
-        if(target_arena==-1){
-            target_arena = llHashID(id,NUM_OF_AREANA);
-            pthread_mutex_lock(&gControlContext->m_pArenas[target_arena].m_ArenaLock);
-        }
-    }  
-    *io_iArenaID = target_arena;
-    return eLLError_None;
-}
-eLLError llUnlockArena(llArenaID in_iArenaID){
-    pthread_mutex_unlock(&gControlContext->m_pArenas[in_iArenaID].m_ArenaLock);
-    return eLLError_None;
-}
 
 
 #endif
@@ -1004,9 +1011,7 @@ eLLError llUnlockArena(llArenaID in_iArenaID){
 Data_ptr llAlloc(int in_iSize) {
     Data_ptr ret=NULL;
     llArenaID arena_id;
-    llLockArena(&arena_id);
     llAllocFromArena (in_iSize,arena_id,&ret); 
-    llUnlockArena(arena_id);
     return ret;
 }
 Data_ptr llFree(void* bp){
