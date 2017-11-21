@@ -1,0 +1,8 @@
+For the implementation of malloc, we re-used our lab3 code (same team). 
+All the free blocks is store in the BIN, and each block has 32 byte meta data (header/ previous and next free block pointer/footer). 
+Header and footer have the information of block size, arena id and allocation. 
+Each entry of the BIN holds different size range of the block. For lab 4, we implemented 8 arenas of the BIN, with 8 locks respect. 
+When a thread calls malloc, it will try to acquired a BIN based on a hash function of its ID. 
+If that BIN is locked, it will go through BIN list to acquire an unlocked one. 
+If none of the BIN is unlocked, it will wait the BIN based its ID. 
+For free function, the thread will look at header of the block to check which arena it belongs to and wait that arena. 
