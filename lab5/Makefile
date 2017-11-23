@@ -19,7 +19,7 @@ endif
 
 GOL_EXE = gol
 GOL_VERIFY_EXE = gol_verify
-GOL_OBJS = gol.o life.o lifeseq.o load.o save.o ggQuadTree.o ggHashTable.o
+GOL_OBJS = gol.o life.o lifeseq.o load.o save.o ggQuadTree.o ggHashTable.o ggBoardPool.o
 GOL_VERIFY_OBJS = gol.verify.o life.o lifeseq.o load.o save.o 
 BITBOARD_EXE = initboard
 BITBOARD_OBJS = bitboard.o random_bit.o
@@ -62,6 +62,7 @@ ggQuadTree.o: ggQuadTree.c ggQuadTree.h
 
 ggHashTable.o: ggHashTable.c ggHashTable.h
 
+ggBoardPool.o: ggBoardPool.c ggBoardPool.h
 
 clean:
 	rm -f $(GOL_OBJS) $(GOL_VERIFY_OBJS) $(GOL_EXE) $(GOL_VERIFY_EXE) $(BITBOARD_OBJS) $(BITBOARD_EXE) 

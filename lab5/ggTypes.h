@@ -1,7 +1,6 @@
 #ifndef _ggTypes_h
 #define _ggTypes_h
 #include <stdlib.h>
-typedef char* ggBoard;
 
 typedef struct __ggPosition{
     int m_iX;
@@ -9,7 +8,7 @@ typedef struct __ggPosition{
 } ggPosition;
 
 typedef enum __ggeQuadSize{
-    eQuadSize_4 = 2,
+    eQuadSize_4,
     eQuadSize_8,
     eQuadSize_16,
     eQuadSize_32,

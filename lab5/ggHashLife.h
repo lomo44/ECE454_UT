@@ -14,4 +14,5 @@ ggQuadTreeNode* ggEvolveTree(ggQuadTreeNode* in_pTreeNode, int m_iIteration);
 void ggConvertTreeToBoard(ggQuadTreeNode* in_pTreeNode, ggBoard in_pBoard);
 
 
+
 #endif
