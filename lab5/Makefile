@@ -19,7 +19,7 @@ endif
 
 GOL_EXE = gol
 GOL_VERIFY_EXE = gol_verify
-GOL_OBJS = gol.o life.o lifeseq.o load.o save.o 
+GOL_OBJS = gol.o life.o lifeseq.o load.o save.o ggQuadTree.o ggHashTable.o
 GOL_VERIFY_OBJS = gol.verify.o life.o lifeseq.o load.o save.o 
 BITBOARD_EXE = initboard
 BITBOARD_OBJS = bitboard.o random_bit.o
@@ -57,6 +57,10 @@ gol.o: gol.c life.h load.h save.h
 bitboard.o: bitboard.c random_bit.h
 
 random_bit.o: random_bit.c random_bit.h
+
+ggQuadTree.o: ggQuadTree.c ggQuadTree.h
+
+ggHashTable.o: ggHashTable.c ggHashTable.h
 
 
 clean:
