@@ -9,7 +9,7 @@ typedef struct __ggPosition{
 } ggPosition;
 
 typedef enum __ggeQuadSize{
-    eQuadSize_4 = 2,
+    eQuadSize_4,
     eQuadSize_8,
     eQuadSize_16,
     eQuadSize_32,
