@@ -5,10 +5,11 @@
 #define GG_MINIMUM_NODE_DIMENSION 2
 
 typedef enum __ggeQuadTreePosition{
-    eQuadTreePosition_NW,
-    eQuadTreePosition_NE,
-    eQuadTreePosition_SW,
-    eQuadTreePosition_SE,
+    eQuadTreePosition_TL,
+    eQuadTreePosition_TR,
+    eQuadTreePosition_BL,
+    eQuadTreePosition_BR,
+    eQuadTreePosition_Result,
     eQuadTreePosition_Count,
     eQuadTreePosition_Root
 } ggeQuadTreePosition;
