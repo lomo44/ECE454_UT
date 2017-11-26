@@ -21,8 +21,6 @@ typedef struct __ggQuadTreeNode{
     struct __ggQuadTreeNode* m_pChildNodes[eQuadTreePosition_Count];
 } ggQuadTreeNode;
 
-//TODO: Implement this
-//ggQuadTreeNode* ggCreateQuadTreeFromBoard(ggBoard* in_pBoard, ggPosition in_pTopLeft, int in_iSize);
 /*
  *Function: ggQuadTree_InitLeaf
  * ----------------------------
@@ -31,5 +29,8 @@ typedef struct __ggQuadTreeNode{
  *  returns: the pointer to array
  */
 ggQuadTreeNode* ggQuadTree_InitLeaf();
+
+// Some tree node utilities function
+ggQuadT
 
 #endif

@@ -12,11 +12,23 @@ void ggConvertTreeToBoard(ggQuadTreeNode* in_pTreeNode, ggBoard* in_pBoard,  ggH
 }
 
 void ggFreeContext(ggHashLifeContext* in_pContext){
-    return;
+    // decallocate the leaf nodes array
+    free(in_pContext->m_pPatternTables);
+    // de-allocate all of the hash tabls
+    for(int i = 0; i < eQuadSize_Count;i++){
+        ggHashTable_Free(in_pContext->m_pPatternTables[i]);
+    }
 }
 
 ggHashLifeContext* ggCreateContext(){
-    return NULL;
+    ggHashLifeContext* newContext = ggAlloc(ggHashLifeContext);
+    // Initialize leafnodes array
+    newContext->m_pLeafNodes = ggQuadTree_InitLeaf();
+    // Initialize hash tables for different nodes
+    for(int i =0 ; i < eQuadSize_Count;i++){
+        newContext->m_pPatternTables[i] = ggHashTable_Create(ggeHashingAlgorithm_Default);
+    }
+    return newContext;
 }
 
 char *
