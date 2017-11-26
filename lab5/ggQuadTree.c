@@ -46,7 +46,7 @@
  *  returns: the pointer to array
  */
 ggQuadTreeNode* ggQuadTree_InitLeaf(){
-    ggQuadTreeNode* array_output = (ggQuadTreeNode*) malloc (sizeof(ggQuadTreeNode)*16);
+    ggQuadTreeNode* array_output = (ggQuadTreeNode*) malloc (sizeof(ggQuadTreeNode)*GG_LEAF_NODE_COUNT);
     for (unsigned long long  i = 0; i < 16; i++){
         array_output[i].m_eSize = eQuadSize_2;
         array_output[i].m_pChildNodes[eQuadTreePosition_TL] = (ggQuadTreeNode*)((i >> 3) & 0b1);

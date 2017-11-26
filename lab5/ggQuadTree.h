@@ -3,6 +3,7 @@
 #include "ggTypes.h"
 
 #define GG_MINIMUM_NODE_DIMENSION 2
+#define GG_LEAF_NODE_COUNT 16
 
 typedef enum __ggeQuadTreePosition{
     eQuadTreePosition_TL,
