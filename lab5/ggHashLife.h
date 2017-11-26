@@ -6,8 +6,6 @@
 #include "ggQuadTree.h"
 
 
-ggHashTable gPatternSets[eQuadSize_Count];
-
 
 ggQuadTreeNode* ggCreateTreeFromBoard(ggBoard in_pBoard);
 ggQuadTreeNode* ggEvolveTree(ggQuadTreeNode* in_pTreeNode, int m_iIteration);
