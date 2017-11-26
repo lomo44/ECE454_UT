@@ -36,4 +36,23 @@ ggQuadTreeNode* ggCreateQuadTreeFromBoard(ggBoard* in_pBoard, ggPosition in_pTop
     //     // leaf node, create normal node
 
     // }
+    return NULL;
+}
+/*
+ *Function: ggHashTable_two_Create
+ * ----------------------------
+ *  Initialize a array to store leaf nodes for 2x2 blocks with 16 entries
+ *
+ *  returns: the pointer to array
+ */
+ggQuadTreeNode* ggQuadTree_InitLeaf(){
+    ggQuadTreeNode* array_output = (ggQuadTreeNode*) malloc (sizeof(ggQuadTreeNode)*16);
+    for (unsigned long long  i = 0; i < 16; i++){
+        array_output[i].m_eSize = eQuadSize_2;
+        array_output[i].m_pChildNodes[eQuadTreePosition_TL] = (ggQuadTreeNode*)((i >> 3) & 0b1);
+        array_output[i].m_pChildNodes[eQuadTreePosition_TR] = (ggQuadTreeNode*)((i >> 2) & 0b1);
+        array_output[i].m_pChildNodes[eQuadTreePosition_BL] = (ggQuadTreeNode*)((i >> 1) & 0b1);
+        array_output[i].m_pChildNodes[eQuadTreePosition_BR] = (ggQuadTreeNode*)( i & 0b1);
+    }
+    return array_output;
 }
