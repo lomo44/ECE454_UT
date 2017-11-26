@@ -36,8 +36,8 @@
 //     //     // leaf node, create normal node
 
     // }
-    return NULL;
-}
+//     return NULL;
+// }
 /*
  *Function: ggHashTable_two_Create
  * ----------------------------

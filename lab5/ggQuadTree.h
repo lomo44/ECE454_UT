@@ -21,7 +21,7 @@ typedef struct __ggQuadTreeNode{
 } ggQuadTreeNode;
 
 //TODO: Implement this
-ggQuadTreeNode* ggCreateQuadTreeFromBoard(ggBoard* in_pBoard, ggPosition in_pTopLeft, int in_iSize);
+//ggQuadTreeNode* ggCreateQuadTreeFromBoard(ggBoard* in_pBoard, ggPosition in_pTopLeft, int in_iSize);
 /*
  *Function: ggQuadTree_InitLeaf
  * ----------------------------
