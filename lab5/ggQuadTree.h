@@ -17,7 +17,6 @@ typedef enum __ggeQuadTreePosition{
 
 typedef struct __ggQuadTreeNode{
     ggeQuadSize m_eSize;
-    ggeQuadTreePosition m_NodePosition;
     struct __ggQuadTreeNode* m_pChildNodes[eQuadTreePosition_Count];
 } ggQuadTreeNode;
 
@@ -30,7 +29,9 @@ typedef struct __ggQuadTreeNode{
  */
 ggQuadTreeNode* ggQuadTree_InitLeaf();
 
-// Some tree node utilities function
-ggQuadT
+
+ggQuadTreeNode* ggQuadTree_GetLeaf(ggQuadTreeNode* in_pLeafNodes,int in_iTL,int in_iTR,int in_iBL,int in_iBR);
+// // Some tree node utilities function
+// ggQuadTreeNode* ggQuadTree_Get
 
 #endif

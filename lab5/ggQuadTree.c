@@ -56,3 +56,9 @@ ggQuadTreeNode* ggQuadTree_InitLeaf(){
     }
     return array_output;
 }
+ggQuadTreeNode* ggQuadTree_GetLeaf(ggQuadTreeNode* in_pLeafNodes,int in_iTL,int in_iTR,int in_iBL,int in_iBR){
+    int index = ((in_iTL & 0b1) << 3) + ((in_iTR & 0b1) << 2) + ((in_iBL & 0b1) << 1) + ((in_iBR & 0b1));
+    return &in_pLeafNodes[index]; 
+}
+
+

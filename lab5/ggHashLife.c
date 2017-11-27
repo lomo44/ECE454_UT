@@ -11,6 +11,46 @@ void ggConvertTreeToBoard(ggQuadTreeNode* in_pTreeNode, ggBoard* in_pBoard,  ggH
     return;
 }
 
+ggQuadTreeNode* ggCreateNode(ggBoard* in_pBoard, ggeQuadSize in_eSize, ggPosition in_pTLPosition, ggHashLifeContext* in_pContext){
+    if(in_eSize==eQuadSize_2){
+        // Almost base node type, need to scan the board
+        int TL = in_pBoard->m_pBoard[in_pTLPosition.m_iY*in_pBoard->m_iNumOfRow+in_pTLPosition.m_iX];
+        int TR = in_pBoard->m_pBoard[in_pTLPosition.m_iY*in_pBoard->m_iNumOfRow+in_pTLPosition.m_iX+1]; 
+        int BL = in_pBoard->m_pBoard[(in_pTLPosition.m_iY+1)*in_pBoard->m_iNumOfRow+in_pTLPosition.m_iX]; 
+        int BR = in_pBoard->m_pBoard[(in_pTLPosition.m_iY+1)*in_pBoard->m_iNumOfRow+in_pTLPosition.m_iX+1]; 
+        return ggQuadTree_GetLeaf(in_pContext->m_pLeafNodes,TL,TR,BL,BR);
+    }
+    else{
+        int sub_block_size = ggGetSizeFromQuadSize(in_eSize) >> 1; 
+        ggPosition TR = in_pTLPosition;
+        TR.m_iX += sub_block_size;
+        ggPosition BL = in_pTLPosition;
+        BL.m_iY += sub_block_size;
+        ggPosition BR = BL;
+        BR.m_iX += sub_block_size;
+        ggQuadTreeNode* node_TL = ggCreateNode(in_pBoard, in_eSize-1,in_pTLPosition, in_pContext);
+        ggQuadTreeNode* node_TR = ggCreateNode(in_pBoard, in_eSize-1,TR,in_pContext);
+        ggQuadTreeNode* node_BL = ggCreateNode(in_pBoard, in_eSize-1,BL,in_pContext);
+        ggQuadTreeNode* node_BR = ggCreateNode(in_pBoard, in_eSize-1,BR,in_pContext);
+        // Check the hash table node and see if it exist
+        ggQuadTreeNode* existingNode = ggHashTable_Search(in_pContext->m_pPatternTables[in_eSize],node_TL,node_TR,node_BL,node_BR);
+        if(existingNode!=NULL){
+            // Node exists, dont need to recreate
+            return existingNode;
+        }
+        else{
+            // Node does not exists, need to create one and insert it into the hash table
+            ggQuadTreeNode* newNode = ggAlloc(ggQuadTreeNode);
+            newNode->m_eSize = in_eSize;
+            newNode->m_pChildNodes[eQuadTreePosition_TL] = node_TL;
+            newNode->m_pChildNodes[eQuadTreePosition_TR] = node_TR;
+            newNode->m_pChildNodes[eQuadTreePosition_BL] = node_BL;
+            newNode->m_pChildNodes[eQuadTreePosition_BR] = node_BR;
+            return newNode;
+        }
+    }
+}
+
 void ggFreeContext(ggHashLifeContext* in_pContext){
     // decallocate the leaf nodes array
     free(in_pContext->m_pPatternTables);

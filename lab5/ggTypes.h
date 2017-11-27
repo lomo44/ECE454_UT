@@ -20,6 +20,8 @@ typedef enum __ggeQuadSize{
     eQuadSize_1024,
     eQuadSize_2048,
     eQuadSize_4096,
+    eQuadSize_8192,
+    eQuadSize_16384,
     eQuadSize_Count
 } ggeQuadSize;
 
@@ -31,4 +33,5 @@ typedef struct __ggBoard{
 
 #define ggAllocArray(__type,__count) (__type*)(malloc(sizeof(__type)*__count))
 #define ggAlloc(__type) ggAllocArray(__type,0)
+#define ggGetSizeFromQuadSize(__quadSize) (1 << ((__quadSize)+1))
 #endif

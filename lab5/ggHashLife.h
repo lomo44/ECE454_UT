@@ -15,6 +15,7 @@ typedef struct __ggHashLifeContext{
 ggHashLifeContext* 	ggCreateContext();
 void 				ggFreeContext(ggHashLifeContext* in_pContext);
 
+ggQuadTreeNode*		ggCreateWrappedNode(ggQuadTreeNode* in_pNode);
 ggQuadTreeNode* 	ggCreateTreeFromBoard(ggBoard* in_pBoard);
 ggQuadTreeNode* 	ggEvolveTree(ggQuadTreeNode* in_pTreeNode, int m_iIteration, ggHashLifeContext* in_pContext);
 void 				ggConvertTreeToBoard(ggQuadTreeNode* in_pTreeNode, ggBoard* in_pBoard,  ggHashLifeContext* in_pContext);
