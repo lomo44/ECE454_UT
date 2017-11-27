@@ -108,3 +108,15 @@ void ggHashTable_Insert(ggHashTable* in_pHashTable, ggQuadTreeNode* m_pPayLoad){
     }     
     return 0;
 }
+
+ggQuadTreeNode*            ggHashTable_CreateAndInsert(ggHashTable* in_pHashTable, ggeQuadSize in_eSize, 
+                                            ggQuadTreeNode* in_pTL,
+                                            ggQuadTreeNode* in_pTR,
+                                            ggQuadTreeNode* in_pBL,
+                                            ggQuadTreeNode* in_pBR){
+    
+    ggQuadTreeNode* m1 = ggAlloc(ggQuadTreeNode);
+    ggQuadTreeNode_Init(m1,in_eSize,in_pTL,in_pTR,in_pBL,in_pBR);
+    ggHashTable_Insert(in_pHashTable,m1);
+    return m1;
+}

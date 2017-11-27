@@ -3,6 +3,111 @@
 ggQuadTreeNode* ggEvolveTree(ggQuadTreeNode* in_pTreeNode, int m_iIteration, ggHashLifeContext* in_pContext){
     return NULL;
 }
+
+ggQuadTreeNode* ggGetNode(ggeQuadSize in_eSize, ggQuadTreeNode* in_pTL,
+                                                ggQuadTreeNode* in_pTR,
+                                                ggQuadTreeNode* in_pBL,
+                                                ggQuadTreeNode* in_pBR, ggHashLifeContext* in_pContext){
+    ggQuadTreeNode* m1 = ggHashTable_Search(in_pContext->m_pPatternTables[in_eSize],in_pTL,in_pTR,in_pBL,in_pBR);
+    if(m1==NULL){
+        m1 = ggHashTable_CreateAndInsert(in_pContext->m_pPatternTables[m1->m_eSize],in_eSize,in_pTL,in_pTR,in_pBL,in_pBR);
+    }
+    return m1;
+}
+
+void ggGenerateResultNode(ggQuadTreeNode* in_pTreeNode, ggHashLifeContext* in_pContext){
+    /**
+     * ABCD
+     * EFGH
+     * IJKL
+     * MNOP
+     * */
+    // Grabing the corresponding quadtree nodes
+    ggeQuadSize result_size = in_pTreeNode->m_eSize-1;
+    if(in_pTreeNode->m_eSize!=eQuadSize_4){
+        //TODO: implement
+    }
+    else{
+        ggQuadTreeNode* A = in_pTreeNode->m_pChildNodes[eQuadTreePosition_TL]->m_pChildNodes[eQuadTreePosition_TL];
+        ggQuadTreeNode* B = in_pTreeNode->m_pChildNodes[eQuadTreePosition_TL]->m_pChildNodes[eQuadTreePosition_TR];
+        ggQuadTreeNode* C = in_pTreeNode->m_pChildNodes[eQuadTreePosition_TL]->m_pChildNodes[eQuadTreePosition_BL];
+        ggQuadTreeNode* D = in_pTreeNode->m_pChildNodes[eQuadTreePosition_TL]->m_pChildNodes[eQuadTreePosition_BR];
+        ggQuadTreeNode* E = in_pTreeNode->m_pChildNodes[eQuadTreePosition_TR]->m_pChildNodes[eQuadTreePosition_TL];
+        ggQuadTreeNode* F = in_pTreeNode->m_pChildNodes[eQuadTreePosition_TR]->m_pChildNodes[eQuadTreePosition_TR];
+        ggQuadTreeNode* G = in_pTreeNode->m_pChildNodes[eQuadTreePosition_TR]->m_pChildNodes[eQuadTreePosition_BL];
+        ggQuadTreeNode* H = in_pTreeNode->m_pChildNodes[eQuadTreePosition_TR]->m_pChildNodes[eQuadTreePosition_BR];
+        ggQuadTreeNode* I = in_pTreeNode->m_pChildNodes[eQuadTreePosition_BL]->m_pChildNodes[eQuadTreePosition_TL];
+        ggQuadTreeNode* J = in_pTreeNode->m_pChildNodes[eQuadTreePosition_BL]->m_pChildNodes[eQuadTreePosition_TR];
+        ggQuadTreeNode* K = in_pTreeNode->m_pChildNodes[eQuadTreePosition_BL]->m_pChildNodes[eQuadTreePosition_BL];
+        ggQuadTreeNode* L = in_pTreeNode->m_pChildNodes[eQuadTreePosition_BL]->m_pChildNodes[eQuadTreePosition_BR];
+        ggQuadTreeNode* M = in_pTreeNode->m_pChildNodes[eQuadTreePosition_TR]->m_pChildNodes[eQuadTreePosition_TL];
+        ggQuadTreeNode* N = in_pTreeNode->m_pChildNodes[eQuadTreePosition_TR]->m_pChildNodes[eQuadTreePosition_TR];
+        ggQuadTreeNode* O = in_pTreeNode->m_pChildNodes[eQuadTreePosition_TR]->m_pChildNodes[eQuadTreePosition_BL];
+        ggQuadTreeNode* P = in_pTreeNode->m_pChildNodes[eQuadTreePosition_TR]->m_pChildNodes[eQuadTreePosition_BR];
+        
+        ggQuadTreeNode* m1 = ggGetNode(result_size,A,B,E,F,in_pContext);
+        if(m1->m_pChildNodes[eQuadTreePosition_Result]==NULL){
+            ggGenerateResultNode(m1,in_pContext);
+        }
+        ggQuadTreeNode* m2 = ggGetNode(result_size,B,C,F,G,in_pContext);
+        if(m2->m_pChildNodes[eQuadTreePosition_Result]==NULL){
+            ggGenerateResultNode(m2,in_pContext);
+        }
+        ggQuadTreeNode* m3 = ggGetNode(result_size,C,D,G,H,in_pContext);
+        if(m3->m_pChildNodes[eQuadTreePosition_Result]==NULL){
+            ggGenerateResultNode(m3,in_pContext);
+        }
+        ggQuadTreeNode* m4 = ggGetNode(result_size,E,F,I,J,in_pContext);
+        if(m4->m_pChildNodes[eQuadTreePosition_Result]==NULL){
+            ggGenerateResultNode(m4,in_pContext);
+        }
+        ggQuadTreeNode* m5 = ggGetNode(result_size,F,G,J,K,in_pContext);
+        if(m5->m_pChildNodes[eQuadTreePosition_Result]==NULL){
+            ggGenerateResultNode(m5,in_pContext);
+        }
+        ggQuadTreeNode* m6 = ggGetNode(result_size,G,H,K,L,in_pContext);
+        if(m6->m_pChildNodes[eQuadTreePosition_Result]==NULL){
+            ggGenerateResultNode(m6,in_pContext);
+        }
+        ggQuadTreeNode* m7 = ggGetNode(result_size,I,J,M,N,in_pContext);
+        if(m7->m_pChildNodes[eQuadTreePosition_Result]==NULL){
+            ggGenerateResultNode(m7,in_pContext);
+        }
+        ggQuadTreeNode* m8 = ggGetNode(result_size,J,K,N,O,in_pContext);
+        if(m8->m_pChildNodes[eQuadTreePosition_Result]==NULL){
+            ggGenerateResultNode(m8,in_pContext);
+        }
+        ggQuadTreeNode* m9 = ggGetNode(result_size,K,L,O,P,in_pContext);
+        if(m9->m_pChildNodes[eQuadTreePosition_Result]==NULL){
+            ggGenerateResultNode(m9,in_pContext);
+        }
+        /**
+         * m1m2m3
+         * m4m5m6
+         * m7m8m9
+         * */
+        // Generate final node
+        ggQuadTreeNode* f1 = ggGetNode(result_size,m1,m2,m4,m5,in_pContext);
+        if(f1->m_pChildNodes[eQuadTreePosition_Result]==NULL){
+            ggGenerateResultNode(f1,in_pContext);
+        }
+        ggQuadTreeNode* f2 = ggGetNode(result_size,m2,m3,m5,m6,in_pContext);
+        if(f2->m_pChildNodes[eQuadTreePosition_Result]==NULL){
+            ggGenerateResultNode(f2,in_pContext);
+        }
+        ggQuadTreeNode* f3 = ggGetNode(result_size,m4,m5,m7,m8,in_pContext);
+        if(f3->m_pChildNodes[eQuadTreePosition_Result]==NULL){
+            ggGenerateResultNode(f3,in_pContext);
+        }
+        ggQuadTreeNode* f4 = ggGetNode(result_size,m5,m6,m8,m9,in_pContext);
+        if(f4->m_pChildNodes[eQuadTreePosition_Result]==NULL){
+            ggGenerateResultNode(f4,in_pContext);
+        }
+        ggQuadTreeNode* final = ggGetNode(result_size,f1,f2,f3,f4,in_pContext);
+        in_pTreeNode->m_pChildNodes[eQuadTreePosition_Result] = final;
+    }
+}
+
 void ggConvertTreeToBoard(ggQuadTreeNode* in_pTreeNode, ggBoard* in_pBoard,  ggHashLifeContext* in_pContext){
     return;
 }
@@ -70,6 +175,31 @@ ggHashLifeContext* ggCreateContext(){
         newContext->m_pPatternTables[i] = ggHashTable_Create(ggeHashingAlgorithm_Default);
     }
     return newContext;
+}
+
+ggQuadTreeNode* ggCreateWrappedNode(ggQuadTreeNode* in_pNode, ggHashLifeContext* in_pContext){
+    // Create a wrapped tree node
+    /**
+     * DCDC
+     * BABA
+     * DCDC
+     * BABA                 
+     * */
+    ggQuadTreeNode* A = in_pNode->m_pChildNodes[eQuadTreePosition_TL];
+    ggQuadTreeNode* B = in_pNode->m_pChildNodes[eQuadTreePosition_TR];
+    ggQuadTreeNode* C = in_pNode->m_pChildNodes[eQuadTreePosition_BL];
+    ggQuadTreeNode* D = in_pNode->m_pChildNodes[eQuadTreePosition_BR];
+
+    ggQuadTreeNode* res = ggHashTable_Search(in_pContext->m_pPatternTables[in_pNode->m_eSize],D,C,B,A);
+    if(res==NULL){
+        res = ggAlloc(ggQuadTreeNode);
+        ggQuadTreeNode_Init(res,in_pNode->m_eSize,D,C,B,A);
+        ggHashTable_Insert(in_pContext->m_pPatternTables[in_pNode->m_eSize],res);
+    }
+    ggQuadTreeNode* parentNode = ggAlloc(ggQuadTreeNode);
+    ggQuadTreeNode_Init(parentNode,in_pNode->m_eSize+1,res,res,res,res);
+    ggHashTable_Insert(in_pContext->m_pPatternTables[parentNode->m_eSize],res);
+    return parentNode;
 }
 
 char *

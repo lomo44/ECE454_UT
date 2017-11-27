@@ -20,6 +20,11 @@ typedef struct __ggQuadTreeNode{
     struct __ggQuadTreeNode* m_pChildNodes[eQuadTreePosition_Count];
 } ggQuadTreeNode;
 
+
+void ggQuadTreeNode_Init(ggQuadTreeNode* in_pNode,ggeQuadSize in_eSize, ggQuadTreeNode* in_pTL, 
+                                                                        ggQuadTreeNode* in_pTR, 
+                                                                        ggQuadTreeNode* in_pBR, 
+                                                                        ggQuadTreeNode* in_pBL);
 /*
  *Function: ggQuadTree_InitLeaf
  * ----------------------------

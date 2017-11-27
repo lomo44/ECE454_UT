@@ -61,4 +61,14 @@ ggQuadTreeNode* ggQuadTree_GetLeaf(ggQuadTreeNode* in_pLeafNodes,int in_iTL,int 
     return &in_pLeafNodes[index]; 
 }
 
-
+void ggQuadTreeNode_Init(ggQuadTreeNode* in_pNode,ggeQuadSize in_eSize, ggQuadTreeNode* in_pTL, 
+                                                                        ggQuadTreeNode* in_pTR, 
+                                                                        ggQuadTreeNode* in_pBR, 
+                                                                        ggQuadTreeNode* in_pBL){
+    in_pNode->m_eSize = in_eSize;
+    in_pNode->m_pChildNodes[eQuadTreePosition_TL] = in_pTL;
+    in_pNode->m_pChildNodes[eQuadTreePosition_TR] = in_pTR;
+    in_pNode->m_pChildNodes[eQuadTreePosition_BL] = in_pBL;
+    in_pNode->m_pChildNodes[eQuadTreePosition_BR] = in_pBR;
+    in_pNode->m_pChildNodes[eQuadTreePosition_Result] = NULL;
+}

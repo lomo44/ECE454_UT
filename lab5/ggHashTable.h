@@ -95,4 +95,10 @@ void            ggHashTable_Free(ggHashTable* in_pHashTable);
                                         ggQuadTreeNode* m_pNodeBL,
                                         ggQuadTreeNode* m_pNodeBR);
 
+ggQuadTreeNode*            ggHashTable_CreateAndInsert(ggHashTable* in_pHashTable, ggeQuadSize in_eSize, 
+                                            ggQuadTreeNode* in_pTL,
+                                            ggQuadTreeNode* in_pTR,
+                                            ggQuadTreeNode* in_pBL,
+                                            ggQuadTreeNode* in_pBR);
+
 #endif
