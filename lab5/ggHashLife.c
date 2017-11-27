@@ -1,9 +1,5 @@
 #include "ggHashLife.h"
 
-ggQuadTreeNode *ggCreateTreeFromBoard(ggBoard *in_pBoard)
-{
-    return NULL;
-}
 ggQuadTreeNode* ggEvolveTree(ggQuadTreeNode* in_pTreeNode, int m_iIteration, ggHashLifeContext* in_pContext){
     return NULL;
 }
@@ -28,6 +24,7 @@ ggQuadTreeNode* ggCreateNode(ggBoard* in_pBoard, ggeQuadSize in_eSize, ggPositio
         BL.m_iY += sub_block_size;
         ggPosition BR = BL;
         BR.m_iX += sub_block_size;
+        // Getting the childs of the node
         ggQuadTreeNode* node_TL = ggCreateNode(in_pBoard, in_eSize-1,in_pTLPosition, in_pContext);
         ggQuadTreeNode* node_TR = ggCreateNode(in_pBoard, in_eSize-1,TR,in_pContext);
         ggQuadTreeNode* node_BL = ggCreateNode(in_pBoard, in_eSize-1,BL,in_pContext);
@@ -46,6 +43,10 @@ ggQuadTreeNode* ggCreateNode(ggBoard* in_pBoard, ggeQuadSize in_eSize, ggPositio
             newNode->m_pChildNodes[eQuadTreePosition_TR] = node_TR;
             newNode->m_pChildNodes[eQuadTreePosition_BL] = node_BL;
             newNode->m_pChildNodes[eQuadTreePosition_BR] = node_BR;
+            // Since the future results are unknown, we left it blank
+            newNode->m_pChildNodes[eQuadTreePosition_Result] = NULL;
+            // Insert it into the hashtable for future usage
+            ggHashTable_Insert(in_pContext->m_pPatternTables[in_eSize],newNode);
             return newNode;
         }
     }
@@ -82,10 +83,11 @@ hash_game_of_life(char *inBoard, char *outboard,
     newBoard->m_pBoard = inBoard;
     newBoard->m_iNumOfCol = ncols;
     newBoard->m_iNumOfRow = nrows;
-
-    ggQuadTreeNode* currentTree = ggCreateTreeFromBoard(newBoard);
     ggHashLifeContext* context = ggCreateContext();
-
+    ggPosition origin;
+    origin.m_iX = 0;
+    origin.m_iY = 0;
+    ggQuadTreeNode* currentTree = ggCreateNode(newBoard,ggGetQuadSizeFromSize(ncols), origin, context);
     int current_iteration = 0;
     int current_stride = nrows/4;
     while(current_iteration!=gens_max){
