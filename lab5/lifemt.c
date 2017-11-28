@@ -8,7 +8,7 @@
   b2 = temp; \
 } while(0)
 
-#define BOARD( __board, __i, __j )  (__board[(__i) + LDA*(__j)])
+#define BOARD( __board, __i, __j )  (__board[(__j) + LDA*(__i)])
 
 void* ggWorkerThread(void* in_pContext){
 	// Casting the in_pcontext to the correct context
@@ -25,24 +25,14 @@ void* ggWorkerThread(void* in_pContext){
     {
         /* HINT: you'll be parallelizing these loop(s) by doing a
            geometric decomposition of the output */
-        inorth = nrows-1;
-        isouth = 1;
+        inorth = context->m_iStartRow-1 < 0? nrows-1 : context->m_iStartRow-1;
+        isouth = (context->m_iStartRow+1) & (nrows-1);
         for (i = context->m_iStartRow; i < endrows; i++)
         {
             jwest = ncols-1;
             jeast = 1;
             for (j = 0; j < ncols; j++)
             {
-				int a = BOARD (inboard, inorth, jwest);
-				int index = (BOARD (inboard, inorth, jwest) << 8) |
-                    (BOARD (inboard, inorth, j) << 7) |
-                    (BOARD (inboard, inorth, jeast) << 6) | 
-                    (BOARD (inboard, i, jwest) << 5) |
-                    (BOARD (inboard, i, jeast) << 4) |
-                    (BOARD (inboard, isouth, jwest) << 3) |
-                    (BOARD (inboard, isouth, j) << 2) | 
-                    (BOARD (inboard, isouth, jeast) << 1) |
-                    BOARD (inboard, i,j); 
                 BOARD(outboard, i, j) = context->m_pCache[
                     (BOARD (inboard, inorth, jwest) << 8) |
                     (BOARD (inboard, inorth, j) << 7) |
@@ -60,8 +50,8 @@ void* ggWorkerThread(void* in_pContext){
             inorth = i;
             isouth = (i+2)&(nrows-1);
         }
-		pthread_barrier_wait(context->m_pBarrier);
 		SWAP_BOARDS( outboard, inboard );
+		pthread_barrier_wait(context->m_pBarrier);
     }
 }
 
