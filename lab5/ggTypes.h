@@ -25,11 +25,13 @@ typedef enum __ggeQuadSize{
     eQuadSize_Count
 } ggeQuadSize;
 
-typedef struct __ggBoard{
-    char* m_pBoard;
-    int m_iNumOfCol;
-    int m_iNumOfRow;
-} ggBoard;
+// typedef struct __ggBoard{
+//     char* m_pBoard;
+//     int m_iNumOfCol;
+//     int m_iNumOfRow;
+// } ggBoard;
+
+typedef char* ggBoard;
 
 #define ggAllocArray(__type,__count) (__type*)(malloc(sizeof(__type)*__count))
 #define ggAlloc(__type) ggAllocArray(__type,0)
