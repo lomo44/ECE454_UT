@@ -3,23 +3,40 @@
 #include "ggTypes.h"
 
 #define GG_MINIMUM_NODE_DIMENSION 2
+#define GG_LEAF_NODE_COUNT 16
 
 typedef enum __ggeQuadTreePosition{
-    eQuadTreePosition_NW,
-    eQuadTreePosition_NE,
-    eQuadTreePosition_SW,
-    eQuadTreePosition_SE,
+    eQuadTreePosition_TL,
+    eQuadTreePosition_TR,
+    eQuadTreePosition_BL,
+    eQuadTreePosition_BR,
+    eQuadTreePosition_Result,
     eQuadTreePosition_Count,
     eQuadTreePosition_Root
 } ggeQuadTreePosition;
 
 typedef struct __ggQuadTreeNode{
-    ggeQuadTreePosition m_NodePosition;
+    ggeQuadSize m_eSize;
     struct __ggQuadTreeNode* m_pChildNodes[eQuadTreePosition_Count];
 } ggQuadTreeNode;
 
-//TODO: Implement this
-ggQuadTreeNode* ggCreateQuadTreeFromBoard(ggBoard* in_pBoard, ggPosition in_pTopLeft, int in_iSize);
 
+void ggQuadTreeNode_Init(ggQuadTreeNode* in_pNode,ggeQuadSize in_eSize, ggQuadTreeNode* in_pTL, 
+                                                                        ggQuadTreeNode* in_pTR, 
+                                                                        ggQuadTreeNode* in_pBR, 
+                                                                        ggQuadTreeNode* in_pBL);
+/*
+ *Function: ggQuadTree_InitLeaf
+ * ----------------------------
+ *  Initialize a array to store leaf nodes for 2x2 blocks with 16 entries
+ *
+ *  returns: the pointer to array
+ */
+ggQuadTreeNode* ggQuadTree_InitLeaf();
+
+
+ggQuadTreeNode* ggQuadTree_GetLeaf(ggQuadTreeNode* in_pLeafNodes,int in_iTL,int in_iTR,int in_iBL,int in_iBR);
+// // Some tree node utilities function
+// ggQuadTreeNode* ggQuadTree_Get
 
 #endif

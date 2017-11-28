@@ -1,0 +1,14 @@
+{
+    "files.associations": {
+        "util.h": "c",
+        "ggHashLife.h":"c",
+        "ggHashTable.h":"c",
+        "ggHashTable.c":"c",
+        "ggQuadTree.h":"c",
+        "ggQuadTree.c":"c",
+        "ggTypes.h":"c",
+        "ggBoardPool.h":"c",
+        "ggBoardPool.c":"c",
+        "ggBoard.h":"c"
+    }
+}
