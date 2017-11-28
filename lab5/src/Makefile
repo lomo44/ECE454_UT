@@ -3,7 +3,7 @@
 #
 include Makefile.include
 
-LDFLAGS += -lm 
+LDFLAGS += -lm -pthread
 CPPFLAGS += "-DCOMPILER=\"$(CC)\"" "-DFLAGS=\"$(COPTFLAGS)\""
 
 #
@@ -59,7 +59,6 @@ bitboard.o: bitboard.c random_bit.h
 random_bit.o: random_bit.c random_bit.h
 
 lifemt.o: lifemt.c lifemt.h
-
 
 clean:
 	rm -f $(GOL_OBJS) $(GOL_VERIFY_OBJS) $(GOL_EXE) $(GOL_VERIFY_EXE) $(BITBOARD_OBJS) $(BITBOARD_EXE) 
