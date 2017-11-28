@@ -1,6 +1,7 @@
 #include "lifemt.h"
 #include <stdio.h>
 #include <assert.h>
+#include <sys/sysinfo.h>
 
 #define SWAP_BOARDS( b1, b2 )  do { \
   char* temp = b1; \
@@ -60,7 +61,7 @@ char* mt_game_of_lie(char* outboard, char* inboard,
 			 const int ncols,
 			 const int gens_max){
     // Getting the concurrency of the system
-    int t_count = 2;
+    int t_count = get_nprocs_conf();
 	printf("Threads: %d\n",t_count);
 	// Create global barrier
 	pthread_barrier_t gBarrier;

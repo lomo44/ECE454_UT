@@ -8,7 +8,7 @@ lab4/benchmarks/*
 lab4/include/*
 lab4/util/*
 
-lab5/*.o
-lab5/gol
-lab5/initboard
-lab5/outputs/*
+lab5/src/*.o
+lab5/src/gol
+lab5/src/initboard
+lab5/osrc/utputs/*

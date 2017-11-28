@@ -1,0 +1,7 @@
+teamName: lastlab
+student1_fullName: zhuang li
+student1_studentNumber: 1000311628
+student1_email: johnnn.li@mail.utoronto.ca
+student2_fullName: gujiang lin
+student2_studentNumber: 1000268239
+student2_email: gujiang.lin@mail.utoronto.ca
