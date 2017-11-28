@@ -28,38 +28,41 @@ sequential_game_of_life (char* outboard,
 {
     /* HINT: in the parallel decomposition, LDA may not be equal to
        nrows! */
+    char cache[512] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0,0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
     const int LDA = nrows;
-    int curgen, i, j;
+    int curgen, i, j,jwest,jeast,inorth,isouth;
 
     for (curgen = 0; curgen < gens_max; curgen++)
     {
         /* HINT: you'll be parallelizing these loop(s) by doing a
            geometric decomposition of the output */
+        inorth = nrows-1;
+        isouth = 1;
         for (i = 0; i < nrows; i++)
         {
+            jwest = ncols-1;
+            jeast = 1;
             for (j = 0; j < ncols; j++)
             {
-                const int inorth = mod (i-1, nrows);
-                const int isouth = mod (i+1, nrows);
-                const int jwest = mod (j-1, ncols);
-                const int jeast = mod (j+1, ncols);
-
-                const char neighbor_count = 
-                    BOARD (inboard, inorth, jwest) + 
-                    BOARD (inboard, inorth, j) + 
-                    BOARD (inboard, inorth, jeast) + 
-                    BOARD (inboard, i, jwest) +
-                    BOARD (inboard, i, jeast) + 
-                    BOARD (inboard, isouth, jwest) +
-                    BOARD (inboard, isouth, j) + 
-                    BOARD (inboard, isouth, jeast);
-
-                BOARD(outboard, i, j) = alivep (neighbor_count, BOARD (inboard, i, j));
-
+                BOARD(outboard, i, j) = cache[
+                    (BOARD (inboard, inorth, jwest) << 8) |
+                    (BOARD (inboard, inorth, j) << 7) |
+                    (BOARD (inboard, inorth, jeast) << 6) | 
+                    (BOARD (inboard, i, jwest) << 5) |
+                    (BOARD (inboard, i, jeast) << 4) |
+                    (BOARD (inboard, isouth, jwest) << 3) |
+                    (BOARD (inboard, isouth, j) << 2) | 
+                    (BOARD (inboard, isouth, jeast) << 1) |
+                    BOARD (inboard, i,j)
+                ];
+                jwest = j;
+                jeast = (j+2) & (ncols -1);
             }
+            inorth = i;
+            isouth = (i+2)&(nrows-1);
         }
         SWAP_BOARDS( outboard, inboard );
-
     }
     /* 
      * We return the output board, so that we know which one contains

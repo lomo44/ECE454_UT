@@ -11,7 +11,7 @@
 static inline int 
 mod (int x, int m)
 {
-  return (x < 0) ? ((x % m) + m) : (x % m);
+  return (x < 0) ? x + m : (x & (m-1));
 }
 
 /**

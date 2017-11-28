@@ -4,7 +4,7 @@
 include Makefile.include
 
 LDFLAGS += -lm 
-CPPFLAGS += "-DCOMPILER=\"$(CC)\"" "-DFLAGS=\"$(COPTFLAGS)\""
+CPPFLAGS += "-DCOMPILER=\"$(CC)\"" "-DFLAGS=\"$(COPTFLAGS)\"" -lpthread
 
 #
 # Include the realtime clock library, if required.
@@ -19,7 +19,7 @@ endif
 
 GOL_EXE = gol
 GOL_VERIFY_EXE = gol_verify
-GOL_OBJS = gol.o life.o lifeseq.o load.o save.o ggQuadTree.o ggHashTable.o
+GOL_OBJS = gol.o life.o lifeseq.o load.o save.o ggQuadTree.o ggHashTable.o lifemt.o
 GOL_VERIFY_OBJS = gol.verify.o life.o lifeseq.o load.o save.o 
 BITBOARD_EXE = initboard
 BITBOARD_OBJS = bitboard.o random_bit.o
@@ -61,6 +61,8 @@ random_bit.o: random_bit.c random_bit.h
 ggQuadTree.o: ggQuadTree.c ggQuadTree.h
 
 ggHashTable.o: ggHashTable.c ggHashTable.h
+
+lifemt.o: lifemt.c lifemt.h
 
 
 clean:
