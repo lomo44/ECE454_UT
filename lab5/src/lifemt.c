@@ -32,8 +32,9 @@ void* ggWorkerThread(void* in_pContext){
         {
             jwest = ncols-1;
             jeast = 1;
-            for (j = 0; j < ncols; j++)
+            for (j = 0; j < ncols; j+=2)
             {
+
                 BOARD(outboard, i, j) = context->m_pCache[
                     (BOARD (inboard, inorth, jwest) << 8) |
                     (BOARD (inboard, inorth, j) << 7) |
@@ -44,13 +45,34 @@ void* ggWorkerThread(void* in_pContext){
                     (BOARD (inboard, isouth, j) << 2) | 
                     (BOARD (inboard, isouth, jeast) << 1) |
                     BOARD (inboard, i,j)
-                ];
-                jwest = j;
-                jeast = (j+2) & (ncols -1);
+				];
+				jwest = j+1;
+				jeast = (j+3) & (ncols -1);
+			}
+			jwest = 0;
+            jeast = 2;
+			for (j = 1; j < ncols; j+=2)
+            {
+				
+                BOARD(outboard, i, j) = context->m_pCache[
+                    (BOARD (inboard, inorth, jwest) << 8) |
+                    (BOARD (inboard, inorth, j) << 7) |
+                    (BOARD (inboard, inorth, jeast) << 6) | 
+                    (BOARD (inboard, i, jwest) << 5) |
+                    (BOARD (inboard, i, jeast) << 4) |
+                    (BOARD (inboard, isouth, jwest) << 3) |
+                    (BOARD (inboard, isouth, j) << 2) | 
+                    (BOARD (inboard, isouth, jeast) << 1) |
+                    BOARD (inboard, i,j)
+				];
+				jwest = j+1;
+                jeast = (j+3) & (ncols -1);
             }
             inorth = i;
             isouth = (i+2)&(nrows-1);
-        }
+		}
+		
+		
 		SWAP_BOARDS( outboard, inboard );
 		pthread_barrier_wait(context->m_pBarrier);
     }
