@@ -23,6 +23,7 @@ typedef struct __ggWorkerContext{
     // Maximum amout of iterations
     int m_iMaxIteration;
     char* m_pCache;
+    int m_iWorkerID;
 } ggWorkerContext;
 
 void* ggWorkerThread(void* in_pContext);

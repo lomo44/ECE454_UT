@@ -1,19 +1,26 @@
+#define _GNU_SOURCE
 #include "lifemt.h"
 #include <stdio.h>
 #include <assert.h>
 #include <sys/sysinfo.h>
 
-#define SWAP_BOARDS( b1, b2 )  do { \
+#include <sched.h>
+
+#define SWAP_BOARDS( b1, b2 )  { \
   char* temp = b1; \
   b1 = b2; \
   b2 = temp; \
-} while(0)
+}
 
 #define BOARD( __board, __i, __j )  (__board[(__j) + LDA*(__i)])
 
 void* ggWorkerThread(void* in_pContext){
 	// Casting the in_pcontext to the correct context
 	ggWorkerContext* context = (ggWorkerContext*)in_pContext;
+	cpu_set_t set;
+	CPU_ZERO(&set);
+	CPU_SET(context->m_iWorkerID,&set);
+	pthread_setaffinity_np(context->m_thread,sizeof(cpu_set_t),&set);
 	int gens_max = context->m_iMaxIteration;
 	int curgen,inorth,isouth,jwest,jeast,nrows,ncols,i,j,endrows;
 	char* inboard = context->m_pInboard;
@@ -82,6 +89,7 @@ char* mt_game_of_lie(char* outboard, char* inboard,
 		workers[i].m_pOutboard = outboard;
 		workers[i].m_iMaxIteration = gens_max;
 		workers[i].m_pCache = cache;
+		workers[i].m_iWorkerID = i;
 		pthread_create(&workers[i].m_thread,NULL,ggWorkerThread,&workers[i]);
 	}
 	// Join all of the thread
