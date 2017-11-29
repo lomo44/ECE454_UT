@@ -22,6 +22,7 @@ void* ggWorkerThread(void* in_pContext){
 	ncols = context->m_iBoardDimension;
 	int LDA = nrows;
 	endrows = context->m_iStartRow + context->m_iRange;
+	char data_nw,data_n,data_ne,data_w,data,data_e,data_sw,data_s,data_se;
 	for (curgen = 0; curgen < gens_max; curgen++)
     {
         /* HINT: you'll be parallelizing these loop(s) by doing a
@@ -31,20 +32,29 @@ void* ggWorkerThread(void* in_pContext){
         for (i = context->m_iStartRow; i < endrows; i++)
         {
             jwest = ncols-1;
-            jeast = 1;
+			jeast = 1;
+			data_nw = BOARD (inboard, inorth, ncols-1);
+			data_n  = BOARD (inboard, inorth, 0);
+			data_w  = BOARD (inboard, i, ncols-1);
+            data_sw = BOARD (inboard, isouth, ncols-1);
+            data_s  = BOARD (inboard, isouth, 0);
+            data    = BOARD (inboard, i,0);
             for (j = 0; j < ncols; j++)
             {
+				data_ne = BOARD (inboard, inorth, jeast);
+				data_e  = BOARD (inboard, i, jeast);
+				data_se = BOARD (inboard, isouth, jeast);
                 BOARD(outboard, i, j) = context->m_pCache[
-                    (BOARD (inboard, inorth, jwest) << 8) |
-                    (BOARD (inboard, inorth, j) << 7) |
-                    (BOARD (inboard, inorth, jeast) << 6) | 
-                    (BOARD (inboard, i, jwest) << 5) |
-                    (BOARD (inboard, i, jeast) << 4) |
-                    (BOARD (inboard, isouth, jwest) << 3) |
-                    (BOARD (inboard, isouth, j) << 2) | 
-                    (BOARD (inboard, isouth, jeast) << 1) |
-                    BOARD (inboard, i,j)
-                ];
+                    (data_nw << 8) | (data_n  << 7) | (data_ne << 6) | 
+                    (data_w << 5)  | (data_e  << 4) | (data_sw << 3) |
+					(data_s << 2)  | (data_se << 1) |  data ];
+				data_nw = data_n;
+				data_w = data;
+				data_sw = data_s;
+				data_n = data_ne;
+				data = data_e;
+				data_s = data_se;
+
                 jwest = j;
                 jeast = (j+2) & (ncols -1);
             }
