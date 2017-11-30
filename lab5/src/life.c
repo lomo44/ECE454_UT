@@ -21,5 +21,5 @@ game_of_life (char* outboard,
 	      const int gens_max)
 {
   //return sequential_game_of_life (outboard, inboard, nrows, ncols, gens_max);
-  return mt_game_of_lie(outboard,inboard,nrows,ncols,gens_max);
+  return mt_game_of_life(outboard,inboard,nrows,ncols,gens_max);
 }
